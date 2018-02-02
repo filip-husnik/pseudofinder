@@ -47,7 +47,7 @@ sudo pip3 install biopython
 # Run with test data and 16 processors (for BlastX/BlastP searches)
 python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --database NR --threads 16 
 ```
-
+## Output of pseudo finder
 
 ## Contributing
 
@@ -63,4 +63,18 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## References
 Recognizing the pseudogenes in bacterial genomes: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1142405/
+
+Taking the pseudo out of pseudogenes: https://www.ncbi.nlm.nih.gov/pubmed/25461580
+
+Pseudogene detection in a nascent stage of symbiosis (several examples from the Sodalis clade):
+
+Mobile genetic element proliferation and gene inactivation impact over the genome structure and metabolic capabilities of Sodalis glossinidius, the secondary endosymbiont of tsetse flies: https://www.ncbi.nlm.nih.gov/pubmed/20649993
+
+A Novel Human-Infection-Derived Bacterium Provides Insights into the Evolutionary Origins of Mutualistic Insect–Bacterial Symbioses: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3499248/
+
+Genome Degeneration and Adaptation in a Nascent Stage of Symbiosis: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3914690/
+
+Repeated replacement of an intrabacterial symbiont in the tripartite nested mealybug symbiosis: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5027413/
+
+Large scale and significant expression from pseudogenes in Sodalis glossinidius - a facultative bacterial endosymbiont: https://www.biorxiv.org/content/early/2017/07/23/124388
 
