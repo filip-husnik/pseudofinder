@@ -45,7 +45,7 @@ sudo pip3 install argparse
 sudo pip3 install biopython
 ```
 
-Cloning the pseudo_finder.py coed from github:
+Cloning the pseudo_finder.py code from github:
 ```
 git clone https://github.com/filip-husnik/pseudo-finder.git
 ```
@@ -56,7 +56,7 @@ git clone https://github.com/filip-husnik/pseudo-finder.git
 # Run the full pipeline on 16 processors (for BlastX/BlastP searches)
 python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --database NR --threads 16 
 
-# Run only pseudogene detection (e.g. when blast output files are already available)
+# Run only pseudogene detection (e.g. when blast output files are already available from a previous run)
 python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
 ```
 
