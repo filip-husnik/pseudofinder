@@ -6,7 +6,7 @@ There are alternative programs for pseudogene finding and annotation (e.g. the N
 
 ## Authors
 Mitch Syberg-Olsen & Filip Husnik
-
+Biodiversity Research Centre & Department of Botany
 University of British Columbia, Vancouver, Canada
 
 ## Versions and changes
@@ -22,7 +22,7 @@ Installation requirements: python3, pip3 (or any other way how to install python
 
 Databases: NCBI-NR protein database (or similar such as SwissProt) formatted for blastp/blastx searches.
 
-Input files: Genome sequence with annotations in the genbank (.gbf/.gbk) format.
+Input files: A genome sequence with gene annotations in the genbank (.gbf/.gbk) format.
 
 
 ### Installing
@@ -45,7 +45,7 @@ sudo pip3 install argparse
 sudo pip3 install biopython
 ```
 
-Cloning the pseudo_finder.py pipeline from github:
+Cloning the pseudo_finder.py coed from github:
 ```
 git clone https://github.com/filip-husnik/pseudo-finder.git
 ```
@@ -53,8 +53,11 @@ git clone https://github.com/filip-husnik/pseudo-finder.git
 ## Running pseudo finder
 
 ```
-# Run with test data and 16 processors (for BlastX/BlastP searches)
+# Run the full pipeline on 16 processors (for BlastX/BlastP searches)
 python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --database NR --threads 16 
+
+# Run only pseudogene detection (e.g. when blast output files are already available)
+python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
 ```
 
 ```
@@ -81,6 +84,10 @@ python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --database NR --thr
 ```
 
 ## Output of pseudo finder
+Every run should result in two output files: a summary log file and a .gff file.
+
+(1) The .log file includes basic statistics about pseudogene candidates detected.
+(2) The .gff file can be used to overlay the original annotation in the Artemis genome browser [http://www.sanger.ac.uk/science/tools/artemis] with predicted pseudogene candidates.
 
 ## Contributing
 
