@@ -66,7 +66,7 @@ Recognizing the pseudogenes in bacterial genomes: https://www.ncbi.nlm.nih.gov/p
 
 Taking the pseudo out of pseudogenes: https://www.ncbi.nlm.nih.gov/pubmed/25461580
 
-Pseudogene detection in a nascent stage of symbiosis (several examples from the Sodalis clade):
+**Pseudogene detection in a nascent stage of symbiosis (several examples from the Sodalis clade):**
 
 Mobile genetic element proliferation and gene inactivation impact over the genome structure and metabolic capabilities of Sodalis glossinidius, the secondary endosymbiont of tsetse flies: https://www.ncbi.nlm.nih.gov/pubmed/20649993
 
