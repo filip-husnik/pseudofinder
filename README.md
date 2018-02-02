@@ -29,21 +29,27 @@ Input files: Genome sequence with annotations in the genbank (.gbf/.gbk) format.
 
 A step by step series of commands to install all dependencies:
 
-Installation of python3, pip3, and ncbi-blast+ on Ubuntu:
-
+Installation of python3, pip3, git, and ncbi-blast+ on Ubuntu:
 ```
 sudo apt-get update
+
 sudo apt-get install python3
 sudo apt-get install python3-pip
 sudo apt-get install ncbi-blast+
+sudo apt-get install git
 ```
 
 Installation of python3 libraries on Ubuntu:
-
 ```
 sudo pip3 install argparse
 sudo pip3 install biopython
 ```
+
+Cloning the pseudo_finder.py pipeline from github:
+```
+git clone https://github.com/filip-husnik/pseudo-finder.git
+```
+
 ## Running pseudo finder
 
 ```
