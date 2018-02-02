@@ -105,6 +105,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 ## References
 
 **Basic information about bacterial pseudogenes:**
+
 Recognizing the pseudogenes in bacterial genomes: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1142405/
 
 Taking the pseudo out of pseudogenes: https://www.ncbi.nlm.nih.gov/pubmed/25461580
@@ -113,9 +114,9 @@ Taking the pseudo out of pseudogenes: https://www.ncbi.nlm.nih.gov/pubmed/254615
 
 Mobile genetic element proliferation and gene inactivation impact over the genome structure and metabolic capabilities of Sodalis glossinidius, the secondary endosymbiont of tsetse flies: https://www.ncbi.nlm.nih.gov/pubmed/20649993
 
-A Novel Human-Infection-Derived Bacterium Provides Insights into the Evolutionary Origins of Mutualistic Insect–Bacterial Symbioses: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3499248/
+A novel human-infection-derived bacterium provides insights into the evolutionary origins of mutualistic insect–bacterial symbioses: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3499248/
 
-Genome Degeneration and Adaptation in a Nascent Stage of Symbiosis: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3914690/
+Genome degeneration and adaptation in a nascent stage of symbiosis: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3914690/
 
 Repeated replacement of an intrabacterial symbiont in the tripartite nested mealybug symbiosis: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5027413/
 
