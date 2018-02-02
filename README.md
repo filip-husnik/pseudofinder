@@ -1,5 +1,5 @@
 # Pseudo finder
-Pseudo finder is a python3 script that detects pseudogene candidates in annotated genbank files of bacterial/archaeal genomes. It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag.
+Pseudo finder is a python3 script that detects pseudogene candidates in annotated genbank files of bacterial and archaeal genomes. It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag.
 
 There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them is open source and allows fine-tuning of parameters.
 
