@@ -84,10 +84,11 @@ python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE
 ```
 
 ## Output of pseudo finder
-Every run should result in two output files: a summary log file and a .gff file.
+Every run should result in two output files: a summary .log file and a .gff file.
 
 (1) The .log file includes basic statistics about pseudogene candidates detected.
-(2) The .gff file can be used to overlay the original annotation in the Artemis genome browser [http://www.sanger.ac.uk/science/tools/artemis] with predicted pseudogene candidates.
+
+(2) The .gff file can be used to overlay the original annotation (we use the Artemis genome browser [http://www.sanger.ac.uk/science/tools/artemis]) with predicted pseudogene candidates.
 
 ## Contributing
 
@@ -102,11 +103,13 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 * This code was inspired by ...
 
 ## References
+
+**Basic information about bacterial pseudogenes:**
 Recognizing the pseudogenes in bacterial genomes: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1142405/
 
 Taking the pseudo out of pseudogenes: https://www.ncbi.nlm.nih.gov/pubmed/25461580
 
-**Pseudogene detection in a nascent stage of symbiosis (several examples from the Sodalis clade):**
+**Several examples from the Sodalis clade showing how important is pseudogene annotation for bacteria in a nascent stage of symbiosis (or similar ecological shifts):**
 
 Mobile genetic element proliferation and gene inactivation impact over the genome structure and metabolic capabilities of Sodalis glossinidius, the secondary endosymbiont of tsetse flies: https://www.ncbi.nlm.nih.gov/pubmed/20649993
 
