@@ -3,6 +3,7 @@ Pseudo finder is a python3 script that detects pseudogene candidates in annotate
 
 ## Authors
 Mitch Syberg-Olsen & Filip Husnik
+
 University of British Columbia, Vancouver, Canada
 
 ## Versions and changes
