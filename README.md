@@ -50,6 +50,30 @@ sudo pip3 install biopython
 # Run with test data and 16 processors (for BlastX/BlastP searches)
 python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --database NR --threads 16 
 ```
+
+```
+# All command line arguments.
+'-g', '--genome', help='Please provide your genome file in the genbank format.', required=True
+
+'-o', '--output', help='Specify an output prefix.', required=True
+
+'-d', '--database', help='Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.')
+
+'-p', '--blastp', help='Specify an input blastp file.'
+
+'-x', '--blastx', help='Specify an input blastx file.'
+
+'-t', '--threads', help='Please provide total number of threads to use for blast, default is 4.'
+
+'-i', '--intergenic_length', help='Please provide length of intergenic regions to check, default is 30 bp.'
+
+'-l', '--length_pseudo', help='Please provide percentage of length for pseudo candidates, default is 0.60 (60%).'
+
+'-s', '--shared_hits', help='Percentage of blast hits that must be shared in order to join two nearby regions, default is 0.30 (30%).'
+
+'-e', '--evalue', help='Please provide e-value for blast searches, default is 1e-4.'
+```
+
 ## Output of pseudo finder
 
 ## Contributing
