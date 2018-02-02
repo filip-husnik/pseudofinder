@@ -6,7 +6,7 @@ There are alternative programs for pseudogene finding and annotation (e.g. the N
 
 ## Authors
 Mitch Syberg-Olsen & Filip Husnik
-Biodiversity Research Centre & Department of Botany
+
 University of British Columbia, Vancouver, Canada
 
 ## Versions and changes
