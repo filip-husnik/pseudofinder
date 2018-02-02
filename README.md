@@ -17,7 +17,9 @@ These instructions will get you a copy of the project up and running on your loc
 
 Installation requirements: python3, pip3 (or any other way how to install python libraries), argparse, biopython, ncbi-blast+
 
-Databases: NCBI-NR protein database formatted for blastp/blastx searches
+Databases: NCBI-NR protein database (or similar such as SwissProt) formatted for blastp/blastx searches
+
+Input files: Genome sequence with annotations in the genbank (.gbf/.gbk) format.
 
 
 ### Installing
@@ -39,6 +41,13 @@ Installation of python3 libraries on Ubuntu:
 sudo pip3 install argparse
 sudo pip3 install biopython
 ```
+## Running pseudo finder
+
+```
+# Run with test data and 16 processors (for BlastX/BlastP searches)
+python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --database NR --threads 16 
+```
+
 
 ## Contributing
 
@@ -52,6 +61,6 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 * This code was inspired by ...
 
-##References
-https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1142405/
+## References
+Recognizing the pseudogenes in bacterial genomes: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1142405/
 
