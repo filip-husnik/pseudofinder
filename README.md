@@ -122,3 +122,13 @@ Repeated replacement of an intrabacterial symbiont in the tripartite nested meal
 
 Large scale and significant expression from pseudogenes in Sodalis glossinidius - a facultative bacterial endosymbiont: https://www.biorxiv.org/content/early/2017/07/23/124388
 
+## Wish list
+These are several additional features we'll try to include in the script in the near future:
+
+1. Check if the ORFs called as pseudogenes do not represent individual protein domains (incl. functional sites) that can exists and evolve independently of the rest of the original protein chain.
+2. Include an optional analysis of cryptic pseudogenes based on dN/dS ratios (PAML?...) when there are closely related genomes available.
+3. Include an optional analysis when there are RNA-Seq data available.
+4. Fine tune pseudogen finding for mobile elements such as transposases.
+5. Visualize results by a scatter plot of all genes/pseudogenes (dN/dS, GC content, length ratio, ...).
+6. Sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastp hits by blastx.
+
