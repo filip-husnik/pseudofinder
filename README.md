@@ -4,6 +4,10 @@ It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka with the -
 
 ## Authors
 Mitch Syberg-Olsen & Filip Husnik
+University of British Columbia, Vancouver, Canada
+
+## Versions and changes
+
 
 ## Getting Started
 
@@ -11,22 +15,25 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-What things you need to install the software and how to install them
+Installation requirements: python3, pip3 (or any other way how to install python libraries), argparse, biopython, ncbi-blast+
 
-Installation requirements:
+Databases: NCBI-NR protein database formatted for blastp/blastx searches
 
-python3
-python3 libraries: argparse, biopython
-
-```
-Give examples
-```
 
 ### Installing
 
-A step by step series of examples that tell you have to get a development env running
+A step by step series of commands to install all dependencies:
 
-Installation of dependencies on Ubuntu:
+Installation of python3, pip3, and ncbi-blast+ on Ubuntu:
+
+```
+sudo apt-get update
+sudo apt-get install python3
+sudo apt-get install python3-pip
+sudo apt-get install ncbi-blast+
+```
+
+Installation of python3 libraries on Ubuntu:
 
 ```
 sudo pip3 install argparse
@@ -35,10 +42,7 @@ sudo pip3 install biopython
 
 ## Contributing
 
-We appreciate any critical comments and suggestions for improvements. Please raise issues or submit pull requests.
-
-## Versioning
-
+We appreciate any critical comments or suggestions for improvements. Please raise issues or submit pull requests.
 
 ## License
 
@@ -46,7 +50,8 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* Hat tip to anyone who's code was used
-* Inspiration
-* etc
+* This code was inspired by ...
+
+##References
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1142405/
 
