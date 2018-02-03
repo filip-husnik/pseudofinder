@@ -11,6 +11,13 @@ University of British Columbia, Vancouver, Canada
 
 ## Versions and changes
 
+Read the ChangeLog.txt
+
+## Citation
+
+Pseudo finder is still a work in progress, so there is no official publication. If it was useful for your work, you can cite it as: M. Syberg-Olsen & F. Husnik 2018: Pseudo finder, GitHub repository: https://github.com/filip-husnik/pseudo-finder/.
+
+Please also cite various dependencies used by Pseudo finder (listed below).
 
 ## Getting Started
 
