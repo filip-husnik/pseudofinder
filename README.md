@@ -45,7 +45,7 @@ sudo pip3 install argparse
 sudo pip3 install biopython
 ```
 
-Cloning the pseudo_finder.py code from github:
+Cloning the pseudo_finder.py code from github (no root access required):
 ```
 git clone https://github.com/filip-husnik/pseudo-finder.git
 ```
