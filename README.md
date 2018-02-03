@@ -27,9 +27,9 @@ Input files: A genome sequence with gene annotations in the genbank (.gbf/.gbk) 
 
 ### Installing
 
-A step by step series of commands to install all dependencies:
+A step by step series of commands to install all system dependencies:
 
-Installation of python3, pip3, git, and ncbi-blast+ on Ubuntu:
+Installation of python3, pip3, git, and ncbi-blast+ on Ubuntu (as an administrator):
 ```
 sudo apt-get update
 
@@ -39,7 +39,7 @@ sudo apt-get install ncbi-blast+
 sudo apt-get install git
 ```
 
-Installation of python3 libraries on Ubuntu:
+Installation of python3 libraries on Ubuntu (as an administrator):
 ```
 sudo pip3 install argparse
 sudo pip3 install biopython
