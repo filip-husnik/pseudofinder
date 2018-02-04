@@ -141,7 +141,7 @@ Large scale and significant expression from pseudogenes in Sodalis glossinidius 
 ## Wish list
 There are several additional features we'll try to include in the script in the near future:
 
-1. Check if the ORFs called as pseudogenes do not represent individual protein domains that can exists and evolve independently of the rest of the original protein chain.
+1. Check if the ORFs called as pseudogenes do not represent individual protein domains that can exists and evolve independently of the rest of the original multi-domain protein chain.
 2. Include an optional analysis of cryptic pseudogenes based on dN/dS ratios (PAML?...) when there are closely related genomes available.
 3. Include an optional analysis when there are RNA-Seq data available.
 4. Fine tune pseudogene finding for mobile elements such as transposases.
