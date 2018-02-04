@@ -1,0 +1,9 @@
+Pseudo finder change log
+########################
+
+v0.05 -- 03/02/2018
+* Migrated to Github 
+* Implemented a summary of pseudogene candidates
+* Readme with installation instructions
+* Several bug fixes
+* Pseudogene detection from intergenic regions temporarily disabled
