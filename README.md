@@ -11,7 +11,7 @@ University of British Columbia, Vancouver, Canada
 
 ## Versions and changes
 
-Read the ChangeLog.txt for major changes or look at Github commits for everything else [https://github.com/filip-husnik/pseudo-finder/commits/master].
+Read the ChangeLog.txt [https://github.com/filip-husnik/pseudo-finder/blob/master/ChangeLog.txt] for major changes or look at Github commits for everything else [https://github.com/filip-husnik/pseudo-finder/commits/master].
 
 ## Citation
 
