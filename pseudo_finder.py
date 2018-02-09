@@ -239,7 +239,6 @@ def run_blastx(bf: str, fasta: str, t: str, db: str, eval: str) -> None:
 
 
 #try: parse locus and size from everything
-#remove protein_id= blast hit
 #TODO: find the last locus tag number and continue from there
     #locus_tag
 
@@ -252,7 +251,8 @@ def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
     with open(gff, "w") as gff_output_handle:
 
         #first line
-        gff_output_handle.write("##gff-version 3\n")
+        gff_output_handle.write("##gff-version 3\n"
+                                "!annotation-date\t%s" % (current_time()))
 
         #writes one line for each contig
         for i, seq_record in enumerate(SeqIO.parse(gbk, "genbank")):
@@ -707,8 +707,7 @@ def convert_region_to_pseudo(region: RegionInfo, ratio: float) -> RegionInfo:
                             #'colour=' makes this region appear coloured in Artemis.
     return pseudogene
 
-#TODO: run through this function and insert exaplanatory comments
-#TODO: decide how to count the total number of fragments
+
 def check_adjacent_regions(lori: List[RegionInfo], contig_number: int, cutoff: float) -> tuple:
     '''
     This function will take input blast files and return a list of all pseudogene candidates.
@@ -732,23 +731,27 @@ def check_adjacent_regions(lori: List[RegionInfo], contig_number: int, cutoff: f
         #compare_regions() checks that the two regions pass certain criteria
         if compare_regions(sorted_lori[i], sorted_lori[i + 1], cutoff) is True:
 
+            #this boolean will be important later on in this function
             NewPseudoMade = True
 
             #if they pass, create a pseudogene
             pseudo = join_regions(sorted_lori[i], sorted_lori[i + 1])
 
-            #this is to keep track of overall statistics. If the regions are have not yet been annotated by this program,
+            #this is to keep track of overall statistics. If the regions have not yet been annotated by this program,
             #the counter will increase by 1 for each of them.
             for region in [sorted_lori[i], sorted_lori[i + 1]]:
                 if 'Predicted fragmentation of a single gene' not in region.note:
                     StatisticsDict['FragmentedOrfs'] += 1
 
+            #remove items that were joined together
             del sorted_lori[i + 1]
             del sorted_lori[i]
 
-        #TODO: just ran out of time, describe what is going on here
+        #If regions [i] and [i+1] fail to join (above), look at regions [i] and [i+2].
         elif i < len(sorted_lori) - 2:
             if compare_regions(sorted_lori[i], sorted_lori[i + 2], cutoff) is True:
+
+                # this boolean will be important later on in this function
                 NewPseudoMade = True
 
                 #if they pass, create a pseudogene
@@ -760,6 +763,7 @@ def check_adjacent_regions(lori: List[RegionInfo], contig_number: int, cutoff: f
                     if 'Predicted fragmentation of a single gene' not in region.note:
                         StatisticsDict['FragmentedOrfs'] += 1
 
+                #remove items that were joined together (and [i+1] because it's in between them)
                 del sorted_lori[i + 2]
                 del sorted_lori[i + 1]
                 del sorted_lori[i]
@@ -770,7 +774,8 @@ def check_adjacent_regions(lori: List[RegionInfo], contig_number: int, cutoff: f
                 IndividualList[:] = [item for item in IndividualList if item.start is not pseudo.start]
                 IndividualList.append(pseudo)
 
-        #This piece of code will only be accessed if 'i' is almost at the end of the list, otherwise it will be captured above
+        #TODO: check if this cane be changed to an 'if' statement and then remove the statement above?
+        #This piece of code will only be accessed if 'i' is almost at the end of the list, otherwise it will be captured immediately above &
         elif 'Note=pseudogene candidate. Reason: ORF' in sorted_lori[i].note:
             pseudo = sorted_lori[i]
             IndividualList[:] = [item for item in IndividualList if item.start is not pseudo.start]
@@ -780,6 +785,7 @@ def check_adjacent_regions(lori: List[RegionInfo], contig_number: int, cutoff: f
         else:
             pass
 
+        #this boolean resets to false every loop, so it will only be 'True' if two regions have just been merged together
         if NewPseudoMade is True:
             print('%s\tRegions merged and flagged on contig %s, location %s-%s.' % (current_time(),
                                                                                     contig_number,
@@ -806,9 +812,11 @@ def check_adjacent_regions(lori: List[RegionInfo], contig_number: int, cutoff: f
             if i > 0:
                 i = i - 1
 
+        #If NewPseudoMade is False, then the iterator moves forward in the list to keep checking new regions.
         else:
             i = i + 1
 
+    #Once the loop finishes, add all statistics to StatisticsDict for reporting in the log file.
     StatisticsDict['PseudogenesTotal'] += len(IndividualList) + len(MergedList)
     StatisticsDict['PseudogenesShort'] += len(IndividualList)
     StatisticsDict['PseudogenesFragmented'] += len(MergedList)
@@ -851,7 +859,6 @@ def write_pseudos_to_gff(lopg: List[RegionInfo], gff: str) -> None:
                                                                         #  providing additional information about each feature.
 
 
-#TODO: decide how to collect all the data
 def write_summary_file(output_prefix, args) -> None:
     '''
     Writes a summary file of statistics from the pseudo_finder run.
@@ -914,9 +921,6 @@ def write_summary_file(output_prefix, args) -> None:
                       StatisticsDict['PseudogenesShort'],
                       StatisticsDict['PseudogenesFragmented'],
                       StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']))
-
-
-    # TODO: Add note in GFF: #!annotation-date 03/23/2017 10:17:23
 
 
 def main():
