@@ -22,7 +22,7 @@ import csv
 import sys
 
 __author__ = "Mitch Syberg-Olsen & Filip Husnik"
-__version__ = "0.05"
+__version__ = "0.06"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
@@ -51,6 +51,9 @@ Contig = NamedTuple('Contig', [('regions', List[RegionInfo]),
 
 #Global variables, which will be called to write the log file
 StatisticsDict = {
+                    'BlastpFilename':'',
+                    'BlastxFilename':'',
+                    'NumberOfContigs':0,
                     'ProteomeOrfs':0,
                     'FragmentedOrfs':0,
                     'PseudogenesTotal':0,
@@ -564,31 +567,21 @@ def sort_hits_by_eval(lobh: List[BlastHit]) -> List[BlastHit]:
     return sorted_list
 
 
-def annotate_pseudos(contig: Contig, contig_number: int, cutoff: float) -> List[RegionInfo]:
+def annotate_pseudos(contig: Contig, contig_number: int, hits_cutoff: float, length_cutoff: float) -> List[RegionInfo]:
     '''
     This function will take input blast files and return a list of all pseudogene candidates.
     '''
 
-    #1: Only consider regions that have more than 2 blast hits.
-    InitialList = []
-
-    #Fill InitialList with regions that have more than 2 hits.
-    for region in contig.regions:
-        if len(region.hits) > 2:
-            InitialList.append(region)
-        else:
-            pass
-
     #1: Look through list of regions and find individual ORFs that could be pseudogenes.
-    IndividualPseudos = check_individual_ORFs(InitialList, contig_number)
+    IndividualPseudos = check_individual_ORFs(contig.regions, contig_number, length_cutoff)
 
     #2: Update list of regions with any pseudogenes that were flagged from step #1.
-    UpdatedList = replace_pseudos_in_list(IndividualPseudos, InitialList)
+    UpdatedList = replace_pseudos_in_list(IndividualPseudos, contig.regions)
 
     #3: Check adjacent regions to see if they could be pseudogene fragments.
     #   This function returns two lists: [0] = Individual pseudogenes
     #                                    [1] = Merged pseudogenes
-    AllPseudos = check_adjacent_regions(UpdatedList, contig_number, cutoff)
+    AllPseudos = check_adjacent_regions(UpdatedList, contig_number, hits_cutoff)
 
     #returns both individual and merged pseudogenes as a single list, with locus tags added.
     return add_locus_tags(AllPseudos[0] + AllPseudos[1], contig.name)
@@ -656,14 +649,22 @@ def pseudo_present(gene: RegionInfo, pseudos: List[RegionInfo]) -> tuple:
     return (False, gene)
 
 
-def check_individual_ORFs(lori: List[RegionInfo], contig_number: int) -> List[RegionInfo]:
+def check_individual_ORFs(lori: List[RegionInfo], contig_number: int, length_cutoff: float) -> List[RegionInfo]:
     '''
     This function will take an input of regions and return a list of individual ORFs that could be pseudogenes.
     '''
 
-    lopg = []
+
+    InitialList = [] #This list will contain all ORFs that have enough blast hits to be considered.
+                     #If less than 3 blast hits, its hard to calculate a reliable "AverageDatabaseLength"
+
+    lopg = [] #This list will contain the resulting pseudogenes
 
     for region in lori:
+        if len(region.hits) > 2:
+            InitialList.append(region)
+
+    for region in InitialList:
 
         #Retrieves lengths of genes that this region has blasted against
         ListOfDatabaseLengths = [hit.slen for hit in region.hits]
@@ -674,17 +675,17 @@ def check_individual_ORFs(lori: List[RegionInfo], contig_number: int) -> List[Re
         #Calculates the length of this region
         RegionLength = region.end - region.start
 
-        #Ratio of the region's length to the average length of hits. Converted to percentage (*100) for later use.
-        Ratio = (RegionLength/AverageDatabaseLength)*100
+        #Ratio of the region's length to the average length of hits.
+        Ratio = (RegionLength/AverageDatabaseLength)
 
-        if Ratio < 60:
+        if Ratio < length_cutoff:
             print('%s\tIndividual gene flagged on contig %s, location %s-%s.' % (current_time(),
                                                                                  contig_number,
                                                                                  region.start,
                                                                                  region.end)),
             sys.stdout.flush()
 
-            pseudo = convert_region_to_pseudo(region, Ratio)
+            pseudo = convert_region_to_pseudo(region, Ratio*100)  #Multiplied by 100 to convert to percentage
 
             lopg.append(pseudo)
 
@@ -880,25 +881,30 @@ def write_summary_file(output_prefix, args) -> None:
             "####### Statistics #######\n"
             "#Input:\n"
             "Initial ORFs:\t\t\t%s\n"
+            "Number of contigs:\t\t%s\n"
             "#Output:\n"
             "Inital ORFs joined:\t\t%s\n"
             "Pseudogenes (total):\t\t%s\n"
             "Pseudogenes (too short):\t%s\n"
             "Pseudogenes (fragmented):\t%s\n"
+            #'Functional genes' calculated as:  Input ORFs - [all ORFs marked as fragments] - [all ORFs marked as too short]
+            "Functional genes:\t\t%s\n"
 
                    % (current_time(),
                       args.genome,
                       args.database,
-                      args.blastp,
-                      args.blastx,
+                      StatisticsDict['BlastpFilename'],
+                      StatisticsDict['BlastxFilename'],
                       args.intergenic_length,
                       args.length_pseudo,
                       args.shared_hits,
                       StatisticsDict['ProteomeOrfs'],
+                      StatisticsDict['NumberOfContigs'],
                       StatisticsDict['FragmentedOrfs'],
                       StatisticsDict['PseudogenesTotal'],
                       StatisticsDict['PseudogenesShort'],
-                      StatisticsDict['PseudogenesFragmented']))
+                      StatisticsDict['PseudogenesFragmented'],
+                      StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']))
 
 
     # TODO: Add note in GFF: #!annotation-date 03/23/2017 10:17:23
@@ -927,6 +933,10 @@ def main():
         blastp_filename = args.blastp
         blastx_filename = args.blastx
 
+    #BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticDict
+    StatisticsDict['BlastpFilename'] = blastp_filename
+    StatisticsDict['BlastxFilename'] = blastx_filename
+
     #Collect everything from the blast files
     #TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
     #Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
@@ -934,6 +944,7 @@ def main():
 
     #Split into contigs
     all_contigs = sort_contigs(split_regions_into_contigs(all_regions))
+    StatisticsDict['NumberOfContigs'] = len(all_contigs)
 
     # Write header
     gff_filename = args.output + "_" + path.basename(args.genome) + "_pseudo_finder.gff"
@@ -949,7 +960,7 @@ def main():
         sys.stdout.flush()
 
         #Annotate pseudos then write them to the GFF file
-        write_pseudos_to_gff(annotate_pseudos(contig, all_contigs.index(contig)+1, args.shared_hits), gff_filename)
+        write_pseudos_to_gff(annotate_pseudos(contig, all_contigs.index(contig)+1, args.shared_hits, args.length_pseudo), gff_filename)
 
     write_summary_file(args.output, args)
 
