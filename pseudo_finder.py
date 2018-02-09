@@ -866,6 +866,7 @@ def write_summary_file(output_prefix, args) -> None:
         logfile.write(
             "####### Summary from pseudo_finder.py #######\n\n"
             "Date/time:\t\t%s\n\n"
+            #TODO: add runtime
             
             "#######    Files   #######\n"
             "Genome:\t\t\t%s\n"
@@ -881,14 +882,22 @@ def write_summary_file(output_prefix, args) -> None:
             "####### Statistics #######\n"
             "#Input:\n"
             "Initial ORFs:\t\t\t%s\n"
-            "Number of contigs:\t\t%s\n"
+            "Number of contigs:\t\t%s\n"        #TODO: currently reporting smaller value than expected due to small contigs with no ORFs.
+                                                #TODO: when intergenic parsing is fixed, check to make sure that this is resolved
             "#Output:\n"
             "Inital ORFs joined:\t\t%s\n"
             "Pseudogenes (total):\t\t%s\n"
             "Pseudogenes (too short):\t%s\n"
             "Pseudogenes (fragmented):\t%s\n"
             #'Functional genes' calculated as:  Input ORFs - [all ORFs marked as fragments] - [all ORFs marked as too short]
-            "Functional genes:\t\t%s\n"
+            "Functional genes:\t\t%s\n\n"
+
+            "####### Output Key #######\n"
+            "Initial ORFs joined:\t\tThe number of input open reading frames that have been merged and flagged as a fragmented pseudogene.\n"
+            "Pseudogenes (too short):\tORFs smaller than the \"shared_hits\" cutoff.\n"
+            "Pseudogenes (fragmented):\tPseudogenes composed of merging 2 or more input ORFs.\n"
+            "Functional genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)]\n"
+
 
                    % (current_time(),
                       args.genome,
