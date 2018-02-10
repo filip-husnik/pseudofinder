@@ -281,6 +281,59 @@ def collect_query_ids(filename: str) -> List[str]:
                 loq.append(query)
     return loq
 
+#TODO: fill in pseudocode
+def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
+    '''
+    This function needs to take a blast query and extract the relevant information (RegionInfo).
+    '''
+
+    print('%s\tExtracting information from %s file.' % (current_time(),blast_format)),
+    sys.stdout.flush()
+
+    queries = collect_query_ids(filename)
+
+    regionList = []
+
+    with open(filename, 'r') as tsvfile:
+        lines = tsvfile.readlines()
+        #start with the first query
+        queryIndex = 0
+
+        for line_number, line in enumerate(lines):
+
+            #TODO: Need to add a regular expression to match: "Query: EOKKIDHA_00001 1 [133:280](-)"
+            if re.match(queries[queryIndex], line):
+                # collect contig, start, end, strand
+                QueryDict[queries[queryIndex]] = {'contig':int,
+                                                  'query':str,
+                                                   'start':int,
+                                                   'end':int,
+                                                   'strand':str}
+
+            #TODO: Need to add a regular expression to match: "EOKKIDHA_00002	sp|P52046|CRT_CLOAB	28.387	155	93	4	1	140	109	260	261	5.55e-10	58.9"
+            elif re.match(queries[queryIndex], line):
+                # collect hit info: accession, slen, s_start, s_end, eval
+                QueryDict[queries[queryIndex]]['hits'].append(BlastHit(accession='',
+                                                                       slen=0,
+                                                                       s_start=0,
+                                                                       s_end=0,
+                                                                       eval=0.0))
+
+                #TODO: Need to use the same regular expression as above.
+                # if the current line is a blast hit, but the next one isnt, then start looking for the next query
+                if re.match(queries[queryIndex], lines[line_number+1]) is False:
+                    queryIndex += 1
+
+    for item in QueryDict:
+        regionList.append(RegionInfo(contig=item['contig'],
+                                     query=item['query'],
+                                     start=item['start'],
+                                     end=item['end'],
+                                     strand=item['strand'],
+                                     hits=item['hits'],
+                                     note=''))
+
+    return regionList
 
 def collect_hits(query: str, filename: str) -> List[BlastHit]:
     '''
