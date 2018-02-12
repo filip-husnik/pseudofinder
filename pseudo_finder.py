@@ -6,7 +6,8 @@ Tested mostly on .gbk files annotated by Prokka with the --compliant flag.
 
 Installation requirements:
     python3
-    Libraries: argparse, biopython
+    3rd party libraries: biopython
+    libraries from the Python standard library: see below
 
  """
 
