@@ -46,9 +46,8 @@ sudo apt-get install ncbi-blast+
 sudo apt-get install git
 ```
 
-Installation of python3 libraries on Ubuntu (as an administrator):
+Installation of 3rd party python3 libraries on Ubuntu (as an administrator):
 ```
-sudo pip3 install argparse
 sudo pip3 install biopython
 ```
 
