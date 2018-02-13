@@ -171,8 +171,8 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
           '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
     sys.stdout.flush()
 
-#flag: can be optimized
-def run_blastp(bf: str, faa: str, t: str, db: str, eval: str) -> None:
+
+def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
     '''
     run BLASTP with FAA file against DB of your choice.
     '''
@@ -180,17 +180,6 @@ def run_blastp(bf: str, faa: str, t: str, db: str, eval: str) -> None:
     print('%s\tBlastP executed with %s threads.' % (current_time(),t)),
     sys.stdout.flush()
 
-    if bf == 'xml':
-        blastp_cline = NcbiblastpCommandline(query=faa,
-                                             num_threads=t,
-                                             db=db,
-                                             num_alignments=15,
-                                             evalue=eval,
-                                             outfmt=5,
-                                             out=faa + ".blastP_output.xml")
-        blastp_cline()
-
-    elif bf == 'tsv':
         blastp_cline = NcbiblastpCommandline(query=faa,
                                              num_threads=t,
                                              db=db,
@@ -200,11 +189,8 @@ def run_blastp(bf: str, faa: str, t: str, db: str, eval: str) -> None:
                                              out=faa + ".blastP_output.tsv")
         blastp_cline()
 
-    else:
-        print('Function run_blastp() expected either \'xml\' or \'tsv\' as --blast_format, but received \'%s\'.\n' % bf)
 
-#flag: can be optimized
-def run_blastx(bf: str, fasta: str, t: str, db: str, eval: str) -> None:
+def run_blastx(fasta: str, t: str, db: str, eval: str) -> None:
     '''
     run BLASTX with FNA file against DB of your choice.
     '''
@@ -212,17 +198,6 @@ def run_blastx(bf: str, fasta: str, t: str, db: str, eval: str) -> None:
     print('%s\tBlastX executed with %s threads.' % (current_time(), t)),
     sys.stdout.flush()
 
-    if bf == 'xml':
-        blastx_cline = NcbiblastpCommandline(query=fasta,
-                                             num_threads=t,
-                                             db=db,
-                                             num_alignments=15,
-                                             evalue=eval,
-                                             outfmt=5,
-                                             out=fasta + ".blastX_output.xml")
-        blastx_cline()
-
-    elif bf == 'tsv':
         blastx_cline = NcbiblastxCommandline(query=fasta,
                                              num_threads=t,
                                              db=db,
@@ -231,9 +206,6 @@ def run_blastx(bf: str, fasta: str, t: str, db: str, eval: str) -> None:
                                              outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore\'",
                                              out=fasta + ".blastX_output.tsv")
         blastx_cline()
-
-    else:
-        print('Function run_blastx() expected either \'xml\' or \'tsv\' as --blast_format.\n')
 
 
 #try: parse locus and size from everything
@@ -262,7 +234,6 @@ def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
                                       (len(seq_record))))                #end
 
 
-#TODO: rewrite like parse_blast
 def collect_query_ids(filename: str) -> List[str]:
     '''
     Reads a TSV file and returns a list of Query names, to be used later.
@@ -397,31 +368,6 @@ def get_intergenic_query_range(lobh: List[BlastHit], start_position: int) -> tup
     regionEnd = start_position + max(endList) + 1
 
     return (regionStart, regionEnd)
-
-    #
-    # #If there are no blast hits, the calculations will return an error.
-    # #This ensures that calculations are only done on lists with at least 1 item,
-    # if len(lobh) is not 0:
-    #
-    #     #Collect all start positions in a list of blast hits
-    #     start_list = [bh.s_start for bh in lobh]
-    #     #Collect all end positions in a list of blast hits
-    #     end_list = [bh.s_end for bh in lobh]
-    #
-    #     if coordinate is 'start':
-    #         # return the start position of the region itself + smallest start position of any blast hit to that region
-    #         # this gives the absolute start position of this particular list of hits on the contig
-    #         # Add 1 to convert being 0 based and 1 based numbering systems
-    #         return start_position + min(start_list) + 1
-    #
-    #     elif coordinate is 'end':
-    #         # return the start position of the region itself + largest end position of any blast hit to that region
-    #         # this gives the absolute end position of this particular list of hits on the contig
-    #         # Add 1 to convert being 0 based and 1 based numbering systems
-    #         return start_position + max(end_list) + 1
-    #
-    # else:
-    #     return 0
 
 
 def split_regions_into_contigs(lori: List[RegionInfo]) -> List[Contig]:
@@ -903,8 +849,8 @@ def main():
         #Running blast
         get_proteome(args.genome, faa_filename)
         get_intergenic_regions(args.genome, intergenic_filename, args.intergenic_length)
-        run_blastp(args.blast_format, faa_filename, args.threads, args.database, args.evalue)
-        run_blastx(args.blast_format, intergenic_filename, args.threads, args.database, args.evalue)
+        run_blastp(faa_filename, args.threads, args.database, args.evalue)
+        run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
 
     #If blast files are provided, use them.
     else:
