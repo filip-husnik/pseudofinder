@@ -282,7 +282,7 @@ def collect_query_ids(filename: str) -> List[str]:
                 loq.append(query)
     return loq
 
-@profile
+
 def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
     '''
     This function needs to take a blast query and extract the relevant information (RegionInfo).
@@ -370,81 +370,6 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
 
     return regionList
 
-def collect_hits(query: str, filename: str) -> List[BlastHit]:
-    '''
-    Parses a TSV file for hits that match the Query ID and stores them as a list.
-    '''
-    loh = []  # list of hits.
-
-    with open(filename) as csvfile:
-
-        reader = csv.reader(csvfile, delimiter='\t')
-
-        for row in reader:
-            # Regex to match only lines that contain the Query ID
-            if re.match(query, row[0]):
-                #In tabular blast files, rows that contain a given Query ID at the start will be followed by blast hits to that region.
-
-                hit = BlastHit(row[1],          #BlastHit.accession
-                               int(row[10])*3,  #BlastHit.slen - This is multiplied by 3 because the BlastP/BlastX files display slen in aa length.
-                               int(row[8]),     #BlastHit.s_start
-                               int(row[9]),     #BlastHit.s_end
-                               float(row[11]))  #BlastHit.eval
-
-                loh.append(hit)
-
-    return loh
-
-
-def get_contig(query: str, filename: str) -> str:
-    '''
-    Parses a TSV file for the range of a Query. The range is stored as [start:end](strand), ie [10:367](+).
-    '''
-    with open(filename) as csvfile:
-        reader = csv.reader(csvfile, delimiter='\t')
-        for row in reader:
-            # Regex to match a Query info line with a specific Query ID
-            if re.match("# Query: %s" % (query), row[0]):
-                # Access Query contig by splitting a whole row based on whitespace, then selecting the 4th field.
-                query_contig = row[0].split()[3]
-                return query_contig
-
-
-def get_database_name(filename: str) -> str:
-    '''
-    Parses a TSV file for the name of the database used.
-    '''
-    with open(filename) as csvfile:
-        reader = csv.reader(csvfile, delimiter='\t')
-        for row in reader:
-            # Regex to match the line that says "Database"
-            if re.match("# Database:", row[0]):
-                # Access the database name by splitting a whole row based on whitespace, then selecting the 3rd field.
-                database_name = row[0].split()[2]
-                return database_name
-
-
-def get_range(query: str, filename: str) -> str:
-    '''
-    Parses a TSV file for the range of a Query. The range is stored as [start:end](strand), ie [10:367](+).
-    '''
-    with open(filename) as csvfile:
-        reader = csv.reader(csvfile, delimiter='\t')
-        for row in reader:
-            # Regex to match a Query info line with a specific Query ID
-            if 'blastP' in filename:
-                if re.match("# Query: %s" % (query), row[0]):
-                    # Access Query range by splitting a whole row based on whitespace, then selecting the 5th field.
-                    query_range = row[0].split()[4]
-                    return query_range
-
-            elif 'blastX' in filename:
-                if re.match("# Query: %s" % (query), row[0]):
-                    # blastX output files look different than blastP, so this is a messy line to reformat it the same way.
-                    query_range = str("[" + row[0].split()[4] + "]" + "(" + row[0].split()[5] + ")")
-                    query_range = query_range.replace("-",":")
-                    return query_range
-
 
 def get_intergenic_query_range(lobh: List[BlastHit], coordinate: str, start_position: int) -> int:
     '''
@@ -476,75 +401,6 @@ def get_intergenic_query_range(lobh: List[BlastHit], coordinate: str, start_posi
 
     else:
         return 0
-
-
-def breakdown_range(range: str, i: str) -> int or str:
-    '''
-    Takes a str that looks like '[start:end](strand)' and extracts either the start coord, end coord, or strand.
-    '''
-    # Regex matches only the [start:end]
-    coords = re.match("\[([0-9]*):([0-9]*)\]", range)
-    # Regex matches only the '+' or '-'
-    strand = re.search("\+|\-", range)
-
-    if i is 'start_coord':
-        # Add 1 to convert being 0 based and 1 based numbering systems
-        return int(coords.group(1)) + 1
-    elif i is 'end_coord':
-        # Add 1 to convert being 0 based and 1 based numbering systems
-        return int(coords.group(2)) + 1
-    elif i is 'strand':
-        return strand.group()
-
-
-def get_regioninfo(filename: str, blast_format: str) -> List[RegionInfo]:
-    '''
-    This function needs to take a blast query and extract the relevant information (RegionInfo).
-    '''
-
-    print('%s\tExtracting information from %s file.' % (current_time(),blast_format)),
-    sys.stdout.flush()
-
-    query_ids = collect_query_ids(filename)
-    lori = []  # Stores a list of RegionInfo
-
-    if blast_format == 'BlastP':
-
-        StatisticsDict['ProteomeOrfs'] += len(query_ids)
-
-        for query in query_ids:
-            #The following collects all necessary information for a single region, following RegionInfo data definition.
-
-            region = RegionInfo(get_contig(query, filename),                                    #contig name
-                                query,                                                          #query name
-                                breakdown_range(get_range(query, filename), 'start_coord'),     #start position of region
-                                breakdown_range(get_range(query, filename), 'end_coord'),       #end position of region
-                                breakdown_range(get_range(query, filename), 'strand'),          #(+) or (-) strand
-                                collect_hits(query, filename),                                  #List of blast hits for this region
-                                'note: ORF not yet annotated as a pseudogene.')                     #note for storing info
-
-            if len(region.hits) is not 0:
-                lori.append(region)
-
-    elif blast_format == 'BlastX':
-        for query in query_ids:
-            query_start = breakdown_range(get_range(query, filename), 'start_coord')
-            lobh = collect_hits(query, filename)
-
-            # The following collects all necessary information for a single region, following RegionInfo data definition.
-
-            region = RegionInfo(get_contig(query, filename),                                #contig name
-                                query,                                                      #query name
-                                get_intergenic_query_range(lobh, 'start', query_start),     #start position of region
-                                get_intergenic_query_range(lobh, 'end', query_start),       #end position of region
-                                breakdown_range(get_range(query, filename), 'strand'),      #(+) or (-) strand
-                                lobh,                                                       #List of blast hits for this region
-                                'note: Intergenic region not yet annotated as a pseudogene.') #note for storing info
-
-            if len(region.hits) is not 0:
-                lori.append(region)
-
-    return lori
 
 
 def split_regions_into_contigs(lori: List[RegionInfo]) -> List[Contig]:
@@ -1010,7 +866,7 @@ def write_summary_file(output_prefix, args) -> None:
                       StatisticsDict['PseudogenesFragmented'],
                       StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']))
 
-@profile
+
 def main():
     args = get_args()
 
