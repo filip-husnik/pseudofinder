@@ -1,0 +1,7 @@
+# OS generated files #
+######################
+.DS_Store
+
+# Python generated files #
+##########################
+__pychache__/
