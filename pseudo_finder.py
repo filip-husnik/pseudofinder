@@ -180,14 +180,14 @@ def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
     print('%s\tBlastP executed with %s threads.' % (current_time(),t)),
     sys.stdout.flush()
 
-        blastp_cline = NcbiblastpCommandline(query=faa,
-                                             num_threads=t,
-                                             db=db,
-                                             num_alignments=15,
-                                             evalue=eval,
-                                             outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore\'",
-                                             out=faa + ".blastP_output.tsv")
-        blastp_cline()
+    blastp_cline = NcbiblastpCommandline(query=faa,
+                                         num_threads=t,
+                                         db=db,
+                                         num_alignments=15,
+                                         evalue=eval,
+                                         outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore\'",
+                                         out=faa + ".blastP_output.tsv")
+    blastp_cline()
 
 
 def run_blastx(fasta: str, t: str, db: str, eval: str) -> None:
@@ -198,14 +198,14 @@ def run_blastx(fasta: str, t: str, db: str, eval: str) -> None:
     print('%s\tBlastX executed with %s threads.' % (current_time(), t)),
     sys.stdout.flush()
 
-        blastx_cline = NcbiblastxCommandline(query=fasta,
-                                             num_threads=t,
-                                             db=db,
-                                             num_alignments=15,
-                                             evalue=eval,
-                                             outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore\'",
-                                             out=fasta + ".blastX_output.tsv")
-        blastx_cline()
+    blastx_cline = NcbiblastxCommandline(query=fasta,
+                                         num_threads=t,
+                                         db=db,
+                                         num_alignments=15,
+                                         evalue=eval,
+                                         outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore\'",
+                                         out=fasta + ".blastX_output.tsv")
+    blastx_cline()
 
 
 #try: parse locus and size from everything
