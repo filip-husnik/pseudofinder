@@ -80,9 +80,6 @@ def get_args():
 
     parser.add_argument('-d', '--database', help='Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.')
 
-    #TODO: discontinue this argument. XML is not supported in code
-    parser.add_argument('-b', '--blast_format', help='Specify a blast output format, either \'xml\' or \'tsv\'.', default='tsv')
-
     parser.add_argument('-p', '--blastp', help='Specify an input blastp file.')
 
     parser.add_argument('-x', '--blastx', help='Specify an input blastx file.')
@@ -253,7 +250,7 @@ def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
 
         #first line
         gff_output_handle.write("##gff-version 3\n"
-                                "!annotation-date\t%s" % (current_time()))
+                                "#!annotation-date\t%s" % (current_time()))
 
         #writes one line for each contig
         for i, seq_record in enumerate(SeqIO.parse(gbk, "genbank")):
@@ -271,15 +268,15 @@ def collect_query_ids(filename: str) -> List[str]:
     '''
     loq = []  # list of Query names
 
-    with open(filename) as csvfile:
-        reader = csv.reader(csvfile, delimiter='\t')
-        for row in reader:
-            # Regex to match only lines that contain the Query ID
-            if re.match("# Query:", row[0]):
-                # Access Query ID by splitting a whole row based on whitespace, then selecting the 3rd field.
-                query = row[0].split()[2]
+    with open(filename) as tsvfile:
+        lines = tsvfile.readlines()
 
+        for line in lines:
+            if re.match("^# Query:", line):
+                FieldsInLine = list(filter(None, re.split("\s|\[|\]|:|\(|\)", line)))
+                query = FieldsInLine[2]
                 loq.append(query)
+
     return loq
 
 
@@ -308,12 +305,11 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
         for line_number, line in enumerate(lines):
 
             #matching line example: "# Query: COGCCIIJ_00001 COGCCIIJ_1 [115:223](+)"
-            if re.match("# Query: %s" % queries[queryIndex], line):
+            if re.match("^# Query: %s" % queries[queryIndex], line):
 
                 #FieldsInLine splits all fields and filters unintentional whitespace
                 #example: "['#', 'Query', 'COGCCIIJ_00001', 'COGCCIIJ_1', '115', '223', '+']"
-                FieldsInLine = list(filter(None, re.split("\s|\[|\]|:|\(|\)", line)))
-
+                FieldsInLine = list(filter(None, re.split("\s|(?<=[0-9])-|\[|\]|:|\(|\)", line)))
                 # collect contig, start, end, strand from fields, add to dictionary
                 QueryDict[queries[queryIndex]] = {'contig':FieldsInLine[3],
                                                   'query':queries[queryIndex],
@@ -322,12 +318,12 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                                                    'strand':FieldsInLine[6]}
 
             #If 0 hits found for a given query, delete the query from the dictionary and move on.
-            elif re.match("# 0 hits found", line):
+            elif re.match("^# 0 hits found", line):
                 del QueryDict[queries[queryIndex]]
                 queryIndex += 1
 
             #matching line example: "COGCCIIJ_00002	sp|P86052|CYC4_THIRO	47.929	169	81	5	61	225	25	190	192	1.33e-40	140"
-            elif re.match(queries[queryIndex], line):
+            elif re.match("^%s" % queries[queryIndex], line):
 
                 #FieldsInLine acts the same as above
                 #example: "['COGCCIIJ_00002', 'sp|P86052|CYC4_THIRO', '47.929', '169', '81', '5', '61', '225', '25', '190', '192', '1.33e-40', '140']"
@@ -348,59 +344,83 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                                                                        s_end=int(FieldsInLine[9]),
                                                                        eval=float(FieldsInLine[11])))
 
-            #If none of the above, the line must be a line with nothing useful.
-            elif line_number > 0:
-                #Check if the line starts with a '#' and the previous line is a blast hit
-                #example:
-                # previous line: COGCCIIJ_00002	sp|P25938|C554_HALNE	32.632	95	45	3	41	125	3	88	91	8.85e-05	43.5
-                # current line:  # BLASTP 2.6.0+
-                if re.match("^#", line) and re.match(queries[queryIndex], lines[line_number-1]):
-                    #If it matches, that means youve gotten to the end of the hits for this query. Move on to the next
-                    queryIndex += 1
+            #Check if the line starts with a '#' and the previous line is a blast hit
+            #example:
+            # previous line: COGCCIIJ_00002	sp|P25938|C554_HALNE	32.632	95	45	3	41	125	3	88	91	8.85e-05	43.5
+            # current line:  # BLASTP 2.6.0+
+            if re.match("^#", line) and re.match(queries[queryIndex], lines[line_number-1]):
+                #If it matches, that means youve gotten to the end of the hits for this query. Move on to the next
+                queryIndex += 1
 
     #Once all lines have been checked, write the results to a final list in the form of RegionInfo
     for key in QueryDict:
-        regionList.append(RegionInfo(contig=QueryDict[key]['contig'],
-                                    query=QueryDict[key]['query'],
-                                    start=(QueryDict[key]['start']),
-                                    end=(QueryDict[key]['end']),
-                                    strand=QueryDict[key]['strand'],
-                                    hits=QueryDict[key]['hits'],
-                                    note=''))
+        if blast_format is "BlastP":
+            regionList.append(RegionInfo(contig=QueryDict[key]['contig'],
+                                        query=QueryDict[key]['query'],
+                                        start=(QueryDict[key]['start']),
+                                        end=(QueryDict[key]['end']),
+                                        strand=QueryDict[key]['strand'],
+                                        hits=QueryDict[key]['hits'],
+                                        note=''))
+
+        #Have to modify range for intergenic regions
+        if blast_format is "BlastX":
+            #retrieve actual intergenic range based on blast hits
+            regionStart,regionEnd = get_intergenic_query_range(QueryDict[key]['hits'],QueryDict[key]['start'])
+
+            regionList.append(RegionInfo(contig=QueryDict[key]['contig'],
+                                         query=QueryDict[key]['query'],
+                                         start=regionStart,
+                                         end=regionEnd,
+                                         strand=QueryDict[key]['strand'],
+                                         hits=QueryDict[key]['hits'],
+                                         note=''))
+
 
     return regionList
 
 
-def get_intergenic_query_range(lobh: List[BlastHit], coordinate: str, start_position: int) -> int:
+def get_intergenic_query_range(lobh: List[BlastHit], start_position: int) -> tuple:
     '''
     Calculates the range of an intergenic region, based on the location of blast hits within the whole intergenic region.
     This is necessary because the start and end positions of hits are defined locally in the blast output - this function
     converts them to absolute positions on the contig.
     '''
 
-    #If there are no blast hits, the calculations will return an error.
-    #This ensures that calculations are only done on lists with at least 1 item,
-    if len(lobh) is not 0:
+    # Collect all start positions in a list of blast hits
+    startList = [bh.s_start for bh in lobh]
+    # Collect all end positions in a list of blast hits
+    endList = [bh.s_end for bh in lobh]
 
-        #Collect all start positions in a list of blast hits
-        start_list = [bh.s_start for bh in lobh]
-        #Collect all end positions in a list of blast hits
-        end_list = [bh.s_end for bh in lobh]
+    regionStart = start_position + min(startList) + 1
+    regionEnd = start_position + max(endList) + 1
 
-        if coordinate is 'start':
-            # return the start position of the region itself + smallest start position of any blast hit to that region
-            # this gives the absolute start position of this particular list of hits on the contig
-            # Add 1 to convert being 0 based and 1 based numbering systems
-            return start_position + min(start_list) + 1
+    return (regionStart, regionEnd)
 
-        elif coordinate is 'end':
-            # return the start position of the region itself + largest end position of any blast hit to that region
-            # this gives the absolute end position of this particular list of hits on the contig
-            # Add 1 to convert being 0 based and 1 based numbering systems
-            return start_position + max(end_list) + 1
-
-    else:
-        return 0
+    #
+    # #If there are no blast hits, the calculations will return an error.
+    # #This ensures that calculations are only done on lists with at least 1 item,
+    # if len(lobh) is not 0:
+    #
+    #     #Collect all start positions in a list of blast hits
+    #     start_list = [bh.s_start for bh in lobh]
+    #     #Collect all end positions in a list of blast hits
+    #     end_list = [bh.s_end for bh in lobh]
+    #
+    #     if coordinate is 'start':
+    #         # return the start position of the region itself + smallest start position of any blast hit to that region
+    #         # this gives the absolute start position of this particular list of hits on the contig
+    #         # Add 1 to convert being 0 based and 1 based numbering systems
+    #         return start_position + min(start_list) + 1
+    #
+    #     elif coordinate is 'end':
+    #         # return the start position of the region itself + largest end position of any blast hit to that region
+    #         # this gives the absolute end position of this particular list of hits on the contig
+    #         # Add 1 to convert being 0 based and 1 based numbering systems
+    #         return start_position + max(end_list) + 1
+    #
+    # else:
+    #     return 0
 
 
 def split_regions_into_contigs(lori: List[RegionInfo]) -> List[Contig]:
