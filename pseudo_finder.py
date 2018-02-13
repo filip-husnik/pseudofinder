@@ -173,7 +173,7 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
           '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
     sys.stdout.flush()
 
-
+#flag: can be optimized
 def run_blastp(bf: str, faa: str, t: str, db: str, eval: str) -> None:
     '''
     run BLASTP with FAA file against DB of your choice.
@@ -205,7 +205,7 @@ def run_blastp(bf: str, faa: str, t: str, db: str, eval: str) -> None:
     else:
         print('Function run_blastp() expected either \'xml\' or \'tsv\' as --blast_format, but received \'%s\'.\n' % bf)
 
-
+#flag: can be optimized
 def run_blastx(bf: str, fasta: str, t: str, db: str, eval: str) -> None:
     '''
     run BLASTX with FNA file against DB of your choice.
@@ -263,7 +263,7 @@ def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
                                       (i+1),
                                       (len(seq_record)+1)))
 
-
+#TODO: rewrite like parse_blast
 def collect_query_ids(filename: str) -> List[str]:
     '''
     Reads a TSV file and returns a list of Query names, to be used later.
@@ -281,17 +281,22 @@ def collect_query_ids(filename: str) -> List[str]:
                 loq.append(query)
     return loq
 
-#TODO: fill in pseudocode
+@profile
 def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
     '''
     This function needs to take a blast query and extract the relevant information (RegionInfo).
     '''
 
-    print('%s\tExtracting information from %s file.' % (current_time(),blast_format)),
-    sys.stdout.flush()
+    # print('%s\tExtracting information from %s file.' % (current_time(),blast_format)),
+    # sys.stdout.flush()
 
+    #These are the queries that we will be searching for
     queries = collect_query_ids(filename)
-
+    #Add the number of queries to the statistics summary dictionary
+    StatisticsDict['ProteomeOrfs'] = len(queries)
+    #Dictionary of information relating to each query
+    QueryDict = {}
+    #the final list of regions
     regionList = []
 
     with open(filename, 'r') as tsvfile:
@@ -301,37 +306,66 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
 
         for line_number, line in enumerate(lines):
 
-            #TODO: Need to add a regular expression to match: "Query: EOKKIDHA_00001 1 [133:280](-)"
-            if re.match(queries[queryIndex], line):
-                # collect contig, start, end, strand
-                QueryDict[queries[queryIndex]] = {'contig':int,
-                                                  'query':str,
-                                                   'start':int,
-                                                   'end':int,
-                                                   'strand':str}
+            #matching line example: "# Query: COGCCIIJ_00001 COGCCIIJ_1 [115:223](+)"
+            if re.match("# Query: %s" % queries[queryIndex], line):
 
-            #TODO: Need to add a regular expression to match: "EOKKIDHA_00002	sp|P52046|CRT_CLOAB	28.387	155	93	4	1	140	109	260	261	5.55e-10	58.9"
+                #FieldsInLine splits all fields and filters unintentional whitespace
+                #example: "['#', 'Query', 'COGCCIIJ_00001', 'COGCCIIJ_1', '115', '223', '+']"
+                FieldsInLine = list(filter(None, re.split("\s|\[|\]|:|\(|\)", line)))
+
+                # collect contig, start, end, strand from fields, add to dictionary
+                QueryDict[queries[queryIndex]] = {'contig':FieldsInLine[3],
+                                                  'query':queries[queryIndex],
+                                                   'start':int(FieldsInLine[4]),
+                                                   'end':int(FieldsInLine[5]),
+                                                   'strand':FieldsInLine[6]}
+
+            #If 0 hits found for a given query, delete the query from the dictionary and move on.
+            elif re.match("# 0 hits found", line):
+                del QueryDict[queries[queryIndex]]
+                queryIndex += 1
+
+            #matching line example: "COGCCIIJ_00002	sp|P86052|CYC4_THIRO	47.929	169	81	5	61	225	25	190	192	1.33e-40	140"
             elif re.match(queries[queryIndex], line):
-                # collect hit info: accession, slen, s_start, s_end, eval
-                QueryDict[queries[queryIndex]]['hits'].append(BlastHit(accession='',
-                                                                       slen=0,
-                                                                       s_start=0,
-                                                                       s_end=0,
-                                                                       eval=0.0))
 
-                #TODO: Need to use the same regular expression as above.
-                # if the current line is a blast hit, but the next one isnt, then start looking for the next query
-                if re.match(queries[queryIndex], lines[line_number+1]) is False:
+                #FieldsInLine acts the same as above
+                #example: "['COGCCIIJ_00002', 'sp|P86052|CYC4_THIRO', '47.929', '169', '81', '5', '61', '225', '25', '190', '192', '1.33e-40', '140']"
+                FieldsInLine = list(filter(None, re.split("\s|\[|\]|:|\(|\)", line)))
+
+                #This chunk of code is needed to prevent getting an error from trying to append to a dictionary key that does not exist.
+                #Check if the list exists
+                try:
+                    QueryDict[queries[queryIndex]]['hits']
+                #If it does not, make it an empty list
+                except KeyError:
+                    QueryDict[queries[queryIndex]]['hits'] = []
+
+                #Append hit info to list
+                QueryDict[queries[queryIndex]]['hits'].append(BlastHit(accession=FieldsInLine[1],
+                                                                       slen=int(FieldsInLine[10])*3,
+                                                                       s_start=int(FieldsInLine[8]),
+                                                                       s_end=int(FieldsInLine[9]),
+                                                                       eval=float(FieldsInLine[11])))
+
+            #If none of the above, the line must be a line with nothing useful.
+            elif line_number > 0:
+                #Check if the line starts with a '#' and the previous line is a blast hit
+                #example:
+                # previous line: COGCCIIJ_00002	sp|P25938|C554_HALNE	32.632	95	45	3	41	125	3	88	91	8.85e-05	43.5
+                # current line:  # BLASTP 2.6.0+
+                if re.match("^#", line) and re.match(queries[queryIndex], lines[line_number-1]):
+                    #If it matches, that means youve gotten to the end of the hits for this query. Move on to the next
                     queryIndex += 1
 
-    for item in QueryDict:
-        regionList.append(RegionInfo(contig=item['contig'],
-                                     query=item['query'],
-                                     start=item['start'],
-                                     end=item['end'],
-                                     strand=item['strand'],
-                                     hits=item['hits'],
-                                     note=''))
+    #Once all lines have been checked, write the results to a final list in the form of RegionInfo
+    for key in QueryDict:
+        regionList.append(RegionInfo(contig=QueryDict[key]['contig'],
+                                    query=QueryDict[key]['query'],
+                                    start=(QueryDict[key]['start']),
+                                    end=(QueryDict[key]['end']),
+                                    strand=QueryDict[key]['strand'],
+                                    hits=QueryDict[key]['hits'],
+                                    note=''))
 
     return regionList
 
@@ -975,7 +1009,7 @@ def write_summary_file(output_prefix, args) -> None:
                       StatisticsDict['PseudogenesFragmented'],
                       StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']))
 
-
+@profile
 def main():
     args = get_args()
 
@@ -1006,7 +1040,7 @@ def main():
     #Collect everything from the blast files
     #TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
     #Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
-    all_regions = get_regioninfo(blastp_filename, 'BlastP') #+ get_regioninfo(blastx_filename, 'BlastX')
+    all_regions = parse_blast(blastp_filename, 'BlastP') #+ get_regioninfo(blastx_filename, 'BlastX')
 
     #Split into contigs
     all_contigs = sort_contigs(split_regions_into_contigs(all_regions))
