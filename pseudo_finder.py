@@ -250,16 +250,17 @@ def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
 
         #first line
         gff_output_handle.write("##gff-version 3\n"
-                                "#!annotation-date\t%s" % (current_time()))
+                                "#!annotation-date\t%s\n" % (current_time()))
 
         #writes one line for each contig
         for i, seq_record in enumerate(SeqIO.parse(gbk, "genbank")):
 
             gff_output_handle.write(
-                "%s\t%s\t%s\t%s\n" % ("##sequence-region",
-                                     seq_record.id,
-                                      (i+1),
-                                      (len(seq_record)+1)))
+                "%s %s %s %s\n" % ("##sequence-region",
+                                      "gnl|Prokka|%s" % seq_record.id,   #seqid
+                                      1,                                 #start
+                                      (len(seq_record))))                #end
+
 
 #TODO: rewrite like parse_blast
 def collect_query_ids(filename: str) -> List[str]:
@@ -809,7 +810,7 @@ def write_pseudos_to_gff(lopg: List[RegionInfo], gff: str) -> None:
     with open(gff, 'a') as gff_output_handle:
         for pseudo in lopg:
             gff_output_handle.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" %
-                                    (pseudo.contig,                 #1: seqname - name of the chromosome or scaffold
+                                    ("gnl|Prokka|%s" % pseudo.contig,                 #1: seqname - name of the chromosome or scaffold
                                      "pseudo_finder",               #2: source - name of the program that generated this feature
                                      "gene",                        #3: feature - feature type name, e.g. Gene, Variation, Similarity
                                      pseudo.start,                  #4: start - Start position of the feature, with sequence numbering starting at 1.
