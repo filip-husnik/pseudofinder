@@ -890,44 +890,44 @@ def main():
         #Running blast
         get_proteome(args.genome, faa_filename)
         get_intergenic_regions(args.genome, intergenic_filename, args.intergenic_length)
-    #     run_blastp(faa_filename, args.threads, args.database, args.evalue)
-    #     run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
-    #
-    # #If blast files are provided, use them.
-    # else:
-    #     blastp_filename = args.blastp
-    #     blastx_filename = args.blastx
-    #
-    # #BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticDict
-    # StatisticsDict['BlastpFilename'] = blastp_filename
-    # StatisticsDict['BlastxFilename'] = blastx_filename
-    #
-    # #Collect everything from the blast files
-    # #TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
-    # #Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
-    # all_regions = parse_blast(blastp_filename, 'BlastP') + parse_blast(blastx_filename, 'BlastX')
-    #
-    # #Split into contigs
-    # all_contigs = sort_contigs(split_regions_into_contigs(all_regions))
-    # StatisticsDict['NumberOfContigs'] = len(all_contigs)
-    #
-    # # Write header
-    # gff_filename = args.output + "_" + path.basename(args.genome) + "_pseudo_finder.gff"
-    # make_gff_header(args.genome, gff_filename, blastp_filename)
-    #
-    # #For each contig:
-    # for contig in all_contigs:
-    #
-    #     # Reports the contig number being examined.
-    #     print('%s\tChecking contig %s / %s for pseudogenes.' % (current_time(),
-    #                                                             all_contigs.index(contig)+1,  #indices are 0 based so I added 1 to make it more intuitive
-    #                                                             len(all_contigs))),
-    #     sys.stdout.flush()
-    #
-    #     #Annotate pseudos then write them to the GFF file
-    #     write_pseudos_to_gff(annotate_pseudos(contig, all_contigs.index(contig)+1, args.shared_hits, args.length_pseudo), gff_filename)
-    #
-    # write_summary_file(args.output, args)
+        run_blastp(faa_filename, args.threads, args.database, args.evalue)
+        run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
+
+    #If blast files are provided, use them.
+    else:
+        blastp_filename = args.blastp
+        blastx_filename = args.blastx
+
+    #BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticDict
+    StatisticsDict['BlastpFilename'] = blastp_filename
+    StatisticsDict['BlastxFilename'] = blastx_filename
+
+    #Collect everything from the blast files
+    #TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
+    #Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
+    all_regions = parse_blast(blastp_filename, 'BlastP') + parse_blast(blastx_filename, 'BlastX')
+
+    #Split into contigs
+    all_contigs = sort_contigs(split_regions_into_contigs(all_regions))
+    StatisticsDict['NumberOfContigs'] = len(all_contigs)
+
+    # Write header
+    gff_filename = args.output + "_" + path.basename(args.genome) + "_pseudo_finder.gff"
+    make_gff_header(args.genome, gff_filename, blastp_filename)
+
+    #For each contig:
+    for contig in all_contigs:
+
+        # Reports the contig number being examined.
+        print('%s\tChecking contig %s / %s for pseudogenes.' % (current_time(),
+                                                                all_contigs.index(contig)+1,  #indices are 0 based so I added 1 to make it more intuitive
+                                                                len(all_contigs))),
+        sys.stdout.flush()
+
+        #Annotate pseudos then write them to the GFF file
+        write_pseudos_to_gff(annotate_pseudos(contig, all_contigs.index(contig)+1, args.shared_hits, args.length_pseudo), gff_filename)
+
+    write_summary_file(args.output, args)
 
 
 
