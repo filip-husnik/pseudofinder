@@ -102,8 +102,8 @@ def get_args():
 
     args = parser.parse_args()
 
-    if args.blastx is None and args.blastp is None and args.database is None:
-        parser.error("Pseudofinder requires a database input unless blast results are provided.")
+    # if args.blastx is None and args.blastp is None and args.database is None:
+    #     parser.error("Pseudofinder requires a database input unless blast results are provided.")
 
     if (args.blastx is not None and args.blastp is None) or (args.blastp is not None and args.blastx is None):
         parser.error("Pseudofinder requires both blastP and blastX inputs.")
@@ -131,7 +131,7 @@ def get_proteome(gbk: str, faa: str) -> None:
           '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, faa,)),
     sys.stdout.flush()
 
-#TODO: check how this works exactly, then clean
+
 def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
     '''
     Parse genbank input file for intergenic regions and write them to the output file with coordinates.
@@ -141,35 +141,76 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
     The original code extracts all regions strand-dependently, even if there is a gene on the other strand
     Such strand information is not needed here, so I arbitrarily select plus strand sequence
     '''
+
+    #List of coding regions extracted from genbank file.
+    gene_list = []
+    #List of intergenic regions that has been extracted from in between coding regions.
+    intergenic_records = []
+
     #Parse all files in the multiple-file genbank
     for seq_record in SeqIO.parse(gbk, "genbank"):
-        gene_list = []
-        intergenic_records = []
 
         # Loop over the genome file, get the gene features on each of the strands
         for feature in seq_record.features:
-            if feature.type == 'gene': #doesnt equal ribsomal and equals 'gene'
-                mystart = feature.location._start.position
-                myend = feature.location._end.position
-                gene_list.append((mystart, myend, 1))
+            if feature.type == 'CDS':
 
-        for i, pospair in enumerate(gene_list[1:]):
+                start_position = feature.location._start.position
+                end_position = feature.location._end.position
+                gene_list.append((start_position, end_position))
+
+        for i, gene in enumerate(gene_list):
+
             # Compare current start position to previous end position
-            last_end = gene_list[i][1]
-            this_start = pospair[0]
-            strand = pospair[2]
+            last_end = gene_list[i-1][1]
+            this_start = gene_list[i][0]
+
             if this_start - last_end >= igl:
-                intergene_seq = seq_record.seq[last_end:this_start]
-                strand_string = "+"
-                intergenic_records.append(SeqRecord(intergene_seq, id="%s-ign-%d" % (seq_record.name, i),
-                                                    description="%s %d-%d %s" % (
-                                                    seq_record.name, last_end + 1, this_start, strand_string)))
+
+                IntergenicRegion = SeqRecord(seq=seq_record.seq[last_end:this_start],       #Nucleotide sequence in range
+                                             id="%s_ign_%d" % (seq_record.name, i),         #Individual ID
+                                             description="%s %d-%d %s" % (seq_record.name,  #Description including name,
+                                                                          last_end + 1,     #   start position
+                                                                          this_start,       #   end position
+                                                                          "+"))             #   strand (default +)
+
+                intergenic_records.append(IntergenicRegion)
 
         SeqIO.write(intergenic_records, open(fasta, "a"), "fasta")
 
     print('%s\tIntergenic regions extracted from:\t%s\n'
           '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
     sys.stdout.flush()
+
+    # # Parse all files in the multiple-file genbank
+    # for seq_record in SeqIO.parse(gbk, "genbank"):
+    #     gene_list = []
+    #     intergenic_records = []
+    #
+    #     # Loop over the genome file, get the gene features on each of the strands
+    #     for feature in seq_record.features:
+    #
+    #         if feature.type == 'gene':  # doesnt equal ribsomal and equals 'gene'
+    #             mystart = feature.location._start.position
+    #             myend = feature.location._end.position
+    #             gene_list.append((mystart, myend, 1))
+    #
+    #     for i, pospair in enumerate(gene_list[1:]):
+    #         # Compare current start position to previous end position
+    #         last_end = gene_list[i][1]
+    #         this_start = pospair[0]
+    #         strand = pospair[2]
+    #         if this_start - last_end >= igl:
+    #             intergene_seq = seq_record.seq[last_end:this_start]
+    #             strand_string = "+"
+    #             intergenic_records.append(SeqRecord(intergene_seq, id="%s_ign_%d" % (seq_record.name, i),
+    #                                                 description="%s %d-%d %s" % (
+    #                                                     seq_record.name, last_end + 1, this_start, strand_string)))
+    #
+    #     SeqIO.write(intergenic_records, open(fasta, "a"), "fasta")
+    #
+    # print('%s\tIntergenic regions extracted from:\t%s\n'
+    #       '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
+    # sys.stdout.flush()
 
 
 def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
@@ -283,6 +324,7 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                 #example: "['#', 'Query', 'COGCCIIJ_00001', 'COGCCIIJ_1', '115', '223', '+']"
                 FieldsInLine = list(filter(None, re.split("\s|(?<=[0-9])-|\[|\]|:|\(|\)", line)))
                 # collect contig, start, end, strand from fields, add to dictionary
+                print(FieldsInLine)
                 QueryDict[queries[queryIndex]] = {'contig':FieldsInLine[3],
                                                   'query':queries[queryIndex],
                                                    'start':int(FieldsInLine[4]),
@@ -836,7 +878,6 @@ def write_summary_file(output_prefix, args) -> None:
 
 def main():
     args = get_args()
-
     #If blast files are not provided, must run blast.
     if args.blastp is None and args.blastx is None:
 
@@ -849,44 +890,44 @@ def main():
         #Running blast
         get_proteome(args.genome, faa_filename)
         get_intergenic_regions(args.genome, intergenic_filename, args.intergenic_length)
-        run_blastp(faa_filename, args.threads, args.database, args.evalue)
-        run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
-
-    #If blast files are provided, use them.
-    else:
-        blastp_filename = args.blastp
-        blastx_filename = args.blastx
-
-    #BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticDict
-    StatisticsDict['BlastpFilename'] = blastp_filename
-    StatisticsDict['BlastxFilename'] = blastx_filename
-
-    #Collect everything from the blast files
-    #TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
-    #Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
-    all_regions = parse_blast(blastp_filename, 'BlastP') #+ get_regioninfo(blastx_filename, 'BlastX')
-
-    #Split into contigs
-    all_contigs = sort_contigs(split_regions_into_contigs(all_regions))
-    StatisticsDict['NumberOfContigs'] = len(all_contigs)
-
-    # Write header
-    gff_filename = args.output + "_" + path.basename(args.genome) + "_pseudo_finder.gff"
-    make_gff_header(args.genome, gff_filename, blastp_filename)
-
-    #For each contig:
-    for contig in all_contigs:
-
-        # Reports the contig number being examined.
-        print('%s\tChecking contig %s / %s for pseudogenes.' % (current_time(),
-                                                                all_contigs.index(contig)+1,  #indices are 0 based so I added 1 to make it more intuitive
-                                                                len(all_contigs))),
-        sys.stdout.flush()
-
-        #Annotate pseudos then write them to the GFF file
-        write_pseudos_to_gff(annotate_pseudos(contig, all_contigs.index(contig)+1, args.shared_hits, args.length_pseudo), gff_filename)
-
-    write_summary_file(args.output, args)
+    #     run_blastp(faa_filename, args.threads, args.database, args.evalue)
+    #     run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
+    #
+    # #If blast files are provided, use them.
+    # else:
+    #     blastp_filename = args.blastp
+    #     blastx_filename = args.blastx
+    #
+    # #BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticDict
+    # StatisticsDict['BlastpFilename'] = blastp_filename
+    # StatisticsDict['BlastxFilename'] = blastx_filename
+    #
+    # #Collect everything from the blast files
+    # #TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
+    # #Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
+    # all_regions = parse_blast(blastp_filename, 'BlastP') + parse_blast(blastx_filename, 'BlastX')
+    #
+    # #Split into contigs
+    # all_contigs = sort_contigs(split_regions_into_contigs(all_regions))
+    # StatisticsDict['NumberOfContigs'] = len(all_contigs)
+    #
+    # # Write header
+    # gff_filename = args.output + "_" + path.basename(args.genome) + "_pseudo_finder.gff"
+    # make_gff_header(args.genome, gff_filename, blastp_filename)
+    #
+    # #For each contig:
+    # for contig in all_contigs:
+    #
+    #     # Reports the contig number being examined.
+    #     print('%s\tChecking contig %s / %s for pseudogenes.' % (current_time(),
+    #                                                             all_contigs.index(contig)+1,  #indices are 0 based so I added 1 to make it more intuitive
+    #                                                             len(all_contigs))),
+    #     sys.stdout.flush()
+    #
+    #     #Annotate pseudos then write them to the GFF file
+    #     write_pseudos_to_gff(annotate_pseudos(contig, all_contigs.index(contig)+1, args.shared_hits, args.length_pseudo), gff_filename)
+    #
+    # write_summary_file(args.output, args)
 
 
 
