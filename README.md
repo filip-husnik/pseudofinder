@@ -76,7 +76,7 @@ As with any other python script, there are two ways how to run it.
 # Call it directly with python3.
 python3 pseudo_finder.py
 
-# Or make the file executable and then rely on the shebang line [#!/usr/bin/env python3].
+# Or make the file executable and then rely on its shebang line [#!/usr/bin/env python3].
 chmod u+x
 ./pseudo_finder.py
 ```
