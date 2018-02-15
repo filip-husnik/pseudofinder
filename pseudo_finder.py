@@ -131,7 +131,7 @@ def get_proteome(gbk: str, faa: str) -> None:
           '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, faa,)),
     sys.stdout.flush()
 
-
+#TODO: investigate bugs
 def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
     '''
     Parse genbank input file for intergenic regions and write them to the output file with coordinates.
@@ -270,7 +270,7 @@ def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
 
             gff_output_handle.write(
                 "%s %s %s %s\n" % ("##sequence-region",
-                                      "gnl|Prokka|%s" % seq_record.id,   #seqid
+                                      "%s" % seq_record.id,   #seqid
                                       1,                                 #start
                                       (len(seq_record))))                #end
 
@@ -292,14 +292,15 @@ def collect_query_ids(filename: str) -> List[str]:
 
     return loq
 
-
+#TODO: understand why intergenic regions seemed to be parsed recursively
+#
 def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
     '''
     This function needs to take a blast query and extract the relevant information (RegionInfo).
     '''
 
-    # print('%s\tExtracting information from %s file.' % (current_time(),blast_format)),
-    # sys.stdout.flush()
+    print('%s\tExtracting information from %s file.' % (current_time(),blast_format)),
+    sys.stdout.flush()
 
     #These are the queries that we will be searching for
     queries = collect_query_ids(filename)
@@ -324,7 +325,6 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                 #example: "['#', 'Query', 'COGCCIIJ_00001', 'COGCCIIJ_1', '115', '223', '+']"
                 FieldsInLine = list(filter(None, re.split("\s|(?<=[0-9])-|\[|\]|:|\(|\)", line)))
                 # collect contig, start, end, strand from fields, add to dictionary
-                print(FieldsInLine)
                 QueryDict[queries[queryIndex]] = {'contig':FieldsInLine[3],
                                                   'query':queries[queryIndex],
                                                    'start':int(FieldsInLine[4]),
@@ -798,7 +798,7 @@ def write_pseudos_to_gff(lopg: List[RegionInfo], gff: str) -> None:
     with open(gff, 'a') as gff_output_handle:
         for pseudo in lopg:
             gff_output_handle.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" %
-                                    ("gnl|Prokka|%s" % pseudo.contig,                 #1: seqname - name of the chromosome or scaffold
+                                    ("%s" % pseudo.contig,                 #1: seqname - name of the chromosome or scaffold
                                      "pseudo_finder",               #2: source - name of the program that generated this feature
                                      "gene",                        #3: feature - feature type name, e.g. Gene, Variation, Similarity
                                      pseudo.start,                  #4: start - Start position of the feature, with sequence numbering starting at 1.
@@ -889,9 +889,11 @@ def main():
 
         #Running blast
         get_proteome(args.genome, faa_filename)
-        get_intergenic_regions(args.genome, intergenic_filename, args.intergenic_length)
+        #TODO: investigate bug with recursive collection of intergenic regions
+        #get_intergenic_regions(args.genome, intergenic_filename, args.intergenic_length)
         run_blastp(faa_filename, args.threads, args.database, args.evalue)
-        run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
+        #TODO: reactivate once problem above is solved
+        #run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
 
     #If blast files are provided, use them.
     else:
@@ -900,12 +902,14 @@ def main():
 
     #BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticDict
     StatisticsDict['BlastpFilename'] = blastp_filename
+    #TODO: change this back once intergenic parsing is fixed
     StatisticsDict['BlastxFilename'] = blastx_filename
+    StatisticsDict['BlastxFilename'] = 'Not currently used.'
 
     #Collect everything from the blast files
     #TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
     #Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
-    all_regions = parse_blast(blastp_filename, 'BlastP') + parse_blast(blastx_filename, 'BlastX')
+    all_regions = parse_blast(blastp_filename, 'BlastP') #+ parse_blast(blastx_filename, 'BlastX')
 
     #Split into contigs
     all_contigs = sort_contigs(split_regions_into_contigs(all_regions))
