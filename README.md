@@ -71,11 +71,20 @@ prokka --compliant --rfam contigs.fa
 ## Running pseudo finder
 
 ```
-# Run the full pipeline on 16 processors (for BlastX/BlastP searches)
-# Unless you have a $BLASTDB environmental variable set on your system, you have to provide a full path to the NR database
+# Run the script to show help.
+```
+python3 pseudo_finder.py
+
+#or make the file executable first
+chmod u+x
+./pseudo_finder.py
+```
+
+# Run the full pipeline on 16 processors (for BlastX/BlastP searches).
+# Unless you have a $BLASTDB environmental variable set on your system, you have to provide a full path to the NR database.
 python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --database /PATH/TO/NR/nr --threads 16 
 
-# Run only pseudogene detection (e.g. when blast output files are already available from a previous run)
+# Run only pseudogene detection (e.g. when blast output files are already available from a previous run).
 python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
 ```
 
