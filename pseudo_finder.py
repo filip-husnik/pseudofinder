@@ -362,9 +362,13 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
             #example:
             # previous line: COGCCIIJ_00002	sp|P25938|C554_HALNE	32.632	95	45	3	41	125	3	88	91	8.85e-05	43.5
             # current line:  # BLASTP 2.6.0+
-            if re.match("^#", line) and re.match(queries[queryIndex], lines[line_number-1]):
-                #If it matches, that means youve gotten to the end of the hits for this query. Move on to the next
-                queryIndex += 1
+            try:
+                if re.match("^#", line) and re.match(queries[queryIndex], lines[line_number-1]):
+                    #If it matches, that means youve gotten to the end of the hits for this query. Move on to the next
+                    queryIndex += 1
+            #if it attempts to do this for the first line in the file, it will exit with an error.
+            except IndexError:
+                pass
 
     #Once all lines have been checked, write the results to a final list in the form of RegionInfo
     for key in QueryDict:
