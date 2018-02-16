@@ -298,7 +298,6 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
     '''
     This function needs to take a blast query and extract the relevant information (RegionInfo).
     '''
-
     print('%s\tExtracting information from %s file.' % (current_time(),blast_format)),
     sys.stdout.flush()
 
@@ -315,58 +314,59 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
         lines = tsvfile.readlines()
         #start with the first query
         queryIndex = 0
-
         for line_number, line in enumerate(lines):
-
             #matching line example: "# Query: COGCCIIJ_00001 COGCCIIJ_1 [115:223](+)"
-            if re.match("^# Query: %s" % queries[queryIndex], line):
-
-                #FieldsInLine splits all fields and filters unintentional whitespace
-                #example: "['#', 'Query', 'COGCCIIJ_00001', 'COGCCIIJ_1', '115', '223', '+']"
-                FieldsInLine = list(filter(None, re.split("\s|(?<=[0-9])-|\[|\]|:|\(|\)", line)))
-                # collect contig, start, end, strand from fields, add to dictionary
-                QueryDict[queries[queryIndex]] = {'contig':FieldsInLine[3],
-                                                  'query':queries[queryIndex],
-                                                   'start':int(FieldsInLine[4]),
-                                                   'end':int(FieldsInLine[5]),
-                                                   'strand':FieldsInLine[6]}
-
-            #If 0 hits found for a given query, delete the query from the dictionary and move on.
-            elif re.match("^# 0 hits found", line):
-                del QueryDict[queries[queryIndex]]
-                queryIndex += 1
-
-            #matching line example: "COGCCIIJ_00002	sp|P86052|CYC4_THIRO	47.929	169	81	5	61	225	25	190	192	1.33e-40	140"
-            elif re.match("^%s" % queries[queryIndex], line):
-
-                #FieldsInLine acts the same as above
-                #example: "['COGCCIIJ_00002', 'sp|P86052|CYC4_THIRO', '47.929', '169', '81', '5', '61', '225', '25', '190', '192', '1.33e-40', '140']"
-                FieldsInLine = list(filter(None, re.split("\s|\[|\]|:|\(|\)", line)))
-
-                #This chunk of code is needed to prevent getting an error from trying to append to a dictionary key that does not exist.
-                #Check if the list exists
-                try:
-                    QueryDict[queries[queryIndex]]['hits']
-                #If it does not, make it an empty list
-                except KeyError:
-                    QueryDict[queries[queryIndex]]['hits'] = []
-
-                #Append hit info to list
-                QueryDict[queries[queryIndex]]['hits'].append(BlastHit(accession=FieldsInLine[1],
-                                                                       slen=int(FieldsInLine[10])*3,
-                                                                       s_start=int(FieldsInLine[8]),
-                                                                       s_end=int(FieldsInLine[9]),
-                                                                       eval=float(FieldsInLine[11])))
-
-            #Check if the line starts with a '#' and the previous line is a blast hit
-            #example:
-            # previous line: COGCCIIJ_00002	sp|P25938|C554_HALNE	32.632	95	45	3	41	125	3	88	91	8.85e-05	43.5
-            # current line:  # BLASTP 2.6.0+
             try:
-                if re.match("^#", line) and re.match(queries[queryIndex], lines[line_number-1]):
+                if re.match("^# Query: %s" % queries[queryIndex], line):
+
+                    #FieldsInLine splits all fields and filters unintentional whitespace
+                    #example: "['#', 'Query', 'COGCCIIJ_00001', 'COGCCIIJ_1', '115', '223', '+']"
+                    FieldsInLine = list(filter(None, re.split("\s|(?<=[0-9])-|\[|\]|:|\(|\)", line)))
+                    # collect contig, start, end, strand from fields, add to dictionary
+                    QueryDict[queries[queryIndex]] = {'contig':FieldsInLine[3],
+                                                      'query':queries[queryIndex],
+                                                       'start':int(FieldsInLine[4]),
+                                                       'end':int(FieldsInLine[5]),
+                                                       'strand':FieldsInLine[6]}
+
+                #If 0 hits found for a given query, delete the query from the dictionary and move on.
+                elif re.match("^# 0 hits found", line):
+                    del QueryDict[queries[queryIndex]]
+                    queryIndex += 1
+
+                #matching line example: "COGCCIIJ_00002	sp|P86052|CYC4_THIRO	47.929	169	81	5	61	225	25	190	192	1.33e-40	140"
+                elif re.match("^%s" % queries[queryIndex], line):
+
+                    #FieldsInLine acts the same as above
+                    #example: "['COGCCIIJ_00002', 'sp|P86052|CYC4_THIRO', '47.929', '169', '81', '5', '61', '225', '25', '190', '192', '1.33e-40', '140']"
+                    FieldsInLine = list(filter(None, re.split("\s|\[|\]|:|\(|\)", line)))
+
+                    #This chunk of code is needed to prevent getting an error from trying to append to a dictionary key that does not exist.
+                    #Check if the list exists
+                    try:
+                        QueryDict[queries[queryIndex]]['hits']
+                    #If it does not, make it an empty list
+                    except KeyError:
+                        QueryDict[queries[queryIndex]]['hits'] = []
+
+                    #Append hit info to list
+                    QueryDict[queries[queryIndex]]['hits'].append(BlastHit(accession=FieldsInLine[1],
+                                                                           slen=int(FieldsInLine[10])*3,
+                                                                           s_start=int(FieldsInLine[8]),
+                                                                           s_end=int(FieldsInLine[9]),
+                                                                           eval=float(FieldsInLine[11])))
+
+                #Check if the line starts with a '#' and the previous line is a blast hit
+                #example:
+                # previous line: COGCCIIJ_00002	sp|P25938|C554_HALNE	32.632	95	45	3	41	125	3	88	91	8.85e-05	43.5
+                # current line:  # BLASTP 2.6.0+
+                elif re.match("^#", line) and re.match(queries[queryIndex], lines[line_number-1]):
                     #If it matches, that means youve gotten to the end of the hits for this query. Move on to the next
                     queryIndex += 1
-            #if it attempts to do this for the first line in the file, it will exit with an error.
+
+            #This is only needed if the last blast entry had no hits. This cause the index to increment by 1, extending it beyond
+            #the actual length of the query list. Then when reading the final line of the file, an IndexError is raised when trying to
+            #Access queries[queryIndex].
             except IndexError:
                 pass
 
@@ -393,7 +393,6 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                                          strand=QueryDict[key]['strand'],
                                          hits=QueryDict[key]['hits'],
                                          note=''))
-
 
     return regionList
 
