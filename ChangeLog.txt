@@ -1,6 +1,10 @@
 Pseudo finder change log
 ########################
 
+v0.06 -- 12/02/2018
+* Drastically decreased runtime on full genomes
+* Body of code reorganized and cleaned
+
 v0.05 -- 03/02/2018
 * Migrated to Github 
 * Implemented a summary of pseudogene candidates
