@@ -131,7 +131,6 @@ def get_proteome(gbk: str, faa: str) -> None:
           '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, faa,)),
     sys.stdout.flush()
 
-#TODO: investigate bugs
 def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
     '''
     Parse genbank input file for intergenic regions and write them to the output file with coordinates.
@@ -149,11 +148,9 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
 
     #Parse all files in the multiple-file genbank
     for seq_record in SeqIO.parse(gbk, "genbank"):
-
         # Loop over the genome file, get the gene features on each of the strands
         for feature in seq_record.features:
             if feature.type == 'CDS':
-
                 start_position = feature.location._start.position
                 end_position = feature.location._end.position
                 gene_list.append((start_position, end_position))
@@ -175,7 +172,7 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
 
                 intergenic_records.append(IntergenicRegion)
 
-        SeqIO.write(intergenic_records, open(fasta, "a"), "fasta")
+    SeqIO.write(intergenic_records, open(fasta, "w"), "fasta")
 
     print('%s\tIntergenic regions extracted from:\t%s\n'
           '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
@@ -270,9 +267,9 @@ def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
 
             gff_output_handle.write(
                 "%s %s %s %s\n" % ("##sequence-region",
-                                      "%s" % seq_record.id,   #seqid
-                                      1,                                 #start
-                                      (len(seq_record))))                #end
+                                      "gnl|Prokka|%s" % seq_record.id,   #seqid
+                                      1,                      #start
+                                      (len(seq_record))))     #end
 
 
 def collect_query_ids(filename: str) -> List[str]:
@@ -303,20 +300,25 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
 
     #These are the queries that we will be searching for
     queries = collect_query_ids(filename)
-    #Add the number of queries to the statistics summary dictionary
-    StatisticsDict['ProteomeOrfs'] = len(queries)
     #Dictionary of information relating to each query
     QueryDict = {}
     #the final list of regions
     regionList = []
+
+    # Add the number of initial genes to the statistics summary dictionary
+    if blast_format == "BlastP":
+        StatisticsDict['ProteomeOrfs'] = len(queries)
+    else:
+        pass
 
     with open(filename, 'r') as tsvfile:
         lines = tsvfile.readlines()
         #start with the first query
         queryIndex = 0
         for line_number, line in enumerate(lines):
-            #matching line example: "# Query: COGCCIIJ_00001 COGCCIIJ_1 [115:223](+)"
+
             try:
+                #matching line example: "# Query: COGCCIIJ_00001 COGCCIIJ_1 [115:223](+)"
                 if re.match("^# Query: %s" % queries[queryIndex], line):
 
                     #FieldsInLine splits all fields and filters unintentional whitespace
@@ -372,17 +374,17 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
 
     #Once all lines have been checked, write the results to a final list in the form of RegionInfo
     for key in QueryDict:
-        if blast_format is "BlastP":
+        if blast_format == "BlastP":
             regionList.append(RegionInfo(contig=QueryDict[key]['contig'],
                                         query=QueryDict[key]['query'],
                                         start=(QueryDict[key]['start']),
                                         end=(QueryDict[key]['end']),
                                         strand=QueryDict[key]['strand'],
                                         hits=QueryDict[key]['hits'],
-                                        note=''))
+                                        note='From BlastP'))
 
         #Have to modify range for intergenic regions
-        if blast_format is "BlastX":
+        if blast_format == "BlastX":
             #retrieve actual intergenic range based on blast hits
             regionStart,regionEnd = get_intergenic_query_range(QueryDict[key]['hits'],QueryDict[key]['start'])
 
@@ -392,7 +394,8 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                                          end=regionEnd,
                                          strand=QueryDict[key]['strand'],
                                          hits=QueryDict[key]['hits'],
-                                         note=''))
+                                         note='From BlastX'))
+
 
     return regionList
 
@@ -503,13 +506,13 @@ def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
     # concatenates hits from both regions, discards any duplicates, and sorts them by e-value.
     merged_hits = sort_hits_by_eval(list(set(r1.hits + r2.hits)))
 
-    merged_region = RegionInfo(r1.contig,                       #RegionInfo.contig
-                               'locus_tag=pseudo_uniqueID',     #RegionInfo.query
-                               r1.start,                        #RegionInfo.start
-                               r2.end,                          #RegionInfo.end
-                               r1.strand,                       #RegionInfo.strand
-                               merged_hits,                     #RegionInfo.hits
-                               'Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene.;colour=229 204 255') #'colour=' makes this region appear coloured in Artemis.
+    merged_region = RegionInfo(contig=r1.contig,
+                               query='locus_tag=pseudo_uniqueID',
+                               start=min([r1.start, r2.start]),
+                               end=max([r1.end, r2.end]),
+                               strand=r1.strand,
+                               hits=merged_hits,
+                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene.;colour=229 204 255') #'colour=' makes this region appear coloured in Artemis.
     return merged_region
 
 
@@ -617,7 +620,8 @@ def check_individual_ORFs(lori: List[RegionInfo], contig_number: int, length_cut
     lopg = [] #This list will contain the resulting pseudogenes
 
     for region in lori:
-        if len(region.hits) > 2:
+        #Only include regions that were already as genes from whichever annotation software, and that have at least 2 blast hits.
+        if region.note == 'From BlastP' and len(region.hits) > 2:
             InitialList.append(region)
 
     for region in InitialList:
@@ -696,7 +700,7 @@ def check_adjacent_regions(lori: List[RegionInfo], contig_number: int, cutoff: f
             #this is to keep track of overall statistics. If the regions have not yet been annotated by this program,
             #the counter will increase by 1 for each of them.
             for region in [sorted_lori[i], sorted_lori[i + 1]]:
-                if 'Predicted fragmentation of a single gene' not in region.note:
+                if 'Predicted fragmentation of a single gene' not in region.note and 'From BlastX' not in region.note:
                     StatisticsDict['FragmentedOrfs'] += 1
 
             #remove items that were joined together
@@ -713,10 +717,10 @@ def check_adjacent_regions(lori: List[RegionInfo], contig_number: int, cutoff: f
                 #if they pass, create a pseudogene
                 pseudo = join_regions(sorted_lori[i], sorted_lori[i + 2])
 
-                # this is to keep track of overall statistics. If the regions are have not yet been annotated by this program,
-                # the counter will increase by 1 for each of them.
+                # this is to keep track of overall statistics. If the regions are not intergenic regions and
+                #  have not yet been annotated by this program, the counter will increase by 1 for each of them.
                 for region in [sorted_lori[i], sorted_lori[i + 1], sorted_lori[i + 2]]:
-                    if 'Predicted fragmentation of a single gene' not in region.note:
+                    if 'Predicted fragmentation of a single gene' not in region.note and 'From BlastX' not in region.note:
                         StatisticsDict['FragmentedOrfs'] += 1
 
                 #remove items that were joined together (and [i+1] because it's in between them)
@@ -801,7 +805,7 @@ def write_pseudos_to_gff(lopg: List[RegionInfo], gff: str) -> None:
     with open(gff, 'a') as gff_output_handle:
         for pseudo in lopg:
             gff_output_handle.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" %
-                                    ("%s" % pseudo.contig,                 #1: seqname - name of the chromosome or scaffold
+                                    ("gnl|Prokka|%s" % pseudo.contig,                 #1: seqname - name of the chromosome or scaffold
                                      "pseudo_finder",               #2: source - name of the program that generated this feature
                                      "gene",                        #3: feature - feature type name, e.g. Gene, Variation, Similarity
                                      pseudo.start,                  #4: start - Start position of the feature, with sequence numbering starting at 1.
@@ -892,11 +896,9 @@ def main():
 
         #Running blast
         get_proteome(args.genome, faa_filename)
-        #TODO: investigate bug with recursive collection of intergenic regions
-        #get_intergenic_regions(args.genome, intergenic_filename, args.intergenic_length)
+        get_intergenic_regions(args.genome, intergenic_filename, args.intergenic_length)
         run_blastp(faa_filename, args.threads, args.database, args.evalue)
-        #TODO: reactivate once problem above is solved
-        #run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
+        run_blastx(intergenic_filename, args.threads, args.database, args.evalue)
 
     #If blast files are provided, use them.
     else:
@@ -905,14 +907,12 @@ def main():
 
     #BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticDict
     StatisticsDict['BlastpFilename'] = blastp_filename
-    #TODO: change this back once intergenic parsing is fixed
     StatisticsDict['BlastxFilename'] = blastx_filename
-    StatisticsDict['BlastxFilename'] = 'Not currently used.'
 
-    #Collect everything from the blast files
-    #TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
-    #Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
-    all_regions = parse_blast(blastp_filename, 'BlastP') #+ parse_blast(blastx_filename, 'BlastX')
+    # Collect everything from the blast files
+    # TODO: this was not actually parsing blastx files before, and when it does, things actually get buggy.
+    # Investigate the bugs. Seen in one case to cause one fragment to be successfully joined but have multiple overlapping chunks also appear in gff.
+    all_regions = parse_blast(blastp_filename, 'BlastP') + parse_blast(blastx_filename, 'BlastX')
 
     #Split into contigs
     all_contigs = sort_contigs(split_regions_into_contigs(all_regions))
