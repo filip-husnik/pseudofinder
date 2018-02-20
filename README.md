@@ -70,7 +70,7 @@ prokka --compliant --rfam contigs.fa
 
 This flowchart shows all steps of the pseudofinder pipeline.
 
-![alt text](https://github.com/filip-husnik/pseudo-finder/blob/master/pseudofinder-flowchart.png)
+![alt text](https://github.com/filip-husnik/pseudo-finder/blob/master/pseudofinder_flowchart.png)
 
 ## Running pseudo finder
 
