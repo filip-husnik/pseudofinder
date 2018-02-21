@@ -832,32 +832,32 @@ def write_summary_file(output_prefix, args) -> None:
     with open(name, 'w') as logfile:
         logfile.write(
             "####### Summary from pseudo_finder.py #######\n\n"
-            "Date/time:\t\t%s\n\n"
+            "Date/time:\t%s\n\n"
             #TODO: add runtime
             
             "#######    Files   #######\n"
-            "Genome:\t\t\t%s\n"
-            "Database:\t\t%s\n"
-            "BlastP:\t\t\t%s\n"
-            "BlastX:\t\t\t%s\n\n"
+            "Genome:\t%s\n"
+            "Database:\t%s\n"
+            "BlastP:\t%s\n"
+            "BlastX:\t%s\n\n"
             
             "#######  Settings  #######\n"
             "Intergenic_length:\t%s\n"
-            "Length_pseudo:\t\t%s\n"
-            "Shared_hits:\t\t%s\n\n"
+            "Length_pseudo:\t%s\n"
+            "Shared_hits:\t%s\n\n"
             
             "####### Statistics #######\n"
             "#Input:\n"
-            "Initial ORFs:\t\t\t%s\n"
-            "Number of contigs:\t\t%s\n"        #TODO: currently reporting smaller value than expected due to small contigs with no ORFs.
+            "Initial ORFs:\t%s\n"
+            "Number of contigs:\t%s\n"        #TODO: currently reporting smaller value than expected due to small contigs with no ORFs.
                                                 #TODO: when intergenic parsing is fixed, check to make sure that this is resolved
             "#Output:\n"
-            "Inital ORFs joined:\t\t%s\n"
-            "Pseudogenes (total):\t\t%s\n"
+            "Inital ORFs joined:\t%s\n"
+            "Pseudogenes (total):\t%s\n"
             "Pseudogenes (too short):\t%s\n"
             "Pseudogenes (fragmented):\t%s\n"
             #'Functional genes' calculated as:  Input ORFs - [all ORFs marked as fragments] - [all ORFs marked as too short]
-            "Functional genes:\t\t%s\n\n"
+            "Functional genes:\t%s\n\n"
 
             "####### Output Key #######\n"
             "Initial ORFs joined:\t\tThe number of input open reading frames that have been merged and flagged as a fragmented pseudogene.\n"
