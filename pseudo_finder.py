@@ -178,37 +178,6 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
           '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
     sys.stdout.flush()
 
-    # # Parse all files in the multiple-file genbank
-    # for seq_record in SeqIO.parse(gbk, "genbank"):
-    #     gene_list = []
-    #     intergenic_records = []
-    #
-    #     # Loop over the genome file, get the gene features on each of the strands
-    #     for feature in seq_record.features:
-    #
-    #         if feature.type == 'gene':  # doesnt equal ribsomal and equals 'gene'
-    #             mystart = feature.location._start.position
-    #             myend = feature.location._end.position
-    #             gene_list.append((mystart, myend, 1))
-    #
-    #     for i, pospair in enumerate(gene_list[1:]):
-    #         # Compare current start position to previous end position
-    #         last_end = gene_list[i][1]
-    #         this_start = pospair[0]
-    #         strand = pospair[2]
-    #         if this_start - last_end >= igl:
-    #             intergene_seq = seq_record.seq[last_end:this_start]
-    #             strand_string = "+"
-    #             intergenic_records.append(SeqRecord(intergene_seq, id="%s_ign_%d" % (seq_record.name, i),
-    #                                                 description="%s %d-%d %s" % (
-    #                                                     seq_record.name, last_end + 1, this_start, strand_string)))
-    #
-    #     SeqIO.write(intergenic_records, open(fasta, "a"), "fasta")
-    #
-    # print('%s\tIntergenic regions extracted from:\t%s\n'
-    #       '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
-    # sys.stdout.flush()
-
 
 def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
     '''
@@ -223,7 +192,7 @@ def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
                                          db=db,
                                          num_alignments=15,
                                          evalue=eval,
-                                         outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore\'",
+                                         outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore sscinames\'",
                                          out=faa + ".blastP_output.tsv")
     blastp_cline()
 
@@ -241,7 +210,7 @@ def run_blastx(fasta: str, t: str, db: str, eval: str) -> None:
                                          db=db,
                                          num_alignments=15,
                                          evalue=eval,
-                                         outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore\'",
+                                         outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore sscinames\'",
                                          out=fasta + ".blastX_output.tsv")
     blastx_cline()
 
