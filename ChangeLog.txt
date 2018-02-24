@@ -1,5 +1,16 @@
 Pseudo finder change log
 ########################
+v0.07 -- 24/02/2018
+*Implemented framework for four output types:
+	[1]: Pseudogenes in GFF			<- Completed
+	[2]: Protein coding genes in GFF	<- Partial functionality
+	[3]: Pseudogenes in fasta		<- Not currently working
+	[4]: Protein coding genes in FAA	<- Completed
+*Fixed --help menu, beautified to increase readability
+*Main function re-written to increase readability
+*Log file contents updated
+*Various bug fixes to blast file parsing
+*Reduced amount of information printed to stdout
 
 v0.06 -- 12/02/2018
 * Drastically decreased runtime on full genomes

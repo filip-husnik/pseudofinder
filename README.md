@@ -97,33 +97,58 @@ python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE
 
 ```
 # All command line arguments.
-'-g', '--genome', help='Please provide your genome file in the genbank format.', required=True
+Required arguments:
+  -g GENOME, --genome GENOME
+                        Please provide your genome file in the genbank format.
+  -op OUTPREFIX, --outprefix OUTPREFIX
+                        Specify an output prefix.
 
-'-o', '--output', help='Specify an output prefix.', required=True
+Required arguments if BLAST files are not provided:
+  -d DATABASE, --database DATABASE
+                        Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.
 
-'-d', '--database', help='Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.')
+Required arguments if providing BLAST files:
+  -p BLASTP, --blastp BLASTP
+                        Specify an input blastp file.
+  -x BLASTX, --blastx BLASTX
+                        Specify an input blastx file.
 
-'-p', '--blastp', help='Specify an input blastp file.'
-
-'-x', '--blastx', help='Specify an input blastx file.'
-
-'-t', '--threads', help='Please provide total number of threads to use for blast, default is 4.'
-
-'-i', '--intergenic_length', help='Please provide length of intergenic regions to check, default is 30 bp.'
-
-'-l', '--length_pseudo', help='Please provide percentage of length for pseudo candidates, default is 0.60 (60%).'
-
-'-s', '--shared_hits', help='Percentage of blast hits that must be shared in order to join two nearby regions, default is 0.30 (30%).'
-
-'-e', '--evalue', help='Please provide e-value for blast searches, default is 1e-4.'
+Adjustable parameters:
+  -of OUTFORMAT, --outformat OUTFORMAT
+                        Specifies which style of output to write. Default is 1.
+                        See below for explanation.
+  -t THREADS, --threads THREADS
+                        Please provide total number of threads to use for blast, default is 4.
+  -i INTERGENIC_LENGTH, --intergenic_length INTERGENIC_LENGTH
+                        Please provide length of intergenic regions to check, default is 30 bp.
+  -l LENGTH_PSEUDO, --length_pseudo LENGTH_PSEUDO
+                        Please provide percentage of length for pseudo candidates, default is 0.60 (60%). 
+                        Example: "-l 0.50" will consider genes that are less than 50% of the average length of similar genes.
+  -s SHARED_HITS, --shared_hits SHARED_HITS
+                        Percentage of blast hits that must be shared in order to join two nearby regions, default is 0.30 (30%). 
+                        Example: "-s 0.50" will merge nearby regions if they shared 50% of their blast hits.
+  -e EVALUE, --evalue EVALUE
+                        Please provide e-value for blast searches, default is 1e-4.
 ```
-
 ## Output of pseudo finder
-Every run should result in two output files: a summary log.txt file and a .gff file.
+Every run should result in two or more output files: a summary log.txt file and .gff or .faa files.
 
-(1) The log file includes basic statistics about pseudogene candidates detected.
+log.txt: The log file includes basic statistics about pseudogene candidates detected.
 
-(2) The .gff file can be used to overlay the original annotation (we use the Artemis genome browser [http://www.sanger.ac.uk/science/tools/artemis]) with predicted pseudogene candidates.
+Explanation of output choices
+'--outformat 1': GFF file containing only ORFs flagged as pseudogenes.
+	The .gff file can be used to overlay the original annotation (we use the Artemis genome browser [http://www.sanger.ac.uk/science/tools/artemis]) with predicted pseudogene candidates.
+
+'--outformat 2': GFF file containing only ORFs not flagged as pseudogenes. 
+	*Currently only contains nucleotide positions, without qualifier information.*
+
+'--outformat 3': FASTA file containing only ORFs flagged as pseudogenes. 
+	*Not yet implemented*
+
+'--outformat 4': FAA file containing only ORFs not flagged as pseudogenes.
+	This file can be used for any downstream analysis of functional genes. 
+
+*Note: Outputs can be combined. If '-of 12' is specified, files '1' and '2' will be written.
 
 ## Contributing
 
