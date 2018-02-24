@@ -36,9 +36,6 @@ BlastHit = NamedTuple('BlastHit', [('accession',str),
                                    ('s_start',int),
                                    ('s_end',int),
                                    ('eval',float)])
-#TODO: remove this if not needed (check0
-FastaSeq = NamedTuple('FastaSeq', [('header', str),
-                                   ('sequence', str)])
 
 #All information about a given region (either an ORF or intergenic region).
 RegionInfo = NamedTuple('RegionInfo', [('contig', str),
@@ -401,8 +398,6 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
             #retrieve actual intergenic range based on blast hits
             try:
                 regionStart,regionEnd = get_intergenic_query_range(QueryDict[key]['hits'],QueryDict[key]['start'])
-                if regionStart > regionEnd:
-                    print(QueryDict[key]['query'])
             #If there are no blast hits, this region will not be considered
             except ValueError:
                 regionStart,regionEnd = (0,0)
@@ -414,31 +409,22 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                                          hits=QueryDict[key]['hits'],
                                          note='From BlastX'))
 
-
     return regionList
 
-#TODO: simplify this
+
 def get_intergenic_query_range(lobh: List[BlastHit], start_position: int) -> tuple:
     '''
     Calculates the range of an intergenic region, based on the location of blast hits within the whole intergenic region.
     This is necessary because the start and end positions of hits are defined locally in the blast output - this function
     converts them to absolute positions on the contig.
     '''
+    # Collect all start and end positions in a list of blast hits
     AllValues = [bh.s_start for bh in lobh] + [bh.s_end for bh in lobh]
-    # Collect all start positions in a list of blast hits
-    startList = [bh.s_start for bh in lobh]
-    # Collect all end positions in a list of blast hits
-    endList = [bh.s_end for bh in lobh]
 
     regionStart = start_position + min(AllValues) + 1
     regionEnd = start_position + max(AllValues) + 1
 
-    # This was implemented due to a bug with blasts on opposite strand reading ranges backwards.
-    # It ensures that the range goes from the lowest number to the highest number.
-    if regionStart < regionEnd:
-        return (regionStart, regionEnd)
-    elif regionStart > regionEnd:
-        return (regionEnd, regionStart)
+    return (regionStart, regionEnd)
 
 
 def split_regions_into_contigs(lori: List[RegionInfo]) -> List[Contig]:
@@ -663,15 +649,7 @@ def check_individual_ORFs(lori: List[RegionInfo], contig_number: int, length_cut
         Ratio = (RegionLength/AverageDatabaseLength)
 
         if Ratio < length_cutoff:
-            #TODO: reactivate this
-            # print('%s\tIndividual gene flagged on contig %s, location %s-%s.' % (current_time(),
-            #                                                                      contig_number,
-            #                                                                      region.start,
-            #                                                                      region.end)),
-            # sys.stdout.flush()
-
             pseudo = convert_region_to_pseudo(region, Ratio*100)  #Multiplied by 100 to convert to percentage
-
             lopg.append(pseudo)
 
     return lopg
@@ -772,13 +750,6 @@ def check_adjacent_regions(lori: List[RegionInfo], cutoff: float) -> tuple:
 
         #this boolean resets to false every loop, so it will only be 'True' if two regions have just been merged together
         if NewPseudoMade is True:
-            #TODO: get rid of this print statement?
-            # print('%s\tRegions merged and flagged on contig %s, location %s-%s.' % (current_time(),
-            #                                                                         contig_number,
-            #                                                                         pseudo.start,
-            #                                                                         pseudo.end)),
-            sys.stdout.flush()
-
             #This code deletes an item in MergedList if that item has the same start position as the pseudogene.
             #It works like:
             #   MergedList[:] = a new version of MergedList, that contains items from MergedList,
@@ -824,9 +795,6 @@ def write_genes_to_gff(lopg: List[RegionInfo], gff: str) -> None:
     '''
     Takes an input list of genes and writes them to a GFF file in proper format.
     '''
-    #TODO: maybe get rid of this print statement
-    # print('%s\tWriting pseudogene candidates to GFF file.' % (current_time())),
-    # sys.stdout.flush()
 
     with open(gff, 'a') as gff_output_handle:
         for pseudo in lopg:
@@ -918,8 +886,7 @@ def write_summary_file(output_prefix, args) -> None:
             "####### Statistics #######\n"
             "#Input:\n"
             "Initial ORFs:\t%s\n"
-            "Number of contigs:\t%s\n"        #TODO: currently reporting smaller value than expected due to small contigs with no ORFs.
-                                                #TODO: when intergenic parsing is fixed, check to make sure that this is resolved
+            "Number of contigs:\t%s\n"
             "#Output:\n"
             "Inital ORFs joined:\t%s\n"
             "Pseudogenes (total):\t%s\n"
@@ -940,7 +907,7 @@ def write_summary_file(output_prefix, args) -> None:
                       args.database,
                       StatisticsDict['BlastpFilename'],
                       StatisticsDict['BlastxFilename'],
-                      "\n".join(StatisticsDict['OutputFiles']),    #TODO: find output files and add them here
+                      "\n".join(StatisticsDict['OutputFiles']),
                       args.intergenic_length,
                       args.length_pseudo,
                       args.shared_hits,
@@ -1039,7 +1006,7 @@ def main():
 
         #Retrieve functional genes by comparing ORFs to annotated pseudogenes
         try:
-            FunctionalGenes = get_functional_genes(contig=ORFsByContig[contig_index], pseudos=PseudoGenes) #TODO: check if this works
+            FunctionalGenes = get_functional_genes(contig=ORFsByContig[contig_index], pseudos=PseudoGenes)
         except IndexError: #If there are no ORFs on a small contig, an error will be thrown when trying to check that contig.
             break
 
