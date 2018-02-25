@@ -423,24 +423,6 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
             #If there are no blast hits, this region will not be considered
             except ValueError:
                 regionStart,regionEnd = (0,0)
-            #TODO: delete this after testing is finished
-            # if QueryDict[key]['query'] == "EOKKIDHA_23_ign_3101":
-            #     print("Contig: %s\n"
-            #           "Query: %s\n"
-            #           "Blast start: %s\n"
-            #           "Blast end: %s \n"
-            #           "Given start: %s\n"
-            #           "Given end: %s \n"
-            #           "Strand: %s \n"
-            #           "Len hits: %s" %
-            #           (QueryDict[key]['contig'],
-            #            QueryDict[key]['query'],
-            #            QueryDict[key]['start'],
-            #            QueryDict[key]['end'],
-            #            regionStart,
-            #            regionEnd,
-            #            QueryDict[key]['strand'],
-            #            len(QueryDict[key]['hits'])))
 
             regionList.append(RegionInfo(contig=QueryDict[key]['contig'],
                                          query=QueryDict[key]['query'],
@@ -569,10 +551,7 @@ def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
                                end=max([r1.end, r2.end]),
                                strand=r1.strand,
                                hits=merged_hits,
-                               #note="%s %s" % (r1.query,r2.query))
-                               #TODO: put this back to normal
-                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene, %s %s.;colour=229 204 255' %
-                                    (r1.query,r2.query)) #'colour=' makes this region appear coloured in Artemis.
+                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene.;colour=229 204 255') #'colour=' makes this region appear coloured in Artemis.
     return merged_region
 
 
