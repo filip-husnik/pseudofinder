@@ -370,12 +370,12 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
     for key in QueryDict:
         if blast_format == "BlastP":
             regionList.append(RegionInfo(contig=QueryDict[key]['contig'],
-                                        query=QueryDict[key]['query'],
-                                        start=(QueryDict[key]['start']),
-                                        end=(QueryDict[key]['end']),
-                                        strand=QueryDict[key]['strand'],
-                                        hits=QueryDict[key]['hits'],
-                                        note='From BlastP;colour=51 153 102'))
+                                         query=QueryDict[key]['query'],
+                                         start=(QueryDict[key]['start']),
+                                         end=(QueryDict[key]['end']),
+                                         strand=QueryDict[key]['strand'],
+                                         hits=QueryDict[key]['hits'],
+                                         note='From BlastP;colour=51 153 102'))
 
         #Have to modify range for intergenic regions
         if blast_format == "BlastX":
@@ -385,6 +385,25 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
             #If there are no blast hits, this region will not be considered
             except ValueError:
                 regionStart,regionEnd = (0,0)
+            #TODO: delete this after testing is finished
+            # if QueryDict[key]['query'] == "EOKKIDHA_23_ign_3101":
+            #     print("Contig: %s\n"
+            #           "Query: %s\n"
+            #           "Blast start: %s\n"
+            #           "Blast end: %s \n"
+            #           "Given start: %s\n"
+            #           "Given end: %s \n"
+            #           "Strand: %s \n"
+            #           "Len hits: %s" %
+            #           (QueryDict[key]['contig'],
+            #            QueryDict[key]['query'],
+            #            QueryDict[key]['start'],
+            #            QueryDict[key]['end'],
+            #            regionStart,
+            #            regionEnd,
+            #            QueryDict[key]['strand'],
+            #            len(QueryDict[key]['hits'])))
+
             regionList.append(RegionInfo(contig=QueryDict[key]['contig'],
                                          query=QueryDict[key]['query'],
                                          start=regionStart,
@@ -485,8 +504,13 @@ def compare_regions(r1: RegionInfo, r2: RegionInfo, cutoff: float) -> bool:
     '''
     Takes two regions and decides if they are similar enough to join together.
     '''
-
-    if region_proximity(r1, r2) < 1000 and matching_hit_critera(r1, r2, cutoff) is True and r1.strand == r2.strand:
+    #This if statement is a list of conditions that must be met in order for two regions to be joined
+    if (
+        region_proximity(r1, r2) < 1000 and                 #Closer than 1000bp
+        matching_hit_critera(r1, r2, cutoff) is True and    #Have enough matching blast hits
+        r1.strand == r2.strand and                          #Same strand
+        not ("ign" in r1.query and "ign" in r2.query)       #They are not both intergenic regions
+    ):
         return True
 
     else:
@@ -502,12 +526,15 @@ def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
     merged_hits = sort_hits_by_eval(list(set(r1.hits + r2.hits)))
 
     merged_region = RegionInfo(contig=r1.contig,
-                               query='locus_tag=pseudo_uniqueID',
+                               query=r1.query+","+r2.query+",",
                                start=min([r1.start, r2.start]),
                                end=max([r1.end, r2.end]),
                                strand=r1.strand,
                                hits=merged_hits,
-                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene.;colour=229 204 255') #'colour=' makes this region appear coloured in Artemis.
+                               #note="%s %s" % (r1.query,r2.query))
+                               #TODO: put this back to normal
+                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene, %s %s.;colour=229 204 255' %
+                                    (r1.query,r2.query)) #'colour=' makes this region appear coloured in Artemis.
     return merged_region
 
 
@@ -677,6 +704,11 @@ def check_adjacent_regions(lori: List[RegionInfo], cutoff: float) -> tuple:
 
         #compare_regions() checks that the two regions pass certain criteria
         if compare_regions(sorted_lori[i], sorted_lori[i + 1], cutoff) is True:
+            if (sorted_lori[i].query or sorted_lori[i+1].query) == "EOKKIDHA_23_ign_3101":
+                print("[i]note, [i].query: %s, %s\n"
+                      "[i+1]note, [i+1].query: %s, %s" % (sorted_lori[i].note, sorted_lori[i].query,
+                                                          sorted_lori[i+1].note, sorted_lori[i+1].query))
+
 
             #this boolean will be important later on in this function
             NewPseudoMade = True
@@ -697,7 +729,8 @@ def check_adjacent_regions(lori: List[RegionInfo], cutoff: float) -> tuple:
         #If regions [i] and [i+1] fail to join (above), look at regions [i] and [i+2].
         elif i < len(sorted_lori) - 2:
             if compare_regions(sorted_lori[i], sorted_lori[i + 2], cutoff) is True:
-
+                if (sorted_lori[i].query or sorted_lori[i + 2].query) == "EOKKIDHA_23_ign_3101":
+                    print(sorted_lori[i].query, sorted_lori[i + 2].query)
                 # this boolean will be important later on in this function
                 NewPseudoMade = True
 
@@ -971,6 +1004,8 @@ def main():
 
     if '4' in OutputTypes:
         FunctionalFaa = args.outprefix + "_" + os.path.basename(args.genome) + "_functional.faa"
+        #Clear file contents if this file already exists:
+        open(FunctionalFaa, 'w').close()
         StatisticsDict['OutputFiles'].append("Output [4]: %s" % FunctionalFaa)
 
     #For each contig:
