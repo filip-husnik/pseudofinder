@@ -169,8 +169,8 @@ def get_proteome(gbk: str, faa: str) -> None:
                                                                  seq_feature.location,
                                                                  seq_feature.qualifiers['translation'][0]))
 
-    print('%s\tProteome extracted from:\t%s\n'
-          '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, faa,)),
+    print('%s\tProteome extracted from:\t\t%s\n'
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, faa,)),
     sys.stdout.flush()
 
 def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
@@ -182,43 +182,81 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
     The original code extracts all regions strand-dependently, even if there is a gene on the other strand
     Such strand information is not needed here, so I arbitrarily select plus strand sequence
     '''
+    # Resets 'fasta' if it contains content already
+    open(fasta, 'w').close()
 
-    #List of coding regions extracted from genbank file.
-    gene_list = []
-    #List of intergenic regions that has been extracted from in between coding regions.
-    intergenic_records = []
+    # Parse all contigs in the multicontig genbank
+    for contig in SeqIO.parse(gbk, "genbank"):  # contig = all information for an entire contig
+        gene_list = []  # List of coding regions extracted from genbank file.
+        intergenic_records = []  # List of intergenic regions that has been extracted from in between coding regions.
 
-    #Parse all files in the multiple-file genbank
-    for seq_record in SeqIO.parse(gbk, "genbank"):
-        # Loop over the genome file, get the gene features on each of the strands
-        for feature in seq_record.features:
-            if feature.type == 'CDS':
+        for feature in contig.features:  # Loop over the contig, get the gene features on each of the strands
+            if feature.type == 'CDS':  # Only present if prokka was run with --compliant flag
                 start_position = feature.location._start.position
                 end_position = feature.location._end.position
                 gene_list.append((start_position, end_position))
 
         for i, gene in enumerate(gene_list):
-
             # Compare current start position to previous end position
-            last_end = gene_list[i-1][1]
+            last_end = gene_list[i - 1][1]
             this_start = gene_list[i][0]
 
-            if this_start - last_end >= igl:
+            if this_start - last_end >= igl:  # Default 30bp.
 
-                IntergenicRegion = SeqRecord(seq=seq_record.seq[last_end:this_start],       #Nucleotide sequence in range
-                                             id="%s_ign_%d" % (seq_record.name, i),         #Individual ID
-                                             description="%s %d-%d %s" % (seq_record.name,  #Description including name,
-                                                                          last_end + 1,     #   start position
-                                                                          this_start,       #   end position
-                                                                          "+"))             #   strand (default +)
+                IntergenicRegion = SeqRecord(seq=contig.seq[last_end:this_start],       # Nucleotide sequence in range
+                                             id="%s_ign_%d" % (contig.name, i),         # Individual ID
+                                             description="%s %d-%d %s" % (contig.name,  # Description including name,
+                                                                          last_end + 1, # start position
+                                                                          this_start,   # end position
+                                                                          "+"))         # strand (default +)
 
                 intergenic_records.append(IntergenicRegion)
 
-    SeqIO.write(intergenic_records, open(fasta, "w"), "fasta")
+        # Write to the intergenic records file
+        SeqIO.write(intergenic_records, open(fasta, "a"), "fasta")
 
     print('%s\tIntergenic regions extracted from:\t%s\n'
-          '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, fasta,)),
     sys.stdout.flush()
+
+
+
+    # #List of coding regions extracted from genbank file.
+    # gene_list = []
+    # #List of intergenic regions that has been extracted from in between coding regions.
+    # intergenic_records = []
+    #
+    # #Parse all contigs in the multicontig genbank
+    # for seq_record in SeqIO.parse(gbk, "genbank"): #seq_record = all information for an entire contig
+    #     # Loop over the genome file, get the gene features on each of the strands
+    #     for feature in seq_record.features:
+    #         if feature.type == 'CDS':
+    #             start_position = feature.location._start.position
+    #             end_position = feature.location._end.position
+    #             gene_list.append((start_position, end_position))
+    #
+    #     for i, gene in enumerate(gene_list):
+    #
+    #         # Compare current start position to previous end position
+    #         last_end = gene_list[i-1][1]
+    #         this_start = gene_list[i][0]
+    #
+    #         if this_start - last_end >= igl:
+    #
+    #             IntergenicRegion = SeqRecord(seq=seq_record.seq[last_end:this_start],       #Nucleotide sequence in range
+    #                                          id="%s_ign_%d" % (seq_record.name, i),         #Individual ID
+    #                                          description="%s %d-%d %s" % (seq_record.name,  #Description including name,
+    #                                                                       last_end + 1,     #   start position
+    #                                                                       this_start,       #   end position
+    #                                                                       "+"))             #   strand (default +)
+    #
+    #             intergenic_records.append(IntergenicRegion)
+    #
+    # SeqIO.write(intergenic_records, open(fasta, "w"), "fasta")
+    #
+    # print('%s\tIntergenic regions extracted from:\t%s\n'
+    #       '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
+    # sys.stdout.flush()
 
 
 def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
@@ -973,7 +1011,7 @@ def main():
     ORFs = parse_blast(filename=BlastpFilename, blast_format='BlastP')
     IntergenicRegions = parse_blast(filename=BlastxFilename, blast_format='BlastX')
     # Add all the regions together
-    AllRegions = ORFs #+ IntergenicRegions
+    AllRegions = ORFs + IntergenicRegions
 
     #Split into contigs
     ORFsByContig = sort_contigs(loc=split_regions_into_contigs(lori=ORFs))              # Sorted list of contigs containing only ORFs, no intergenic regions
