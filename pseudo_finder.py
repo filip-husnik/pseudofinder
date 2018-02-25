@@ -405,8 +405,8 @@ def get_intergenic_query_range(lobh: List[BlastHit], start_position: int) -> tup
     # Collect all start and end positions in a list of blast hits
     AllValues = [bh.s_start for bh in lobh] + [bh.s_end for bh in lobh]
 
-    regionStart = start_position + min(AllValues) + 1
-    regionEnd = start_position + max(AllValues) + 1
+    regionStart = start_position + min(AllValues)
+    regionEnd = start_position + max(AllValues)
 
     return (regionStart, regionEnd)
 
@@ -908,14 +908,12 @@ def main():
     #Collect arguments from parser
     args = get_args()
 
-    #These files will either be generated or should be around from a previous run.
-    ProteomeFilename = args.outprefix + "_" + os.path.basename(args.genome) + "_proteome.faa"
-    IntergenicFilename = args.outprefix + "_" + os.path.basename(args.genome) + "_intergenic.fasta"
-
     #If blast files are not provided, must run blast.
     if args.blastp is None and args.blastx is None:
 
         #files generated:
+        ProteomeFilename = args.outprefix + "_" + os.path.basename(args.genome) + "_proteome.faa"
+        IntergenicFilename = args.outprefix + "_" + os.path.basename(args.genome) + "_intergenic.fasta"
         BlastpFilename = ProteomeFilename + ".blastP_output.tsv"
         BlastxFilename = IntergenicFilename + ".blastX_output.tsv"
 
@@ -931,6 +929,8 @@ def main():
     else:
         BlastpFilename = args.blastp
         BlastxFilename = args.blastx
+        ProteomeFilename = BlastpFilename.replace(".blastP_output.tsv","")
+        IntergenicFilename = BlastxFilename.replace(".blastX_output.tsv","")
 
     #BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticsDict
     StatisticsDict['BlastpFilename'] = BlastpFilename
@@ -993,7 +993,6 @@ def main():
             FunctionalGenes = get_functional_genes(contig=ORFsByContig[contig_index], pseudos=PseudoGenes)
         except IndexError: #If there are no ORFs on a small contig, an error will be thrown when trying to check that contig.
             break
-
 
         #Write the appropriate output types
 
