@@ -973,7 +973,7 @@ def main():
     ORFs = parse_blast(filename=BlastpFilename, blast_format='BlastP')
     IntergenicRegions = parse_blast(filename=BlastxFilename, blast_format='BlastX')
     # Add all the regions together
-    AllRegions = ORFs + IntergenicRegions
+    AllRegions = ORFs #+ IntergenicRegions
 
     #Split into contigs
     ORFsByContig = sort_contigs(loc=split_regions_into_contigs(lori=ORFs))              # Sorted list of contigs containing only ORFs, no intergenic regions
