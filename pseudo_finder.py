@@ -60,9 +60,9 @@ StatisticsDict = {
                     'FragmentedOrfs':0,
                     'PseudogenesTotal':0,
                     'PseudogenesShort':0,
-                    'PseudogenesFragmented':0
+                    'PseudogenesFragmented':0,
+                    'counter':0
                   }
-
 
 def current_time()-> str:
     '''
@@ -189,7 +189,7 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
     for contig in SeqIO.parse(gbk, "genbank"):  # contig = all information for an entire contig
         gene_list = []  # List of coding regions extracted from genbank file.
         intergenic_records = []  # List of intergenic regions that has been extracted from in between coding regions.
-
+        
         for feature in contig.features:  # Loop over the contig, get the gene features on each of the strands
             if feature.type == 'CDS':  # Only present if prokka was run with --compliant flag
                 start_position = feature.location._start.position
@@ -218,45 +218,6 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
     print('%s\tIntergenic regions extracted from:\t%s\n'
           '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, fasta,)),
     sys.stdout.flush()
-
-
-
-    # #List of coding regions extracted from genbank file.
-    # gene_list = []
-    # #List of intergenic regions that has been extracted from in between coding regions.
-    # intergenic_records = []
-    #
-    # #Parse all contigs in the multicontig genbank
-    # for seq_record in SeqIO.parse(gbk, "genbank"): #seq_record = all information for an entire contig
-    #     # Loop over the genome file, get the gene features on each of the strands
-    #     for feature in seq_record.features:
-    #         if feature.type == 'CDS':
-    #             start_position = feature.location._start.position
-    #             end_position = feature.location._end.position
-    #             gene_list.append((start_position, end_position))
-    #
-    #     for i, gene in enumerate(gene_list):
-    #
-    #         # Compare current start position to previous end position
-    #         last_end = gene_list[i-1][1]
-    #         this_start = gene_list[i][0]
-    #
-    #         if this_start - last_end >= igl:
-    #
-    #             IntergenicRegion = SeqRecord(seq=seq_record.seq[last_end:this_start],       #Nucleotide sequence in range
-    #                                          id="%s_ign_%d" % (seq_record.name, i),         #Individual ID
-    #                                          description="%s %d-%d %s" % (seq_record.name,  #Description including name,
-    #                                                                       last_end + 1,     #   start position
-    #                                                                       this_start,       #   end position
-    #                                                                       "+"))             #   strand (default +)
-    #
-    #             intergenic_records.append(IntergenicRegion)
-    #
-    # SeqIO.write(intergenic_records, open(fasta, "w"), "fasta")
-    #
-    # print('%s\tIntergenic regions extracted from:\t%s\n'
-    #       '\t\t\tWritten to file:\t\t%s.' % (current_time(), gbk, fasta,)),
-    # sys.stdout.flush()
 
 
 def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
@@ -746,8 +707,7 @@ def check_adjacent_regions(lori: List[RegionInfo], cutoff: float) -> tuple:
         #If regions [i] and [i+1] fail to join (above), look at regions [i] and [i+2].
         elif i < len(sorted_lori) - 2:
             if compare_regions(sorted_lori[i], sorted_lori[i + 2], cutoff) is True:
-                if (sorted_lori[i].query or sorted_lori[i + 2].query) == "EOKKIDHA_23_ign_3101":
-                    print(sorted_lori[i].query, sorted_lori[i + 2].query)
+
                 # this boolean will be important later on in this function
                 NewPseudoMade = True
 
@@ -845,7 +805,6 @@ def write_genes_to_gff(lopg: List[RegionInfo], gff: str) -> None:
                                                                         # '1' that the second base is the first base of a codon, and so on..
                                      pseudo.note))                  #9: attribute - A semicolon-separated list of tag-value pairs,
                                                                         #  providing additional information about each feature.
-
 
 def get_functional_genes(contig: Contig, pseudos: List[RegionInfo]) -> List[RegionInfo]:
     """"Inspects a contig for genes that have not been annotated as pseudogenes, and returns them."""
@@ -945,14 +904,16 @@ def write_summary_file(output_prefix, args) -> None:
                       args.intergenic_length,
                       args.length_pseudo,
                       args.shared_hits,
-                      StatisticsDict['ProteomeOrfs'],
+                      StatisticsDict['ProteomeOrfs'], #TODO: CHECKED
                       StatisticsDict['NumberOfContigs'],
-                      StatisticsDict['FragmentedOrfs'],
+                      StatisticsDict['FragmentedOrfs'], #TODO: check this number?
                       StatisticsDict['PseudogenesTotal'],
-                      StatisticsDict['PseudogenesShort'],
+                      StatisticsDict['PseudogenesShort'], #TODO: check this number
                       StatisticsDict['PseudogenesFragmented'],
                       StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']))
 
+#TODO: notes- Counting the number of genes going into get_functional adds up to the total number of ORFs found in the proteome file
+#TODO: notes- Counting the number of functional genes from the get_functional adds up to the number of sequences found in the FAA file
 
 def main():
     #Collect arguments from parser
