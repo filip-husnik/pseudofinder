@@ -79,6 +79,8 @@ def get_args():
                                             '\'--outformat 4\': FAA file containing only ORFs not flagged as pseudogenes.\n'
                                             'Note: Outputs can be combined. If \'-of 12\' is specified, files \'1\' and \'2\' will be written.')
 
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
+
     ##########################  Always required #################################
     ##############################################################################
     always_required = parser.add_argument_group('\033[1m' + 'Required arguments' + '\033[0m')
@@ -111,7 +113,7 @@ def get_args():
     ##############################################################################
     optional = parser.add_argument_group('\033[1m' + 'Adjustable parameters' + '\033[0m')
 
-    optional.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
+
 
     optional.add_argument('-of', '--outformat',
                           default=1,
@@ -140,9 +142,10 @@ def get_args():
     optional.add_argument('-e', '--evalue',
                         help='Please provide e-value for blast searches. Default is 1e-4.',
                         default='1e-4')
-    # TODO: implement usage in code
+
     optional.add_argument('-d', '--distance',
                           default=1000,
+                          type=int,
                           help='Maximum distance between two regions to consider joining them. Default is %(default)s.')
     # TODO: implement in code
     optional.add_argument('-hc', '--hitcap',
@@ -503,16 +506,17 @@ def region_proximity(r1: RegionInfo, r2: RegionInfo) -> int:
     return sorted_by_start[1].start - sorted_by_start[0].end
 
 
-def compare_regions(r1: RegionInfo, r2: RegionInfo, cutoff: float) -> bool:
+def compare_regions(r1: RegionInfo, r2: RegionInfo, distance_cutoff: int, hit_cutoff: float) -> bool:
     '''
     Takes two regions and decides if they are similar enough to join together.
     '''
     #This if statement is a list of conditions that must be met in order for two regions to be joined
+    print(distance_cutoff)
     if (
-        region_proximity(r1, r2) < 1000 and                 #Closer than 1000bp
-        matching_hit_critera(r1, r2, cutoff) is True and    #Have enough matching blast hits
-        r1.strand == r2.strand and                          #Same strand
-        not ("ign" in r1.query and "ign" in r2.query)       #They are not both intergenic regions
+        region_proximity(r1, r2) < distance_cutoff and          #Closer than cutoff default (1000bp)
+        matching_hit_critera(r1, r2, hit_cutoff) is True and    #Have enough matching blast hits
+        r1.strand == r2.strand and                              #Same strand
+        not ("ign" in r1.query and "ign" in r2.query)           #They are not both intergenic regions
     ):
         return True
 
@@ -548,24 +552,30 @@ def sort_hits_by_eval(lobh: List[BlastHit]) -> List[BlastHit]:
     return sorted_list
 
 
-def annotate_pseudos(contig: Contig, contig_number: int, hits_cutoff: float, length_cutoff: float) -> List[RegionInfo]:
+def annotate_pseudos(contig: Contig, contig_number: int, distance_cutoff: int, hits_cutoff: float, length_cutoff: float) -> List[RegionInfo]:
     '''
     This function will take input blast files and return a list of all pseudogene candidates.
     '''
 
     #1: Look through list of regions and find individual ORFs that could be pseudogenes.
-    IndividualPseudos = check_individual_ORFs(contig.regions, contig_number, length_cutoff)
+    IndividualPseudos = check_individual_ORFs(lori=contig.regions,
+                                              contig_number=contig_number,
+                                              length_cutoff=length_cutoff)
 
     #2: Update list of regions with any pseudogenes that were flagged from step #1.
-    UpdatedList = replace_pseudos_in_list(IndividualPseudos, contig.regions)
+    UpdatedList = replace_pseudos_in_list(pseudos=IndividualPseudos,
+                                          genes=contig.regions)
 
     #3: Check adjacent regions to see if they could be pseudogene fragments.
     #   This function returns two lists: [0] = Individual pseudogenes
     #                                    [1] = Merged pseudogenes
-    AllPseudos = check_adjacent_regions(UpdatedList, hits_cutoff)
+    AllPseudos = check_adjacent_regions(lori=UpdatedList,
+                                        distance_cutoff=distance_cutoff,
+                                        hit_cutoff=hits_cutoff)
 
     #returns both individual and merged pseudogenes as a single list, with locus tags added.
-    return add_locus_tags(AllPseudos[0] + AllPseudos[1], contig.name)
+    return add_locus_tags(lori=(AllPseudos[0] + AllPseudos[1]),
+                          contig=contig.name)
 
 
 def add_locus_tags(lori: List[RegionInfo], contig: str) -> List[RegionInfo]:
@@ -682,7 +692,7 @@ def convert_region_to_pseudo(region: RegionInfo, ratio: float) -> RegionInfo:
     return pseudogene
 
 
-def check_adjacent_regions(lori: List[RegionInfo], cutoff: float) -> tuple:
+def check_adjacent_regions(lori: List[RegionInfo], distance_cutoff: int, hit_cutoff: float) -> tuple:
     '''
     This function will take input blast files and return a list of all pseudogene candidates.
 
@@ -703,7 +713,7 @@ def check_adjacent_regions(lori: List[RegionInfo], cutoff: float) -> tuple:
         NewPseudoMade = False
 
         #compare_regions() checks that the two regions pass certain criteria
-        if compare_regions(sorted_lori[i], sorted_lori[i + 1], cutoff) is True:
+        if compare_regions(r1=sorted_lori[i], r2=sorted_lori[i + 1], distance_cutoff=distance_cutoff, hit_cutoff=hit_cutoff) is True:
             if (sorted_lori[i].query or sorted_lori[i+1].query) == "EOKKIDHA_23_ign_3101":
                 print("[i]note, [i].query: %s, %s\n"
                       "[i+1]note, [i+1].query: %s, %s" % (sorted_lori[i].note, sorted_lori[i].query,
@@ -728,7 +738,7 @@ def check_adjacent_regions(lori: List[RegionInfo], cutoff: float) -> tuple:
 
         #If regions [i] and [i+1] fail to join (above), look at regions [i] and [i+2].
         elif i < len(sorted_lori) - 2:
-            if compare_regions(sorted_lori[i], sorted_lori[i + 2], cutoff) is True:
+            if compare_regions(r1=sorted_lori[i],r2=sorted_lori[i + 2], distance_cutoff=distance_cutoff, hit_cutoff=hit_cutoff) is True:
 
                 # this boolean will be important later on in this function
                 NewPseudoMade = True
@@ -907,7 +917,7 @@ def write_summary_file(output_prefix, args) -> None:
             "Pseudogenes (total):\t%s\n"
             "Pseudogenes (too short):\t%s\n"
             "Pseudogenes (fragmented):\t%s\n"
-            "Pseudogenes (no predicted open reading frame):\t\n" #TODO: add dict entry to track this
+            "Pseudogenes (no predicted ORF):\t\n" #TODO: add dict entry to track this
             "Functional genes:\t%s\n\n"
 
             "####### Output Key #######\n"
@@ -1022,6 +1032,7 @@ def main():
         #Annotate pseudogenes
         PseudoGenes = annotate_pseudos(contig=contig,
                                        contig_number=contig_index+1,    #indices are 0 based so I added 1 to make it more intuitive
+                                       distance_cutoff=args.distance,
                                        hits_cutoff=args.shared_hits,
                                        length_cutoff=args.length_pseudo)
 
