@@ -60,8 +60,7 @@ StatisticsDict = {
                     'FragmentedOrfs':0,
                     'PseudogenesTotal':0,
                     'PseudogenesShort':0,
-                    'PseudogenesFragmented':0,
-                    'counter':0
+                    'PseudogenesFragmented':0
                   }
 
 def current_time()-> str:
@@ -95,7 +94,7 @@ def get_args():
     ##############################################################################
     required = parser.add_argument_group('\033[1m' + 'Required arguments if BLAST files are not provided' + '\033[0m')
 
-    required.add_argument('-d', '--database',
+    required.add_argument('-db', '--database',
                         help='Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.')
 
     ##############################################################################
@@ -111,6 +110,8 @@ def get_args():
     ##############################################################################
     ##############################################################################
     optional = parser.add_argument_group('\033[1m' + 'Adjustable parameters' + '\033[0m')
+
+    optional.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
 
     optional.add_argument('-of', '--outformat',
                           default=1,
@@ -137,10 +138,29 @@ def get_args():
                         type=float)
 
     optional.add_argument('-e', '--evalue',
-                        help='Please provide e-value for blast searches, default is 1e-4.',
+                        help='Please provide e-value for blast searches. Default is 1e-4.',
                         default='1e-4')
-    
-    optional.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
+    # TODO: implement usage in code
+    optional.add_argument('-d', '--distance',
+                          default=1000,
+                          help='Maximum distance between two regions to consider joining them. Default is %(default)s.')
+    # TODO: implement in code
+    optional.add_argument('-hc', '--hitcap',
+                          default=15,
+                          help='Maximum number of allowed hits for BLAST. Default is %(default)s.')
+    # TODO: implement in code
+    optional.add_argument('-ce', '--contig_ends',
+                          default=False,
+                          action='store_true',
+                          help='Force program to include contig ends in the BlastX search. If not specified,\n'
+                               'parser will not include contig ends.')
+    # TODO: implement in code
+    optional.add_argument('-it', '--intergenic_threshold',
+                          default=0.30,
+                          help='Number of BlastX hits needed to annotate an intergenic region as a pseudogene.\n'
+                               'Calculated as a percentage of maximum number of allowed hits (--hitcap).\n'
+                               'Default is %(default)s.')
+
 
 
 
@@ -887,7 +907,7 @@ def write_summary_file(output_prefix, args) -> None:
             "Pseudogenes (total):\t%s\n"
             "Pseudogenes (too short):\t%s\n"
             "Pseudogenes (fragmented):\t%s\n"
-            #'Functional genes' calculated as:  Input ORFs - [all ORFs marked as fragments] - [all ORFs marked as too short]
+            "Pseudogenes (no predicted open reading frame):\t\n" #TODO: add dict entry to track this
             "Functional genes:\t%s\n\n"
 
             "####### Output Key #######\n"
@@ -906,11 +926,11 @@ def write_summary_file(output_prefix, args) -> None:
                       args.intergenic_length,
                       args.length_pseudo,
                       args.shared_hits,
-                      StatisticsDict['ProteomeOrfs'], #TODO: CHECKED
+                      StatisticsDict['ProteomeOrfs'],
                       StatisticsDict['NumberOfContigs'],
-                      StatisticsDict['FragmentedOrfs'], #TODO: check this number?
+                      StatisticsDict['FragmentedOrfs'],
                       StatisticsDict['PseudogenesTotal'],
-                      StatisticsDict['PseudogenesShort'], #TODO: check this number
+                      StatisticsDict['PseudogenesShort'],
                       StatisticsDict['PseudogenesFragmented'],
                       StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']))
 
@@ -918,6 +938,8 @@ def write_summary_file(output_prefix, args) -> None:
 #TODO: notes- Counting the number of functional genes from the get_functional adds up to the number of sequences found in the FAA file
 
 def main():
+    #TODO: check which python version is veing used. Throw informative error if it's python 2
+
     #Collect arguments from parser
     args = get_args()
 
