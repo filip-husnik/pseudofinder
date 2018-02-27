@@ -147,9 +147,10 @@ def get_args():
                           default=1000,
                           type=int,
                           help='Maximum distance between two regions to consider joining them. Default is %(default)s.')
-    # TODO: implement in code
+
     optional.add_argument('-hc', '--hitcap',
                           default=15,
+                          type=int,
                           help='Maximum number of allowed hits for BLAST. Default is %(default)s.')
     # TODO: implement in code
     optional.add_argument('-ce', '--contig_ends',
@@ -245,7 +246,7 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
     sys.stdout.flush()
 
 
-def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
+def run_blastp(faa: str, t: str, db: str, eval: str, hitcap: int) -> None:
     '''
     run BLASTP with FAA file against DB of your choice.
     '''
@@ -256,14 +257,14 @@ def run_blastp(faa: str, t: str, db: str, eval: str) -> None:
     blastp_cline = NcbiblastpCommandline(query=faa,
                                          num_threads=t,
                                          db=db,
-                                         num_alignments=15,
+                                         num_alignments=hitcap,
                                          evalue=eval,
                                          outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore sscinames\'",
                                          out=faa + ".blastP_output.tsv")
     blastp_cline()
 
 
-def run_blastx(fasta: str, t: str, db: str, eval: str) -> None:
+def run_blastx(fasta: str, t: str, db: str, eval: str, hitcap: int) -> None:
     '''
     run BLASTX with FNA file against DB of your choice.
     '''
@@ -274,7 +275,7 @@ def run_blastx(fasta: str, t: str, db: str, eval: str) -> None:
     blastx_cline = NcbiblastxCommandline(query=fasta,
                                          num_threads=t,
                                          db=db,
-                                         num_alignments=15,
+                                         num_alignments=hitcap,
                                          evalue=eval,
                                          outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore sscinames\'",
                                          out=fasta + ".blastX_output.tsv")
@@ -967,8 +968,8 @@ def main():
         get_intergenic_regions(gbk=args.genome, fasta=IntergenicFilename, igl=args.intergenic_length)
 
         #Run blast
-        run_blastp(faa=ProteomeFilename, t=args.threads, db=args.database, eval=args.evalue)
-        run_blastx(fasta=IntergenicFilename, t=args.threads, db=args.database, eval=args.evalue)
+        run_blastp(faa=ProteomeFilename, t=args.threads, db=args.database, eval=args.evalue, hitcap=args.hitcap)
+        run_blastx(fasta=IntergenicFilename, t=args.threads, db=args.database, eval=args.evalue, hitcap=args.hitcap)
 
     #If blast files are provided, use them.
     else:
