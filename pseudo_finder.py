@@ -23,7 +23,7 @@ import csv
 import sys
 
 __author__ = "Mitch Syberg-Olsen & Filip Husnik"
-__version__ = "0.06"
+__version__ = "0.07"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
@@ -139,6 +139,8 @@ def get_args():
     optional.add_argument('-e', '--evalue',
                         help='Please provide e-value for blast searches, default is 1e-4.',
                         default='1e-4')
+    
+    optional.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
 
 
 
