@@ -153,20 +153,25 @@ def get_args():
                           type=int,
                           help='Maximum number of allowed hits for BLAST. Default is %(default)s.')
     # TODO: implement in code
+    # parser.add_mutually_exclusive_group(required=False)
     optional.add_argument('-ce', '--contig_ends',
-                          default=False,
-                          action='store_true',
-                          help='Force program to include contig ends in the BlastX search. If not specified,\n'
-                               'parser will not include contig ends.')
+                         default=False,
+                         action='store_true')#,
+                          # dest='contig_ends',
+                          # action='store_true',
+                          # help='Force program to include contig ends in the BlastX search. If not specified,\n'
+                          #      'parser will not include contig ends.')
+    # parser.add_argument('--no_contig_ends',
+    #                       dest='contig_ends',
+    #                       action='store_false',
+    #                       help='If specified, parser will not include contig ends.')
+
     # TODO: implement in code
     optional.add_argument('-it', '--intergenic_threshold',
                           default=0.30,
                           help='Number of BlastX hits needed to annotate an intergenic region as a pseudogene.\n'
                                'Calculated as a percentage of maximum number of allowed hits (--hitcap).\n'
                                'Default is %(default)s.')
-
-
-
 
     args = parser.parse_args()
 
@@ -199,7 +204,7 @@ def get_proteome(gbk: str, faa: str) -> None:
           '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, faa,)),
     sys.stdout.flush()
 
-def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
+def get_intergenic_regions(gbk: str, fasta: str, igl: int, get_contig_ends: bool) -> None:
     '''
     Parse genbank input file for intergenic regions and write them to the output file with coordinates.
 
@@ -221,6 +226,16 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int) -> None:
                 start_position = feature.location._start.position
                 end_position = feature.location._end.position
                 gene_list.append((start_position, end_position))
+
+        if get_contig_ends is True:
+            #Put 'gene' at the start of the contig (position 0). This will force the next 'for loop' to consider intergenic space
+            #between position '0' and the beginning of the first gene.
+            gene_list.insert(0, (0, 0))
+
+            contig_end = len(contig.seq) #Apparently this is the fastest way to retrieve the end of a contig
+            #Append a 'gene' the end of the contig. This will force the next 'for loop' to consider intergenic space between
+            #the last gene and the end of the contig.
+            gene_list.append((contig_end, contig_end))
 
         for i, gene in enumerate(gene_list):
             # Compare current start position to previous end position
@@ -512,7 +527,6 @@ def compare_regions(r1: RegionInfo, r2: RegionInfo, distance_cutoff: int, hit_cu
     Takes two regions and decides if they are similar enough to join together.
     '''
     #This if statement is a list of conditions that must be met in order for two regions to be joined
-    print(distance_cutoff)
     if (
         region_proximity(r1, r2) < distance_cutoff and          #Closer than cutoff default (1000bp)
         matching_hit_critera(r1, r2, hit_cutoff) is True and    #Have enough matching blast hits
@@ -949,11 +963,9 @@ def write_summary_file(output_prefix, args) -> None:
 #TODO: notes- Counting the number of functional genes from the get_functional adds up to the number of sequences found in the FAA file
 
 def main():
-    #TODO: check which python version is veing used. Throw informative error if it's python 2
-
     #Collect arguments from parser
     args = get_args()
-
+    
     #If blast files are not provided, must run blast.
     if args.blastp is None and args.blastx is None:
 
@@ -965,8 +977,10 @@ def main():
 
         #Collect sequences
         get_proteome(gbk=args.genome, faa=ProteomeFilename)
-        get_intergenic_regions(gbk=args.genome, fasta=IntergenicFilename, igl=args.intergenic_length)
+        get_intergenic_regions(gbk=args.genome, fasta=IntergenicFilename, igl=args.intergenic_length, get_contig_ends=args.contig_ends)
 
+        #TODO: remove after done
+        exit()
         #Run blast
         run_blastp(faa=ProteomeFilename, t=args.threads, db=args.database, eval=args.evalue, hitcap=args.hitcap)
         run_blastx(fasta=IntergenicFilename, t=args.threads, db=args.database, eval=args.evalue, hitcap=args.hitcap)
