@@ -151,20 +151,13 @@ def get_args():
     optional.add_argument('-hc', '--hitcap',
                           default=15,
                           type=int,
-                          help='Maximum number of allowed hits for BLAST. Default is %(default)s.')
-    # TODO: implement in code
-    # parser.add_mutually_exclusive_group(required=False)
+                          help='Maximum number of allowed hits for BLAST. Default is %(default)s.\n\n')
+
     optional.add_argument('-ce', '--contig_ends',
-                         default=False,
-                         action='store_true')#,
-                          # dest='contig_ends',
-                          # action='store_true',
-                          # help='Force program to include contig ends in the BlastX search. If not specified,\n'
-                          #      'parser will not include contig ends.')
-    # parser.add_argument('--no_contig_ends',
-    #                       dest='contig_ends',
-    #                       action='store_false',
-    #                       help='If specified, parser will not include contig ends.')
+                          default=False,
+                          action='store_true',
+                          help='Forces the program to include intergenic regions at contig ends. If not specified,\n'
+                               'the program will ignore any sequence after the last ORF on a contig.')
 
     # TODO: implement in code
     optional.add_argument('-it', '--intergenic_threshold',
@@ -175,8 +168,8 @@ def get_args():
 
     args = parser.parse_args()
 
-    # if args.blastx is None and args.blastp is None and args.database is None:
-    #     parser.error("Pseudofinder requires a database input unless blast results are provided.")
+    if args.blastx is None and args.blastp is None and args.database is None:
+        parser.error("Pseudofinder requires a database input unless blast results are provided.")
 
     if (args.blastx is not None and args.blastp is None) or (args.blastp is not None and args.blastx is None):
         parser.error("Pseudofinder requires both blastP and blastX inputs.")
@@ -965,7 +958,7 @@ def write_summary_file(output_prefix, args) -> None:
 def main():
     #Collect arguments from parser
     args = get_args()
-    
+
     #If blast files are not provided, must run blast.
     if args.blastp is None and args.blastx is None:
 
@@ -979,8 +972,6 @@ def main():
         get_proteome(gbk=args.genome, faa=ProteomeFilename)
         get_intergenic_regions(gbk=args.genome, fasta=IntergenicFilename, igl=args.intergenic_length, get_contig_ends=args.contig_ends)
 
-        #TODO: remove after done
-        exit()
         #Run blast
         run_blastp(faa=ProteomeFilename, t=args.threads, db=args.database, eval=args.evalue, hitcap=args.hitcap)
         run_blastx(fasta=IntergenicFilename, t=args.threads, db=args.database, eval=args.evalue, hitcap=args.hitcap)
