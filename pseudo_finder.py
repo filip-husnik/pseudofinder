@@ -560,14 +560,15 @@ def sort_hits_by_eval(lobh: List[BlastHit]) -> List[BlastHit]:
     return sorted_list
 
 
-def annotate_pseudos(contig: Contig, contig_number: int, distance_cutoff: int, hits_cutoff: float, length_cutoff: float) -> List[RegionInfo]:
+def annotate_pseudos(contig: Contig, hitcap: int, distance_cutoff: int, hits_cutoff: float, length_cutoff: float) -> List[RegionInfo]:
     '''
     This function will take input blast files and return a list of all pseudogene candidates.
     '''
 
     #1: Look through list of regions and find individual ORFs that could be pseudogenes.
     IndividualPseudos = check_individual_ORFs(lori=contig.regions,
-                                              contig_number=contig_number,
+                                              hitcap=hitcap,
+                                              intergenic_cutoff=0,
                                               length_cutoff=length_cutoff)
 
     #2: Update list of regions with any pseudogenes that were flagged from step #1.
@@ -648,11 +649,12 @@ def pseudo_present(gene: RegionInfo, pseudos: List[RegionInfo]) -> tuple:
     return (False, gene)
 
 
-def check_individual_ORFs(lori: List[RegionInfo], contig_number: int, length_cutoff: float) -> List[RegionInfo]:
+def check_individual_ORFs(lori: List[RegionInfo], hitcap: int, intergenic_cutoff: float, length_cutoff: float) -> List[RegionInfo]:
     '''
     This function will take an input of regions and return a list of individual ORFs that could be pseudogenes.
     '''
 
+    InitialBlastpList = [] #TODO: probably delete the list below
     InitialList = [] #This list will contain all ORFs that have enough blast hits to be considered.
                      #If less than 3 blast hits, its hard to calculate a reliable "AverageDatabaseLength"
 
@@ -660,10 +662,15 @@ def check_individual_ORFs(lori: List[RegionInfo], contig_number: int, length_cut
 
     for region in lori:
         #Only include regions that were already as genes from whichever annotation software, and that have at least 2 blast hits.
-        if 'From BlastP' in region.note and len(region.hits) > 2:
-            InitialList.append(region)
+        if 'BlastP' in region.note and len(region.hits) > 2:
+            InitialBlastpList.append(region)
+        #TODO: fix this
+        # elif 'BlastX' in region.note and len(region.hits)/hitcap > intergenic_cutoff:
+        #     pseudo = convert_region_to_pseudo(region=region, pseudo_type='intergenic', ratio=0)
+        #     lopg.append(pseudo)
 
-    for region in InitialList:
+
+    for region in InitialBlastpList:
 
         #Retrieves lengths of genes that this region has blasted against
         ListOfDatabaseLengths = [hit.slen for hit in region.hits]
@@ -678,16 +685,25 @@ def check_individual_ORFs(lori: List[RegionInfo], contig_number: int, length_cut
         Ratio = (RegionLength/AverageDatabaseLength)
 
         if Ratio < length_cutoff:
-            pseudo = convert_region_to_pseudo(region, Ratio*100)  #Multiplied by 100 to convert to percentage
+            pseudo = convert_region_to_pseudo(region=region,
+                                              pseudo_type='ORF',
+                                              ratio=Ratio*100)  #Multiplied by 100 to convert to percentage
             lopg.append(pseudo)
 
     return lopg
 
 
-def convert_region_to_pseudo(region: RegionInfo, ratio: float) -> RegionInfo:
+def convert_region_to_pseudo(region: RegionInfo, pseudo_type: str, ratio: float) -> RegionInfo:
     '''
     Flags a region as a pseudogene by adding a note, that will appear in the GFF file.
     '''
+
+    #TODO: finish implementing this
+    if pseudo_type == 'ORF':
+        message = 'Note=pseudogene candidate. Reason: ORF is %s%% of the average length of hits to this gene.;colour=229 204 255' % (round(ratio,1))
+    elif pseudo_type == 'intergenic':
+        message = 'Note=pseudogene candidate. Reason: Intergenic region with'
+
 
     pseudogene = RegionInfo(region.contig,
                             region.query,
@@ -959,6 +975,7 @@ def main():
     #Collect arguments from parser
     args = get_args()
 
+
     #If blast files are not provided, must run blast.
     if args.blastp is None and args.blastx is None:
 
@@ -1037,7 +1054,7 @@ def main():
 
         #Annotate pseudogenes
         PseudoGenes = annotate_pseudos(contig=contig,
-                                       contig_number=contig_index+1,    #indices are 0 based so I added 1 to make it more intuitive
+                                       hitcap=args.hitcap,
                                        distance_cutoff=args.distance,
                                        hits_cutoff=args.shared_hits,
                                        length_cutoff=args.length_pseudo)
