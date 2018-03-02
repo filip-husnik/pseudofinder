@@ -177,12 +177,12 @@ def get_args():
     return args
 
 
-def get_proteome(gbk: str, faa: str) -> None:
+def get_proteome(args, faa: str) -> None:
     '''
     Parse genbank input file for coding sequences (CDSs) and write them to the output file with coordinates.
     '''
 
-    with open(gbk, "r") as input_handle:
+    with open(args.genome, "r") as input_handle:
         with open(faa, "w") as output_handle:
             for seq_record in SeqIO.parse(input_handle, "genbank"):
                 for seq_feature in seq_record.features:
@@ -194,10 +194,10 @@ def get_proteome(gbk: str, faa: str) -> None:
                                                                  seq_feature.qualifiers['translation'][0]))
 
     print('%s\tProteome extracted from:\t\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, faa,)),
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, faa,)),
     sys.stdout.flush()
 
-def get_intergenic_regions(gbk: str, fasta: str, igl: int, get_contig_ends: bool) -> None:
+def get_intergenic_regions(args, fasta: str) -> None:
     '''
     Parse genbank input file for intergenic regions and write them to the output file with coordinates.
 
@@ -210,7 +210,7 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int, get_contig_ends: bool
     open(fasta, 'w').close()
 
     # Parse all contigs in the multicontig genbank
-    for contig in SeqIO.parse(gbk, "genbank"):  # contig = all information for an entire contig
+    for contig in SeqIO.parse(args.genome, "genbank"):  # contig = all information for an entire contig
         gene_list = []  # List of coding regions extracted from genbank file.
         intergenic_records = []  # List of intergenic regions that has been extracted from in between coding regions.
         
@@ -220,7 +220,7 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int, get_contig_ends: bool
                 end_position = feature.location._end.position
                 gene_list.append((start_position, end_position))
 
-        if get_contig_ends is True:
+        if args.contig_ends is True:
             #Put 'gene' at the start of the contig (position 0). This will force the next 'for loop' to consider intergenic space
             #between position '0' and the beginning of the first gene.
             gene_list.insert(0, (0, 0))
@@ -235,7 +235,7 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int, get_contig_ends: bool
             last_end = gene_list[i - 1][1]
             this_start = gene_list[i][0]
 
-            if this_start - last_end >= igl:  # Default 30bp.
+            if this_start - last_end >= args.intergenic_length:  # Default 30bp.
 
                 IntergenicRegion = SeqRecord(seq=contig.seq[last_end:this_start],       # Nucleotide sequence in range
                                              id="%s_ign_%d" % (contig.name, i),         # Individual ID
@@ -250,41 +250,41 @@ def get_intergenic_regions(gbk: str, fasta: str, igl: int, get_contig_ends: bool
         SeqIO.write(intergenic_records, open(fasta, "a"), "fasta")
 
     print('%s\tIntergenic regions extracted from:\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, fasta,)),
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, fasta,)),
     sys.stdout.flush()
 
 
-def run_blastp(faa: str, t: str, db: str, eval: str, hitcap: int) -> None:
+def run_blastp(args, faa: str) -> None:
     '''
     run BLASTP with FAA file against DB of your choice.
     '''
 
-    print('%s\tBlastP executed with %s threads.' % (current_time(),t)),
+    print('%s\tBlastP executed with %s threads.' % (current_time(), args.threads)),
     sys.stdout.flush()
 
     blastp_cline = NcbiblastpCommandline(query=faa,
-                                         num_threads=t,
-                                         db=db,
-                                         num_alignments=hitcap,
-                                         evalue=eval,
+                                         num_threads=args.threads,
+                                         db=args.database,
+                                         num_alignments=args.hitcap,
+                                         evalue=args.evalue,
                                          outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore sscinames\'",
                                          out=faa + ".blastP_output.tsv")
     blastp_cline()
 
 
-def run_blastx(fasta: str, t: str, db: str, eval: str, hitcap: int) -> None:
+def run_blastx(args, fasta: str) -> None:
     '''
     run BLASTX with FNA file against DB of your choice.
     '''
 
-    print('%s\tBlastX executed with %s threads.' % (current_time(), t)),
+    print('%s\tBlastX executed with %s threads.' % (current_time(), args.threads)),
     sys.stdout.flush()
 
     blastx_cline = NcbiblastxCommandline(query=fasta,
-                                         num_threads=t,
-                                         db=db,
-                                         num_alignments=hitcap,
-                                         evalue=eval,
+                                         num_threads=args.threads,
+                                         db=args.database,
+                                         num_alignments=args.hitcap,
+                                         evalue=args.evalue,
                                          outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore sscinames\'",
                                          out=fasta + ".blastX_output.tsv")
     blastx_cline()
@@ -293,8 +293,7 @@ def run_blastx(fasta: str, t: str, db: str, eval: str, hitcap: int) -> None:
 #try: parse locus and size from everything
 #TODO: find the last locus tag number and continue from there
     #locus_tag
-
-def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
+def make_gff_header(args, gff: str) -> None:
     '''
     Prepare a GFF file header (a list of sequence identifiers)
     '''
@@ -307,7 +306,7 @@ def make_gff_header(gbk: str, gff: str, blastp: str) -> None:
                                 "#!annotation-date\t%s\n" % (current_time()))
 
         #writes one line for each contig
-        for i, seq_record in enumerate(SeqIO.parse(gbk, "genbank")):
+        for i, seq_record in enumerate(SeqIO.parse(args.genome, "genbank")):
 
             gff_output_handle.write(
                 "%s %s %s %s\n" % ("##sequence-region",
@@ -473,143 +472,96 @@ def split_regions_into_contigs(lori: List[RegionInfo]) -> List[Contig]:
     return contig_list
 
 
-def number_of_matching_hits(r1: RegionInfo, r2: RegionInfo) -> int:
-    '''
-    This function returns the number of blast hits that two regions have in common.
-    '''
-
-    r1_accessions = set([blasthit.accession for blasthit in r1.hits])
-    r2_accessions = set([blasthit.accession for blasthit in r2.hits])
-
-    return len(set(r1_accessions) & set(r2_accessions))
-
-
-def matching_hit_critera(r1: RegionInfo, r2: RegionInfo, cutoff: float) -> bool:
-    '''
-    This function determines if two regions meet the minimum blast hit criteria to be joined together.
-    '''
-
-    if len(r1.hits) is not 0 and len(r2.hits) is not 0:
-        #sorts the two regions based on number of blast hits.
-        s = sorted([r1, r2], key=lambda r: len(r.hits))
-
-        # math is : (Number of shared hits) / (Total number of hits from the region with the least hits) >= cutoff value.
-        if number_of_matching_hits(r1,r2)/len(s[0].hits) >= cutoff:
-            return True
-        else:
-            return False
-
-    else:
-        return False
-
-
-def region_proximity(r1: RegionInfo, r2: RegionInfo) -> int:
-    '''
-    Takes two regions and returns their distance from each other in # of nucleotides.
-    '''
-    #sorts the two regions by starting point, so the math will always be consistent.
-    sorted_by_start = sorted([r1,r2], key=lambda r: r.start)
-
-    # substracts the end position of the first from the start position of the second
-    # this value can actually be negative if a gene starts before the previous one finishes
-    return sorted_by_start[1].start - sorted_by_start[0].end
-
-
-def compare_regions(r1: RegionInfo, r2: RegionInfo, distance_cutoff: int, hit_cutoff: float) -> bool:
-    '''
-    Takes two regions and decides if they are similar enough to join together.
-    '''
-    #This if statement is a list of conditions that must be met in order for two regions to be joined
-    if (
-        region_proximity(r1, r2) < distance_cutoff and          #Closer than cutoff default (1000bp)
-        matching_hit_critera(r1, r2, hit_cutoff) is True and    #Have enough matching blast hits
-        r1.strand == r2.strand and                              #Same strand
-        not ("ign" in r1.query and "ign" in r2.query)           #They are not both intergenic regions
-    ):
-        return True
-
-    else:
-        return False
-
-
-def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
-    '''
-    This function needs to take two regions and merge their locations.
-    '''
-
-    # concatenates hits from both regions, discards any duplicates, and sorts them by e-value.
-    merged_hits = sort_hits_by_eval(list(set(r1.hits + r2.hits)))
-
-    merged_region = RegionInfo(contig=r1.contig,
-                               query=r1.query+","+r2.query+",",
-                               start=min([r1.start, r2.start]),
-                               end=max([r1.end, r2.end]),
-                               strand=r1.strand,
-                               hits=merged_hits,
-                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene.;colour=229 204 255') #'colour=' makes this region appear coloured in Artemis.
-    return merged_region
-
-
-def sort_hits_by_eval(lobh: List[BlastHit]) -> List[BlastHit]:
-    '''
-    Sorts a list of blasthits by e-value from low to high (returning the hit with the lowest evalue first).
-    '''
-
-    sorted_list = sorted(lobh, key=lambda r: r.eval)
-
-    return sorted_list
-
-
-def annotate_pseudos(contig: Contig, hitcap: int, distance_cutoff: int, hits_cutoff: float, length_cutoff: float) -> List[RegionInfo]:
+def annotate_pseudos(args, contig: Contig) -> List[RegionInfo]:
     '''
     This function will take input blast files and return a list of all pseudogene candidates.
     '''
 
     #1: Look through list of regions and find individual ORFs that could be pseudogenes.
-    IndividualPseudos = check_individual_ORFs(lori=contig.regions,
-                                              hitcap=hitcap,
-                                              intergenic_cutoff=0,
-                                              length_cutoff=length_cutoff)
+    IndividualPseudos = check_individual_ORFs(args=args, lori=contig.regions)
 
     #2: Update list of regions with any pseudogenes that were flagged from step #1.
-    UpdatedList = replace_pseudos_in_list(pseudos=IndividualPseudos,
-                                          genes=contig.regions)
+    UpdatedList = replace_pseudos_in_list(pseudos=IndividualPseudos, genes=contig.regions)
 
     #3: Check adjacent regions to see if they could be pseudogene fragments.
     #   This function returns two lists: [0] = Individual pseudogenes
     #                                    [1] = Merged pseudogenes
-    AllPseudos = check_adjacent_regions(lori=UpdatedList,
-                                        distance_cutoff=distance_cutoff,
-                                        hit_cutoff=hits_cutoff)
+    AllPseudos = check_adjacent_regions(args=args,
+                                        lori=UpdatedList,
+                                        distance_cutoff=args.distance,
+                                        hit_cutoff=args.shared_hits)
 
     #returns both individual and merged pseudogenes as a single list, with locus tags added.
-    return add_locus_tags(lori=(AllPseudos[0] + AllPseudos[1]),
-                          contig=contig.name)
+    return add_locus_tags(lori=(AllPseudos[0] + AllPseudos[1]), contig=contig.name)
 
 
-def add_locus_tags(lori: List[RegionInfo], contig: str) -> List[RegionInfo]:
+def check_individual_ORFs(args, lori: List[RegionInfo]) -> List[RegionInfo]:
     '''
-    Adds numerically increasing locus tags to a list of regions.
+    This function will take an input of regions and return a list of individual ORFs that could be pseudogenes.
     '''
 
-    sorted_by_start = sorted(lori, key=lambda r: r.start)
+    InitialBlastpList = [] #TODO: probably delete the list below
+    InitialList = [] #This list will contain all ORFs that have enough blast hits to be considered.
+                     #If less than 3 blast hits, its hard to calculate a reliable "AverageDatabaseLength"
 
-    FinalList = []
+    lopg = [] #This list will contain the resulting pseudogenes
 
-    for counter, region in enumerate(sorted_by_start):
-        TaggedRegion = RegionInfo(region.contig,
-                                  region.query,
-                                  region.start,
-                                  region.end,
-                                  region.strand,
-                                  region.hits,
-                                  #adds a locus tag with 4 digits.
-                                  # ie, if counter = 2 and contig = 'contig1', result will be 'locus_tag=pseudo_contig_1_0002'
-                                  region.note + str(';locus_tag=%s_%04d' % (contig, counter+1)))
+    for region in lori:
+        #Only include regions that were already as genes from whichever annotation software, and that have at least 2 blast hits.
+        if 'BlastP' in region.note and len(region.hits) > 2:
+            InitialBlastpList.append(region)
+        #TODO: fix this
+        # elif 'BlastX' in region.note and len(region.hits)/hitcap > intergenic_cutoff:
+        #     pseudo = convert_region_to_pseudo(region=region, pseudo_type='intergenic', ratio=0)
+        #     lopg.append(pseudo)
 
-        FinalList.append(TaggedRegion)
 
-    return FinalList
+    for region in InitialBlastpList:
+
+        #Retrieves lengths of genes that this region has blasted against
+        ListOfDatabaseLengths = [hit.slen for hit in region.hits]
+
+        #Calculates the average length of genes that this region has blasted against
+        AverageDatabaseLength = sum(ListOfDatabaseLengths) / len(ListOfDatabaseLengths)
+
+        #Calculates the length of this region
+        RegionLength = region.end - region.start
+
+        #Ratio of the region's length to the average length of hits.
+        Ratio = (RegionLength/AverageDatabaseLength)
+
+        if Ratio < args.length_pseudo:
+            pseudo = convert_region_to_pseudo(region=region,
+                                              pseudo_type='ORF',
+                                              ratio=Ratio*100)  #Multiplied by 100 to convert to percentage
+            lopg.append(pseudo)
+
+    return lopg
+
+
+def convert_region_to_pseudo(region: RegionInfo, pseudo_type: str, ratio: float) -> RegionInfo:
+    '''
+    Flags a region as a pseudogene by adding a note, that will appear in the GFF file.
+    '''
+
+    #TODO: finish implementing this
+    if pseudo_type == 'ORF':
+        message = 'Note=pseudogene candidate. ' \
+                  'Reason: ORF is %s%% of the average length of hits to this gene.;' \
+                  'colour=229 204 255' % (round(ratio, 1))
+    elif pseudo_type == 'intergenic':
+        message = 'Note=pseudogene candidate. ' \
+                  'Reason: Intergenic region with'
+
+    pseudogene = RegionInfo(region.contig,
+                            region.query,
+                            region.start,
+                            region.end,
+                            region.strand,
+                            region.hits,
+                            'Note=pseudogene candidate. Reason: ORF is %s%% of the average length of hits to this gene.;colour=229 204 255' % (round(ratio,1)))
+                            #'colour=' makes this region appear coloured in Artemis.
+    return pseudogene
 
 
 def replace_pseudos_in_list(pseudos: List[RegionInfo], genes: List[RegionInfo]) -> List[RegionInfo]:
@@ -646,77 +598,10 @@ def pseudo_present(gene: RegionInfo, pseudos: List[RegionInfo]) -> tuple:
         else:
             pass
 
-    return (False, gene)
+    return False, gene
 
 
-def check_individual_ORFs(lori: List[RegionInfo], hitcap: int, intergenic_cutoff: float, length_cutoff: float) -> List[RegionInfo]:
-    '''
-    This function will take an input of regions and return a list of individual ORFs that could be pseudogenes.
-    '''
-
-    InitialBlastpList = [] #TODO: probably delete the list below
-    InitialList = [] #This list will contain all ORFs that have enough blast hits to be considered.
-                     #If less than 3 blast hits, its hard to calculate a reliable "AverageDatabaseLength"
-
-    lopg = [] #This list will contain the resulting pseudogenes
-
-    for region in lori:
-        #Only include regions that were already as genes from whichever annotation software, and that have at least 2 blast hits.
-        if 'BlastP' in region.note and len(region.hits) > 2:
-            InitialBlastpList.append(region)
-        #TODO: fix this
-        # elif 'BlastX' in region.note and len(region.hits)/hitcap > intergenic_cutoff:
-        #     pseudo = convert_region_to_pseudo(region=region, pseudo_type='intergenic', ratio=0)
-        #     lopg.append(pseudo)
-
-
-    for region in InitialBlastpList:
-
-        #Retrieves lengths of genes that this region has blasted against
-        ListOfDatabaseLengths = [hit.slen for hit in region.hits]
-
-        #Calculates the average length of genes that this region has blasted against
-        AverageDatabaseLength = sum(ListOfDatabaseLengths) / len(ListOfDatabaseLengths)
-
-        #Calculates the length of this region
-        RegionLength = region.end - region.start
-
-        #Ratio of the region's length to the average length of hits.
-        Ratio = (RegionLength/AverageDatabaseLength)
-
-        if Ratio < length_cutoff:
-            pseudo = convert_region_to_pseudo(region=region,
-                                              pseudo_type='ORF',
-                                              ratio=Ratio*100)  #Multiplied by 100 to convert to percentage
-            lopg.append(pseudo)
-
-    return lopg
-
-
-def convert_region_to_pseudo(region: RegionInfo, pseudo_type: str, ratio: float) -> RegionInfo:
-    '''
-    Flags a region as a pseudogene by adding a note, that will appear in the GFF file.
-    '''
-
-    #TODO: finish implementing this
-    if pseudo_type == 'ORF':
-        message = 'Note=pseudogene candidate. Reason: ORF is %s%% of the average length of hits to this gene.;colour=229 204 255' % (round(ratio,1))
-    elif pseudo_type == 'intergenic':
-        message = 'Note=pseudogene candidate. Reason: Intergenic region with'
-
-
-    pseudogene = RegionInfo(region.contig,
-                            region.query,
-                            region.start,
-                            region.end,
-                            region.strand,
-                            region.hits,
-                            'Note=pseudogene candidate. Reason: ORF is %s%% of the average length of hits to this gene.;colour=229 204 255' % (round(ratio,1)))
-                            #'colour=' makes this region appear coloured in Artemis.
-    return pseudogene
-
-
-def check_adjacent_regions(lori: List[RegionInfo], distance_cutoff: int, hit_cutoff: float) -> tuple:
+def check_adjacent_regions(args, lori: List[RegionInfo], distance_cutoff: int, hit_cutoff: float) -> tuple:
     '''
     This function will take input blast files and return a list of all pseudogene candidates.
 
@@ -737,12 +622,7 @@ def check_adjacent_regions(lori: List[RegionInfo], distance_cutoff: int, hit_cut
         NewPseudoMade = False
 
         #compare_regions() checks that the two regions pass certain criteria
-        if compare_regions(r1=sorted_lori[i], r2=sorted_lori[i + 1], distance_cutoff=distance_cutoff, hit_cutoff=hit_cutoff) is True:
-            if (sorted_lori[i].query or sorted_lori[i+1].query) == "EOKKIDHA_23_ign_3101":
-                print("[i]note, [i].query: %s, %s\n"
-                      "[i+1]note, [i+1].query: %s, %s" % (sorted_lori[i].note, sorted_lori[i].query,
-                                                          sorted_lori[i+1].note, sorted_lori[i+1].query))
-
+        if compare_regions(args, r1=sorted_lori[i], r2=sorted_lori[i + 1]) is True:
 
             #this boolean will be important later on in this function
             NewPseudoMade = True
@@ -762,7 +642,7 @@ def check_adjacent_regions(lori: List[RegionInfo], distance_cutoff: int, hit_cut
 
         #If regions [i] and [i+1] fail to join (above), look at regions [i] and [i+2].
         elif i < len(sorted_lori) - 2:
-            if compare_regions(r1=sorted_lori[i],r2=sorted_lori[i + 2], distance_cutoff=distance_cutoff, hit_cutoff=hit_cutoff) is True:
+            if compare_regions(args=args, r1=sorted_lori[i], r2=sorted_lori[i + 2]) is True:
 
                 # this boolean will be important later on in this function
                 NewPseudoMade = True
@@ -829,6 +709,118 @@ def check_adjacent_regions(lori: List[RegionInfo], distance_cutoff: int, hit_cut
     StatisticsDict['PseudogenesFragmented'] += len(MergedList)
 
     return (IndividualList, MergedList)
+
+
+def compare_regions(args, r1: RegionInfo, r2: RegionInfo) -> bool:
+    '''
+    Takes two regions and decides if they are similar enough to join together.
+    '''
+    #This if statement is a list of conditions that must be met in order for two regions to be joined
+    if (
+        region_proximity(r1, r2) < args.distance and      #Closer than cutoff default (1000bp)
+        matching_hit_critera(args, r1, r2) is True and    #Have enough matching blast hits
+        r1.strand == r2.strand and                        #Same strand
+        not ("ign" in r1.query and "ign" in r2.query)     #They are not both intergenic regions
+    ):
+        return True
+
+    else:
+        return False
+
+
+def region_proximity(r1: RegionInfo, r2: RegionInfo) -> int:
+    '''
+    Takes two regions and returns their distance from each other in # of nucleotides.
+    '''
+    #sorts the two regions by starting point, so the math will always be consistent.
+    sorted_by_start = sorted([r1,r2], key=lambda r: r.start)
+
+    # substracts the end position of the first from the start position of the second
+    # this value can actually be negative if a gene starts before the previous one finishes
+    return sorted_by_start[1].start - sorted_by_start[0].end
+
+
+def matching_hit_critera(args, r1: RegionInfo, r2: RegionInfo) -> bool:
+    '''
+    This function determines if two regions meet the minimum blast hit criteria to be joined together.
+    '''
+
+    if len(r1.hits) is not 0 and len(r2.hits) is not 0:
+        #sorts the two regions based on number of blast hits.
+        s = sorted([r1, r2], key=lambda r: len(r.hits))
+
+        # math is : (Number of shared hits) / (Total number of hits from the region with the least hits) >= cutoff value.
+        if number_of_matching_hits(r1,r2)/len(s[0].hits) >= args.shared_hits:
+            return True
+        else:
+            return False
+
+    else:
+        return False
+
+
+def number_of_matching_hits(r1: RegionInfo, r2: RegionInfo) -> int:
+    '''
+    This function returns the number of blast hits that two regions have in common.
+    '''
+
+    r1_accessions = set([blasthit.accession for blasthit in r1.hits])
+    r2_accessions = set([blasthit.accession for blasthit in r2.hits])
+
+    return len(set(r1_accessions) & set(r2_accessions))
+
+
+def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
+    '''
+    This function needs to take two regions and merge their locations.
+    '''
+
+    # concatenates hits from both regions, discards any duplicates, and sorts them by e-value.
+    merged_hits = sort_hits_by_eval(list(set(r1.hits + r2.hits)))
+
+    merged_region = RegionInfo(contig=r1.contig,
+                               query=r1.query+","+r2.query+",",
+                               start=min([r1.start, r2.start]),
+                               end=max([r1.end, r2.end]),
+                               strand=r1.strand,
+                               hits=merged_hits,
+                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene.;colour=229 204 255') #'colour=' makes this region appear coloured in Artemis.
+    return merged_region
+
+
+def sort_hits_by_eval(lobh: List[BlastHit]) -> List[BlastHit]:
+    '''
+    Sorts a list of blasthits by e-value from low to high (returning the hit with the lowest evalue first).
+    '''
+
+    sorted_list = sorted(lobh, key=lambda r: r.eval)
+
+    return sorted_list
+
+
+def add_locus_tags(lori: List[RegionInfo], contig: str) -> List[RegionInfo]:
+    '''
+    Adds numerically increasing locus tags to a list of regions.
+    '''
+
+    sorted_by_start = sorted(lori, key=lambda r: r.start)
+
+    FinalList = []
+
+    for counter, region in enumerate(sorted_by_start):
+        TaggedRegion = RegionInfo(region.contig,
+                                  region.query,
+                                  region.start,
+                                  region.end,
+                                  region.strand,
+                                  region.hits,
+                                  #adds a locus tag with 4 digits.
+                                  # ie, if counter = 2 and contig = 'contig1', result will be 'locus_tag=pseudo_contig_1_0002'
+                                  region.note + str(';locus_tag=%s_%04d' % (contig, counter+1)))
+
+        FinalList.append(TaggedRegion)
+
+    return FinalList
 
 
 def sort_contigs(loc: List[Contig]) -> List[Contig]:
@@ -902,7 +894,7 @@ def get_sequences_from_fasta(infile: str, outfile: str, regions: List[RegionInfo
                 pass
 
 
-def write_summary_file(output_prefix, args) -> None:
+def write_summary_file(args) -> None:
     '''
     Writes a summary file of statistics from the pseudo_finder run.
     '''
@@ -910,7 +902,7 @@ def write_summary_file(output_prefix, args) -> None:
     print('%s\tWriting summary of run.' % (current_time())),
     sys.stdout.flush()
 
-    name = output_prefix + '_log.txt'
+    name = args.outprefix + '_log.txt'
 
     with open(name, 'w') as logfile:
         logfile.write(
@@ -971,10 +963,10 @@ def write_summary_file(output_prefix, args) -> None:
 #TODO: notes- Counting the number of genes going into get_functional adds up to the total number of ORFs found in the proteome file
 #TODO: notes- Counting the number of functional genes from the get_functional adds up to the number of sequences found in the FAA file
 
+
 def main():
     #Collect arguments from parser
     args = get_args()
-
 
     #If blast files are not provided, must run blast.
     if args.blastp is None and args.blastx is None:
@@ -986,12 +978,12 @@ def main():
         BlastxFilename = IntergenicFilename + ".blastX_output.tsv"
 
         #Collect sequences
-        get_proteome(gbk=args.genome, faa=ProteomeFilename)
-        get_intergenic_regions(gbk=args.genome, fasta=IntergenicFilename, igl=args.intergenic_length, get_contig_ends=args.contig_ends)
+        get_proteome(args=args, faa=ProteomeFilename)
+        get_intergenic_regions(args=args, fasta=IntergenicFilename)
 
         #Run blast
-        run_blastp(faa=ProteomeFilename, t=args.threads, db=args.database, eval=args.evalue, hitcap=args.hitcap)
-        run_blastx(fasta=IntergenicFilename, t=args.threads, db=args.database, eval=args.evalue, hitcap=args.hitcap)
+        run_blastp(args=args, faa=ProteomeFilename)
+        run_blastx(args=args, fasta=IntergenicFilename)
 
     #If blast files are provided, use them.
     else:
@@ -1023,15 +1015,16 @@ def main():
 
     if '1' in OutputTypes:
         PseudosGff = args.outprefix + "_" + os.path.basename(args.genome) + "_pseudos.gff"
-        make_gff_header(gbk=args.genome, gff=PseudosGff, blastp=BlastpFilename)
+        make_gff_header(args=args, gff=PseudosGff)
         StatisticsDict['OutputFiles'].append("Output [1]: %s" % PseudosGff)
 
     if '2' in OutputTypes:  #TODO: Not yet properly implemented
         print('\033[1m'+"Notice! --outformat 2 specified but this output has not yet been implemented."+'\033[0m'),
         sys.stdout.flush()
         FunctionalGff = args.outprefix + "_" + os.path.basename(args.genome) + "_functional.gff"
-        make_gff_header(args.genome, FunctionalGff, BlastpFilename)
+        make_gff_header(args=args, gff=FunctionalGff)
         StatisticsDict['OutputFiles'].append("Output [2]: %s" % FunctionalGff)
+
     if '3' in OutputTypes: #TODO: not yet properly implemented
         print('\033[1m' + "Notice! --outformat 3 specified but this output has not yet been implemented." +'\033[0m'),
         sys.stdout.flush()
@@ -1053,11 +1046,7 @@ def main():
         sys.stdout.flush()
 
         #Annotate pseudogenes
-        PseudoGenes = annotate_pseudos(contig=contig,
-                                       hitcap=args.hitcap,
-                                       distance_cutoff=args.distance,
-                                       hits_cutoff=args.shared_hits,
-                                       length_cutoff=args.length_pseudo)
+        PseudoGenes = annotate_pseudos(args=args, contig=contig)
 
         #Retrieve functional genes by comparing ORFs to annotated pseudogenes
         try:
@@ -1066,7 +1055,6 @@ def main():
             break
 
         #Write the appropriate output types
-
         if '1' in OutputTypes: # Write GFF file with pseudogenes in it
             write_genes_to_gff(lopg=PseudoGenes, gff=PseudosGff)
 
@@ -1085,7 +1073,7 @@ def main():
                                      contig=contig.name)
 
     #Finish by writing a summary file
-    write_summary_file(output_prefix=args.outprefix, args=args)
+    write_summary_file(args=args)
 
 
 if __name__ == '__main__':
