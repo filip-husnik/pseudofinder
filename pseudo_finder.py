@@ -15,20 +15,22 @@ from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 from typing import NamedTuple, List
+from enum import Enum
 from time import localtime, strftime
 import os
 import argparse
 import re
-import csv
 import sys
 
 __author__ = "Mitch Syberg-Olsen & Filip Husnik"
-__version__ = "0.07"
+__version__ = "0.08"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
 
-#Data definitions
+######################################################
+###############    Data definitions    ###############
+######################################################
 
 #An individual blast hit to a region.
 BlastHit = NamedTuple('BlastHit', [('accession',str),
@@ -37,6 +39,13 @@ BlastHit = NamedTuple('BlastHit', [('accession',str),
                                    ('s_end',int),
                                    ('eval',float)])
 
+#All possible types of regions
+RegionType = Enum('RegionType', ['ORF',
+                                 'intergenic',
+                                 'shortpseudo',
+                                 'fragmentedpseudo',
+                                 'intergenicpseudo'])
+
 #All information about a given region (either an ORF or intergenic region).
 RegionInfo = NamedTuple('RegionInfo', [('contig', str),
                                        ('query', str),
@@ -44,7 +53,8 @@ RegionInfo = NamedTuple('RegionInfo', [('contig', str),
                                        ('end', int),
                                        ('strand', str),
                                        ('hits', List[BlastHit]),
-                                       ('note', str)])
+                                       ('note', str),
+                                       ('region_type', RegionType)])
 
 #A collection of regions (ORFs and intergenic regions) on the same contig.
 Contig = NamedTuple('Contig', [('regions', List[RegionInfo]),
@@ -63,7 +73,11 @@ StatisticsDict = {
                     'PseudogenesFragmented':0
                   }
 
-def current_time()-> str:
+
+######################################################
+###############       Functions        ###############
+######################################################
+def current_time() -> str:
     '''
     Returns the current time. When this function was executed. 
     '''
@@ -159,7 +173,6 @@ def get_args():
                           help='Forces the program to include intergenic regions at contig ends. If not specified,\n'
                                'the program will ignore any sequence after the last ORF on a contig.')
 
-    # TODO: implement in code
     optional.add_argument('-it', '--intergenic_threshold',
                           default=0.30,
                           help='Number of BlastX hits needed to annotate an intergenic region as a pseudogene.\n'
@@ -310,9 +323,9 @@ def make_gff_header(args, gff: str) -> None:
 
             gff_output_handle.write(
                 "%s %s %s %s\n" % ("##sequence-region",
-                                      "gnl|Prokka|%s" % seq_record.id,   #seqid
-                                      1,                      #start
-                                      (len(seq_record))))     #end
+                                   "gnl|Prokka|%s" % seq_record.id,   # seqid
+                                   1,                                 # start
+                                   (len(seq_record))))                # end
 
 
 def collect_query_ids(filename: str) -> List[str]:
@@ -407,7 +420,8 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                                          end=(QueryDict[key]['end']),
                                          strand=QueryDict[key]['strand'],
                                          hits=QueryDict[key]['hits'],
-                                         note='From BlastP;colour=51 153 102'))
+                                         note='From BlastP;colour=51 153 102',
+                                         region_type=RegionType.ORF))
 
         #Have to modify range for intergenic regions
         if blast_format == "BlastX":
@@ -424,7 +438,8 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                                          end=regionEnd,
                                          strand=QueryDict[key]['strand'],
                                          hits=QueryDict[key]['hits'],
-                                         note='From BlastX'))
+                                         note='From BlastX',
+                                         region_type=RegionType.intergenic))
 
     return regionList
 
@@ -478,43 +493,46 @@ def annotate_pseudos(args, contig: Contig) -> List[RegionInfo]:
     '''
 
     #1: Look through list of regions and find individual ORFs that could be pseudogenes.
-    IndividualPseudos = check_individual_ORFs(args=args, lori=contig.regions)
+    IndividualPseudos, IntergenicPseudos = check_individual_ORFs(args=args, lori=contig.regions)
 
     #2: Update list of regions with any pseudogenes that were flagged from step #1.
-    UpdatedList = replace_pseudos_in_list(pseudos=IndividualPseudos, genes=contig.regions)
+    UpdatedList = replace_pseudos_in_list(pseudos=IndividualPseudos+IntergenicPseudos, regions=contig.regions)
 
     #3: Check adjacent regions to see if they could be pseudogene fragments.
     #   This function returns two lists: [0] = Individual pseudogenes
     #                                    [1] = Merged pseudogenes
     AllPseudos = check_adjacent_regions(args=args,
-                                        lori=UpdatedList,
-                                        distance_cutoff=args.distance,
-                                        hit_cutoff=args.shared_hits)
+                                        lori=UpdatedList)
 
     #returns both individual and merged pseudogenes as a single list, with locus tags added.
     return add_locus_tags(lori=(AllPseudos[0] + AllPseudos[1]), contig=contig.name)
 
 
-def check_individual_ORFs(args, lori: List[RegionInfo]) -> List[RegionInfo]:
+def check_individual_ORFs(args, lori: List[RegionInfo]) -> tuple:
     '''
-    This function will take an input of regions and return a list of individual ORFs that could be pseudogenes.
+    This function will take an input of regions and return two lists:
+    [0]: a list of individual ORFs that could be pseudogenes.
+    [1]: a list of intergenic regions that could be pseudogenes.
     '''
 
-    InitialBlastpList = [] #TODO: probably delete the list below
-    InitialList = [] #This list will contain all ORFs that have enough blast hits to be considered.
-                     #If less than 3 blast hits, its hard to calculate a reliable "AverageDatabaseLength"
+    InitialBlastpList = []  # This list will contain all ORFs that have enough blast hits to be considered.
+    BlastpPseudos = []      # This list will contain the resulting pseudogenes
+    BlastxPseudos = []
 
-    lopg = [] #This list will contain the resulting pseudogenes
 
     for region in lori:
         #Only include regions that were already as genes from whichever annotation software, and that have at least 2 blast hits.
-        if 'BlastP' in region.note and len(region.hits) > 2:
+        if region.region_type == RegionType.ORF and len(region.hits) > 2:
             InitialBlastpList.append(region)
-        #TODO: fix this
-        # elif 'BlastX' in region.note and len(region.hits)/hitcap > intergenic_cutoff:
-        #     pseudo = convert_region_to_pseudo(region=region, pseudo_type='intergenic', ratio=0)
-        #     lopg.append(pseudo)
 
+        #Include a blastx hit if it meets the minimum criteria defined by args.intergenic_threshold
+        # For example, if a blastx region has 5 blast hits, the blast hitcap is 15 hits, and the threshold is 0.20,
+        # the region will pass. ( 5/15 >= 0.2 ) is true.
+        elif region.region_type == RegionType.intergenic and len(region.hits)/args.hitcap >= args.intergenic_threshold:
+            pseudo = convert_region_to_pseudo(region=region,
+                                              ratio=None, #this value is only used for BlastP-derived pseudos (see below)
+                                              number_of_hits=len(region.hits))
+            BlastxPseudos.append(pseudo)
 
     for region in InitialBlastpList:
 
@@ -532,39 +550,43 @@ def check_individual_ORFs(args, lori: List[RegionInfo]) -> List[RegionInfo]:
 
         if Ratio < args.length_pseudo:
             pseudo = convert_region_to_pseudo(region=region,
-                                              pseudo_type='ORF',
-                                              ratio=Ratio*100)  #Multiplied by 100 to convert to percentage
-            lopg.append(pseudo)
+                                              ratio=Ratio*100,      #Multiplied by 100 to convert to percentage
+                                              number_of_hits=None)  #Not important for BlastP hits
+            BlastpPseudos.append(pseudo)
 
-    return lopg
+    return BlastpPseudos, BlastxPseudos
 
 
-def convert_region_to_pseudo(region: RegionInfo, pseudo_type: str, ratio: float) -> RegionInfo:
+def convert_region_to_pseudo(region: RegionInfo, ratio: float, number_of_hits: int) -> RegionInfo:
     '''
     Flags a region as a pseudogene by adding a note, that will appear in the GFF file.
     '''
 
-    #TODO: finish implementing this
-    if pseudo_type == 'ORF':
+    if region.region_type == RegionType.ORF:
         message = 'Note=pseudogene candidate. ' \
                   'Reason: ORF is %s%% of the average length of hits to this gene.;' \
-                  'colour=229 204 255' % (round(ratio, 1))
-    elif pseudo_type == 'intergenic':
-        message = 'Note=pseudogene candidate. ' \
-                  'Reason: Intergenic region with'
+                  'colour=229 204 255' % (round(ratio, 1))          #'colour=' makes this region appear coloured in Artemis.
+        pseudo_type = RegionType.shortpseudo
 
-    pseudogene = RegionInfo(region.contig,
-                            region.query,
-                            region.start,
-                            region.end,
-                            region.strand,
-                            region.hits,
-                            'Note=pseudogene candidate. Reason: ORF is %s%% of the average length of hits to this gene.;colour=229 204 255' % (round(ratio,1)))
-                            #'colour=' makes this region appear coloured in Artemis.
+    elif region.region_type == RegionType.intergenic:
+        message = 'Note=pseudogene candidate. ' \
+                  'Reason: Intergenic region with %s blast hits.;' \
+                  'colour=229 204 255' % number_of_hits             #'colour=' makes this region appear coloured in Artemis.
+        pseudo_type = RegionType.intergenicpseudo
+
+    pseudogene = RegionInfo(contig=region.contig,
+                            query=region.query,
+                            start=region.start,
+                            end=region.end,
+                            strand=region.strand,
+                            hits=region.hits,
+                            note=message,
+                            region_type=pseudo_type)
+
     return pseudogene
 
 
-def replace_pseudos_in_list(pseudos: List[RegionInfo], genes: List[RegionInfo]) -> List[RegionInfo]:
+def replace_pseudos_in_list(pseudos: List[RegionInfo], regions: List[RegionInfo]) -> List[RegionInfo]:
     '''
     This function prevents duplicates of regions that would occur if a gene was labelled and pseudogene and the original
     gene was not removed from the list.
@@ -574,17 +596,17 @@ def replace_pseudos_in_list(pseudos: List[RegionInfo], genes: List[RegionInfo]) 
 
     #if a pseudogene is present at the same position, write the pseudo
     #if it is not, write the gene
-    for gene in genes:
+    for region in regions:
 
-        if pseudo_present(gene, pseudos)[0]:
-            FinalList.append(pseudo_present(gene, pseudos)[1])
+        if pseudo_present(region, pseudos)[0]:
+            FinalList.append(pseudo_present(region, pseudos)[1])
         else:
-            FinalList.append(gene)
+            FinalList.append(region)
 
     return FinalList
 
 
-def pseudo_present(gene: RegionInfo, pseudos: List[RegionInfo]) -> tuple:
+def pseudo_present(region: RegionInfo, pseudos: List[RegionInfo]) -> tuple:
     '''
     Takes a particular gene and checks if that gene has been flagged as a pseudogene.
     Returns two pieces of information.
@@ -593,15 +615,15 @@ def pseudo_present(gene: RegionInfo, pseudos: List[RegionInfo]) -> tuple:
     '''
 
     for pseudo in pseudos:
-        if pseudo.start == gene.start:
-            return (True, pseudo)
+        if pseudo.start == region.start:
+            return True, pseudo
         else:
             pass
 
-    return False, gene
+    return False, region
 
 
-def check_adjacent_regions(args, lori: List[RegionInfo], distance_cutoff: int, hit_cutoff: float) -> tuple:
+def check_adjacent_regions(args, lori: List[RegionInfo]) -> tuple:
     '''
     This function will take input blast files and return a list of all pseudogene candidates.
 
@@ -609,7 +631,6 @@ def check_adjacent_regions(args, lori: List[RegionInfo], distance_cutoff: int, h
     contig_number: the position of the contig in a list of contigs. Used for printing information.
     cutoff: refer to arg.shared_hits. Percentage of hits shared between two regions to consider joining them.
     '''
-
     sorted_lori = sorted(lori, key=lambda r: r.start)
 
     MergedList = []  # List of merged pseudogenes stored as RegionInfo
@@ -621,39 +642,32 @@ def check_adjacent_regions(args, lori: List[RegionInfo], distance_cutoff: int, h
 
         NewPseudoMade = False
 
-        #compare_regions() checks that the two regions pass certain criteria
-        if compare_regions(args, r1=sorted_lori[i], r2=sorted_lori[i + 1]) is True:
+        try:
+            #compare_regions() checks that the two regions pass certain criteria
+            if compare_regions(args, r1=sorted_lori[i], r2=sorted_lori[i + 1]) is True:
 
-            #this boolean will be important later on in this function
-            NewPseudoMade = True
+                NewPseudoMade = True    # this boolean will be important later on in this function
+                pseudo = join_regions(sorted_lori[i], sorted_lori[i + 1])   # if they pass, create a pseudogene
 
-            #if they pass, create a pseudogene
-            pseudo = join_regions(sorted_lori[i], sorted_lori[i + 1])
+                # this is to keep track of overall statistics. If the regions are plain ORFs or ORFs annotated
+                # as short pseudos, the counter will increase by 1 for each of them.
+                for region in [sorted_lori[i], sorted_lori[i + 1]]:
+                    if region.region_type == RegionType.ORF or region.region_type == RegionType.shortpseudo:
+                        StatisticsDict['FragmentedOrfs'] += 1
 
-            #this is to keep track of overall statistics. If the regions have not yet been annotated by this program,
-            #the counter will increase by 1 for each of them.
-            for region in [sorted_lori[i], sorted_lori[i + 1]]:
-                if 'Predicted fragmentation of a single gene' not in region.note and 'From BlastX' not in region.note:
-                    StatisticsDict['FragmentedOrfs'] += 1
+                #remove items that were joined together
+                del sorted_lori[i + 1]
+                del sorted_lori[i]
 
-            #remove items that were joined together
-            del sorted_lori[i + 1]
-            del sorted_lori[i]
+            #If regions [i] and [i+1] fail to join (above), look at regions [i] and [i+2].
+            elif compare_regions(args=args, r1=sorted_lori[i], r2=sorted_lori[i + 2]) is True:
 
-        #If regions [i] and [i+1] fail to join (above), look at regions [i] and [i+2].
-        elif i < len(sorted_lori) - 2:
-            if compare_regions(args=args, r1=sorted_lori[i], r2=sorted_lori[i + 2]) is True:
+                NewPseudoMade = True    # this boolean will be important later on in this function
+                pseudo = join_regions(sorted_lori[i], sorted_lori[i + 2])    #if they pass, create a pseudogene
 
-                # this boolean will be important later on in this function
-                NewPseudoMade = True
-
-                #if they pass, create a pseudogene
-                pseudo = join_regions(sorted_lori[i], sorted_lori[i + 2])
-
-                # this is to keep track of overall statistics. If the regions are not intergenic regions and
-                #  have not yet been annotated by this program, the counter will increase by 1 for each of them.
+                # same as above ^
                 for region in [sorted_lori[i], sorted_lori[i + 1], sorted_lori[i + 2]]:
-                    if 'Predicted fragmentation of a single gene' not in region.note and 'From BlastX' not in region.note:
+                    if region.region_type == RegionType.ORF or region.region_type == RegionType.shortpseudo:
                         StatisticsDict['FragmentedOrfs'] += 1
 
                 #remove items that were joined together (and [i+1] because it's in between them)
@@ -662,20 +676,18 @@ def check_adjacent_regions(args, lori: List[RegionInfo], distance_cutoff: int, h
                 del sorted_lori[i]
 
             # If the pieces were not assembled, but one of them is an 'individual pseudogene', it is added to the IndividualList
-            elif 'Note=pseudogene candidate. Reason: ORF' in sorted_lori[i].note:
+            # elif 'Note=pseudogene candidate' and ('Reason: ORF' or 'Reason: Intergenic region') in sorted_lori[i].note:
+            elif sorted_lori[i].region_type == RegionType.shortpseudo or sorted_lori[i].region_type == RegionType.intergenicpseudo:
                 pseudo = sorted_lori[i]
+                #This code deletes an item in IndividualList if it has the same start position as pseudo.
                 IndividualList[:] = [item for item in IndividualList if item.start is not pseudo.start]
                 IndividualList.append(pseudo)
 
-        #TODO: check if this cane be changed to an 'if' statement and then remove the statement above?
-        #This piece of code will only be accessed if 'i' is almost at the end of the list, otherwise it will be captured immediately above &
-        elif 'Note=pseudogene candidate. Reason: ORF' in sorted_lori[i].note:
-            pseudo = sorted_lori[i]
-            IndividualList[:] = [item for item in IndividualList if item.start is not pseudo.start]
-            IndividualList.append(pseudo)
+            # If the region in question fits none of the critera, move on.
+            else:
+                pass
 
-        # If the region in question fits none of the critera, move on.
-        else:
+        except IndexError:  # This will be triggered when 'i' equals the length of the list of pseudos
             pass
 
         #this boolean resets to false every loop, so it will only be 'True' if two regions have just been merged together
@@ -688,7 +700,7 @@ def check_adjacent_regions(args, lori: List[RegionInfo], distance_cutoff: int, h
 
             #Adds the merged region to a list to keep track of all merged regions
             MergedList.append(pseudo)
-
+            #print([item.start for item in MergedList])
             # Adds the merged region to the original list so that it will continue to be considered
             sorted_lori.append(pseudo)
 
@@ -696,17 +708,17 @@ def check_adjacent_regions(args, lori: List[RegionInfo], distance_cutoff: int, h
             sorted_lori = sorted(sorted_lori, key=lambda r: r.start)
 
             #Resets the iterator so that new region can be tested by join_regions()
-            if i > 0:
-                i = i - 1
+            i = i - 1
 
         #If NewPseudoMade is False, then the iterator moves forward in the list to keep checking new regions.
         else:
             i = i + 1
 
     #Once the loop finishes, add all statistics to StatisticsDict for reporting in the log file.
-    StatisticsDict['PseudogenesTotal'] += len(IndividualList) + len(MergedList)
-    StatisticsDict['PseudogenesShort'] += len(IndividualList)
-    StatisticsDict['PseudogenesFragmented'] += len(MergedList)
+    StatisticsDict['PseudogenesTotal'] = len(IndividualList) + len(MergedList)
+    StatisticsDict['PseudogenesShort'] = len([item for item in IndividualList if item.region_type == RegionType.shortpseudo])
+    StatisticsDict['PseudogenesIntergenic'] = len([item for item in IndividualList if item.region_type == RegionType.intergenicpseudo])
+    StatisticsDict['PseudogenesFragmented'] = len(MergedList)
 
     return (IndividualList, MergedList)
 
@@ -720,7 +732,7 @@ def compare_regions(args, r1: RegionInfo, r2: RegionInfo) -> bool:
         region_proximity(r1, r2) < args.distance and      #Closer than cutoff default (1000bp)
         matching_hit_critera(args, r1, r2) is True and    #Have enough matching blast hits
         r1.strand == r2.strand and                        #Same strand
-        not ("ign" in r1.query and "ign" in r2.query)     #They are not both intergenic regions
+        not (r1.region_type == RegionType.intergenic and r2.region_type == RegionType.intergenic)  #They are not both intergenic regions
     ):
         return True
 
@@ -784,7 +796,8 @@ def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
                                end=max([r1.end, r2.end]),
                                strand=r1.strand,
                                hits=merged_hits,
-                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene.;colour=229 204 255') #'colour=' makes this region appear coloured in Artemis.
+                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene. %s %s;colour=229 204 255' % (r1.query, r2.query), # 'colour=' makes this region appear coloured in Artemis.
+                               region_type=RegionType.fragmentedpseudo)
     return merged_region
 
 
@@ -816,7 +829,8 @@ def add_locus_tags(lori: List[RegionInfo], contig: str) -> List[RegionInfo]:
                                   region.hits,
                                   #adds a locus tag with 4 digits.
                                   # ie, if counter = 2 and contig = 'contig1', result will be 'locus_tag=pseudo_contig_1_0002'
-                                  region.note + str(';locus_tag=%s_%04d' % (contig, counter+1)))
+                                  region.note + str(';locus_tag=%s_%04d' % (contig, counter+1)),
+                                  region_type=region.region_type)
 
         FinalList.append(TaggedRegion)
 
@@ -933,7 +947,7 @@ def write_summary_file(args) -> None:
             "Pseudogenes (total):\t%s\n"
             "Pseudogenes (too short):\t%s\n"
             "Pseudogenes (fragmented):\t%s\n"
-            "Pseudogenes (no predicted ORF):\t\n" #TODO: add dict entry to track this
+            "Pseudogenes (no predicted ORF):\t%s\n"
             "Functional genes:\t%s\n\n"
 
             "####### Output Key #######\n"
@@ -958,6 +972,7 @@ def write_summary_file(args) -> None:
                       StatisticsDict['PseudogenesTotal'],
                       StatisticsDict['PseudogenesShort'],
                       StatisticsDict['PseudogenesFragmented'],
+                      StatisticsDict['PseudogenesIntergenic'],
                       StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']))
 
 #TODO: notes- Counting the number of genes going into get_functional adds up to the total number of ORFs found in the proteome file

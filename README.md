@@ -97,6 +97,10 @@ python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE
 
 ```
 # All command line arguments.
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --version         show program's version number and exit
+
 Required arguments:
   -g GENOME, --genome GENOME
                         Please provide your genome file in the genbank format.
@@ -104,7 +108,7 @@ Required arguments:
                         Specify an output prefix.
 
 Required arguments if BLAST files are not provided:
-  -d DATABASE, --database DATABASE
+  -db DATABASE, --database DATABASE
                         Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.
 
 Required arguments if providing BLAST files:
@@ -128,7 +132,19 @@ Adjustable parameters:
                         Percentage of blast hits that must be shared in order to join two nearby regions, default is 0.30 (30%). 
                         Example: "-s 0.50" will merge nearby regions if they shared 50% of their blast hits.
   -e EVALUE, --evalue EVALUE
-                        Please provide e-value for blast searches, default is 1e-4.
+                        Please provide e-value for blast searches. Default is 1e-4.
+  -d DISTANCE, --distance DISTANCE
+                        Maximum distance between two regions to consider joining them. Default is 1000.
+  -hc HITCAP, --hitcap HITCAP
+                        Maximum number of allowed hits for BLAST. Default is 15.
+                        
+  -ce, --contig_ends    Forces the program to include intergenic regions at contig ends. If not specified,
+                        the program will ignore any sequence after the last ORF on a contig.
+  -it INTERGENIC_THRESHOLD, --intergenic_threshold INTERGENIC_THRESHOLD
+                        Number of BlastX hits needed to annotate an intergenic region as a pseudogene.
+                        Calculated as a percentage of maximum number of allowed hits (--hitcap).
+                        Default is 0.3.
+
 ```
 ## Output of pseudo finder
 Every run should result in two or more output files: a summary log.txt file and .gff or .faa files.

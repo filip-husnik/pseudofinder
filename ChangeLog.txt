@@ -1,5 +1,14 @@
 Pseudo finder change log
 ########################
+v0.08 -- 02/03/2018
+*Added 4 new adjustable parameters (see --help for more info):
+	--distance: Maximum distance between two regions to consider joining them.
+	--hitcap: Maximum number of allowed hits for BLAST.
+	--contig_ends: Forces the program to include intergenic regions at contig ends.
+	--intergenic_threshold: Number of BlastX hits needed to annotate an intergenic region as a pseudogene.
+*Simplified code by adding a new data type standardize data parsing and improving argument handling
+*Added tracker in log.txt for number of intergenic pseudogenes detected 
+
 v0.07 -- 24/02/2018
 *Implemented framework for four output types:
 	[1]: Pseudogenes in GFF			<- Completed
