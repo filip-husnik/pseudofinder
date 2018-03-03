@@ -892,21 +892,24 @@ def get_functional_genes(contig: Contig, pseudos: List[RegionInfo]) -> List[Regi
 
 def get_sequences_from_fasta(infile: str, outfile: str, regions: List[RegionInfo], contig:str) -> None:
     """Parses a multifasta file for regions and returns them in a list."""
+    try:
+        with open(infile, 'r') as input, open(outfile, 'a') as output:
+            lines = input.readlines()
 
-    with open(infile, 'r') as input, open(outfile, 'a') as output:
-        lines = input.readlines()
+            regionIndex = 0
 
-        regionIndex = 0
+            for line_number, line in enumerate(lines):
+                try:
+                    if re.match("^>%s %s" % (regions[regionIndex].query, contig), line):
+                        output.write("%s" % line)
+                        output.write("%s" % lines[line_number+1])
+                        regionIndex += 1
+                except IndexError:
+                    pass
 
-        for line_number, line in enumerate(lines):
-            try:
-                if re.match("^>%s %s" % (regions[regionIndex].query, contig), line):
-                    output.write("%s" % line)
-                    output.write("%s" % lines[line_number+1])
-                    regionIndex += 1
-            except IndexError:
-                pass
-
+    except FileNotFoundError:
+        sys.stderr.write('\033[1m'+"Error: Pseudo_finder.py expected proteome file to be in the same directory as BlastP file.\n"+'\033[0m')
+        exit()
 
 def write_summary_file(args) -> None:
     '''
