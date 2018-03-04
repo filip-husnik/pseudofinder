@@ -171,7 +171,7 @@ def get_args():
                           default=False,
                           action='store_true',
                           help='Forces the program to include intergenic regions at contig ends. If not specified,\n'
-                               'the program will ignore any sequence after the last ORF on a contig.')
+                               'the program will ignore any sequence before the first ORF and after the last ORF on a contig.')
 
     optional.add_argument('-it', '--intergenic_threshold',
                           default=0.30,
@@ -280,7 +280,7 @@ def run_blastp(args, faa: str) -> None:
                                          db=args.database,
                                          num_alignments=args.hitcap,
                                          evalue=args.evalue,
-                                         outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore sscinames\'",
+                                         outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore stitle\'",
                                          out=faa + ".blastP_output.tsv")
     blastp_cline()
 
@@ -298,7 +298,7 @@ def run_blastx(args, fasta: str) -> None:
                                          db=args.database,
                                          num_alignments=args.hitcap,
                                          evalue=args.evalue,
-                                         outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore sscinames\'",
+                                         outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore stitle\'",
                                          out=fasta + ".blastX_output.tsv")
     blastx_cline()
 
