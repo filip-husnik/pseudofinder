@@ -2,7 +2,9 @@
 
 **Warning: This repository is still a work in progress!**
 
-Pseudo finder is a Python3 script that detects pseudogene candidates of protein-coding genes [https://en.wikipedia.org/wiki/Pseudogene] from annotated genbank files of bacterial and archaeal genomes. It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag.
+Pseudo finder is a Python3 script that detects pseudogene candidates [https://en.wikipedia.org/wiki/Pseudogene] from annotated genbank files of bacterial and archaeal genomes.
+
+It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag (i.e. including both /gene and /CDS annotations). We recommend several rounds of Pilon [https://github.com/broadinstitute/pilon/wiki] polishing with Illumina reads if you're interested to find pseudogenes in minION/PacBio-only de-novo assemblies. However, Pseudo-finder can be alternatively also used to find sequencing errors (indels) breaking genes in MinION/PacBio-only assemblies.
 
 There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them is open source and allows fine-tuning of parameters.
 
@@ -28,7 +30,7 @@ These instructions will (hopefully) get you the pipeline up and running on your 
 
 ### Prerequisites
 
-Installation requirements: python3, pip3 (or any other way how to install python libraries), argparse, biopython, ncbi-blast+
+Installation requirements: python3, pip3 (or any other way how to install python libraries, e.g. conda or easy_install), biopython, ncbi-blast+
 
 Databases: NCBI-NR (non-redundant) protein database (or similar such as SwissProt) formatted for blastP/blastX searches.
 
@@ -39,7 +41,7 @@ Input files: A genome sequence with gene annotations in the genbank (.gbf/.gbk) 
 
 A step by step series of commands to install all system dependencies:
 
-Installation of python3, pip3, git, and ncbi-blast+ on Ubuntu (as an administrator):
+Installation of python3, pip3, git (optional), and ncbi-blast+ on Ubuntu (as an administrator):
 ```
 sudo apt-get update
 
@@ -54,10 +56,25 @@ Installation of 3rd party python3 libraries on Ubuntu (as an administrator):
 sudo pip3 install biopython
 ```
 
-Cloning the pseudo_finder.py code from github (no root access required):
+*Alternative installation with conda (no root access required) is also possible:*
+
+```
+#install Python3 miniconda https://conda.io/miniconda.html
+conda install -c conda-forge biopython
+conda install -c bioconda blast
+```
+
+Clone the up to date pseudo_finder.py code from github (no root access required):
+
 ```
 git clone https://github.com/filip-husnik/pseudo-finder.git
 ```
+Or download a stable release:
+
+```
+# No stable version released yet.
+```
+
 
 ## Preparing your genome file
 
@@ -176,7 +193,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## Acknowledgments
 
-* This code was inspired by ...
+* This code was inspired mostly by work on bacterial symbionts in early stages of becoming intracellular and strictly host-associated. This ecological shift releases selection pressure ('use it or loose it') on many genes considered essential for free-living bacteria, so relatively recent symbionts can have over 50% of their genes pseudogenized.
 
 ## References
 
@@ -186,7 +203,7 @@ Recognizing the pseudogenes in bacterial genomes: https://www.ncbi.nlm.nih.gov/p
 
 Taking the pseudo out of pseudogenes: https://www.ncbi.nlm.nih.gov/pubmed/25461580
 
-**Several examples from the Sodalis clade showing how important is pseudogene annotation for bacteria in a nascent stage of symbiosis (or similar ecological shifts):**
+**Several examples from the Sodalis clade showing how important is pseudogene annotation for bacteria in a nascent stage of symbiosis:**
 
 Mobile genetic element proliferation and gene inactivation impact over the genome structure and metabolic capabilities of Sodalis glossinidius, the secondary endosymbiont of tsetse flies: https://www.ncbi.nlm.nih.gov/pubmed/20649993
 
