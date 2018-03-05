@@ -4,7 +4,7 @@
 
 Pseudo finder is a Python3 script that detects pseudogene candidates [https://en.wikipedia.org/wiki/Pseudogene] from annotated genbank files of bacterial and archaeal genomes.
 
-It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag (i.e. including both /gene and /CDS annotations). We recommend several rounds of Pilon [https://github.com/broadinstitute/pilon/wiki] polishing with Illumina reads if you're interested to find pseudogenes in minION/PacBio-only de-novo assemblies. However, Pseudo-finder can be alternatively also used to find sequencing errors (indels) breaking genes in MinION/PacBio-only assemblies.
+It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag (i.e. including both /gene and /CDS annotations). We recommend several rounds of Pilon [https://github.com/broadinstitute/pilon/wiki] polishing with Illumina reads if you're interested to find pseudogenes in minION/PacBio assemblies. However, Pseudo-finder can be alternatively also used to find sequencing errors (indels) breaking genes in MinION/PacBio-only assemblies.
 
 There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them is open source and allows fine-tuning of parameters.
 
