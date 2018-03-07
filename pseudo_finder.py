@@ -70,7 +70,8 @@ StatisticsDict = {
                     'FragmentedOrfs':0,
                     'PseudogenesTotal':0,
                     'PseudogenesShort':0,
-                    'PseudogenesFragmented':0
+                    'PseudogenesFragmented':0,
+                    'PseudogenesIntergenic':0
                   }
 
 
@@ -715,10 +716,10 @@ def check_adjacent_regions(args, lori: List[RegionInfo]) -> tuple:
             i = i + 1
 
     #Once the loop finishes, add all statistics to StatisticsDict for reporting in the log file.
-    StatisticsDict['PseudogenesTotal'] = len(IndividualList) + len(MergedList)
-    StatisticsDict['PseudogenesShort'] = len([item for item in IndividualList if item.region_type == RegionType.shortpseudo])
-    StatisticsDict['PseudogenesIntergenic'] = len([item for item in IndividualList if item.region_type == RegionType.intergenicpseudo])
-    StatisticsDict['PseudogenesFragmented'] = len(MergedList)
+    StatisticsDict['PseudogenesTotal'] += len(IndividualList) + len(MergedList)
+    StatisticsDict['PseudogenesShort'] += len([item for item in IndividualList if item.region_type == RegionType.shortpseudo])
+    StatisticsDict['PseudogenesIntergenic'] += len([item for item in IndividualList if item.region_type == RegionType.intergenicpseudo])
+    StatisticsDict['PseudogenesFragmented'] += len(MergedList)
 
     return (IndividualList, MergedList)
 
@@ -985,6 +986,8 @@ def write_summary_file(args) -> None:
 def main():
     #Collect arguments from parser
     args = get_args()
+
+    #global StatisticsDict =
 
     #If blast files are not provided, must run blast.
     if args.blastp is None and args.blastx is None:
