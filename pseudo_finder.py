@@ -279,7 +279,8 @@ def run_blastp(args, faa: str) -> None:
     blastp_cline = NcbiblastpCommandline(query=faa,
                                          num_threads=args.threads,
                                          db=args.database,
-                                         num_alignments=args.hitcap,
+                                         max_target_seqs=args.hitcap,
+                                         max_hsps=1,
                                          evalue=args.evalue,
                                          outfmt= "\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore stitle\'",
                                          out=faa + ".blastP_output.tsv")
@@ -297,7 +298,8 @@ def run_blastx(args, fasta: str) -> None:
     blastx_cline = NcbiblastxCommandline(query=fasta,
                                          num_threads=args.threads,
                                          db=args.database,
-                                         num_alignments=args.hitcap,
+                                         max_target_seqs=args.hitcap,
+                                         max_hsps=1,
                                          evalue=args.evalue,
                                          outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send slen evalue bitscore stitle\'",
                                          out=fasta + ".blastX_output.tsv")
@@ -917,10 +919,11 @@ def write_summary_file(args) -> None:
     Writes a summary file of statistics from the pseudo_finder run.
     '''
 
-    print('%s\tWriting summary of run.' % (current_time())),
+    name = args.outprefix + '_log.txt'
+
+    print('%s\tWriting summary of run:\t%s' % (current_time(), name)),
     sys.stdout.flush()
 
-    name = args.outprefix + '_log.txt'
 
     with open(name, 'w') as logfile:
         logfile.write(
