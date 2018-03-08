@@ -410,7 +410,7 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                 #Append hit info to list
                 QueryDict[query]['hits'].append(BlastHit(accession=FieldsInLine[1],
                                                          slen=int(FieldsInLine[10])*3,
-                                                         s_start=int(FieldsInLine[6]),
+                                                         s_start=int(FieldsInLine[6])+1,
                                                          s_end=int(FieldsInLine[7]),
                                                          eval=float(FieldsInLine[11])))
 
@@ -799,7 +799,7 @@ def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
                                end=max([r1.end, r2.end]),
                                strand=r1.strand,
                                hits=merged_hits,
-                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene. %s %s;colour=229 204 255' % (r1.query, r2.query), # 'colour=' makes this region appear coloured in Artemis.
+                               note='Note=pseudogene candidate. Reason: Predicted fragmentation of a single gene.;colour=229 204 255', # 'colour=' makes this region appear coloured in Artemis.
                                region_type=RegionType.fragmentedpseudo)
     return merged_region
 
