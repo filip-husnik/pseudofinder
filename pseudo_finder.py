@@ -380,7 +380,7 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                 # collect contig, start, end, strand from fields, add to dictionary
                 QueryDict[query] = {'contig':FieldsInLine[3],
                                     'query':FieldsInLine[2],
-                                    'start':int(FieldsInLine[4]),
+                                    'start':int(FieldsInLine[4])+1,
                                     'end':int(FieldsInLine[5]),
                                     'strand':FieldsInLine[6],
                                     'hits':[]}
@@ -410,7 +410,7 @@ def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
                 #Append hit info to list
                 QueryDict[query]['hits'].append(BlastHit(accession=FieldsInLine[1],
                                                          slen=int(FieldsInLine[10])*3,
-                                                         s_start=int(FieldsInLine[6])+1,
+                                                         s_start=int(FieldsInLine[6]),
                                                          s_end=int(FieldsInLine[7]),
                                                          eval=float(FieldsInLine[11])))
 
@@ -682,7 +682,7 @@ def check_adjacent_regions(args, lori: List[RegionInfo]) -> tuple:
             # elif 'Note=pseudogene candidate' and ('Reason: ORF' or 'Reason: Intergenic region') in sorted_lori[i].note:
             elif sorted_lori[i].region_type == RegionType.shortpseudo or sorted_lori[i].region_type == RegionType.intergenicpseudo:
                 pseudo = sorted_lori[i]
-                #This code deletes an item in IndividualList if it has the same start position as pseudo.
+                #This code deletes an item in IndividualList if it has the same start position as an individual pseudo.
                 IndividualList[:] = [item for item in IndividualList if item.start is not pseudo.start]
                 IndividualList.append(pseudo)
 
@@ -698,8 +698,8 @@ def check_adjacent_regions(args, lori: List[RegionInfo]) -> tuple:
             #This code deletes an item in MergedList if that item has the same start position as the pseudogene.
             #It works like:
             #   MergedList[:] = a new version of MergedList, that contains items from MergedList,
-            #   unless that item's start point is the same as the pseudo's start point.
-            MergedList[:] = [item for item in MergedList if item.start is not pseudo.start]
+            #   unless that item is nested within the new pseudogene.
+            MergedList[:] = [item for item in MergedList if (item.start is not pseudo.start) and (item.end is not pseudo.end)]
 
             #Adds the merged region to a list to keep track of all merged regions
             MergedList.append(pseudo)
@@ -716,6 +716,10 @@ def check_adjacent_regions(args, lori: List[RegionInfo]) -> tuple:
         #If NewPseudoMade is False, then the iterator moves forward in the list to keep checking new regions.
         else:
             i = i + 1
+
+        # This list slice will remove rare cases where a pseudogene isnt handled correctly and remains in the IndividualList
+        # despite being a part of a merged pseudogene in MergedList
+        IndividualList[:] = [item for item in IndividualList if item.start not in [pseudo.start for pseudo in MergedList]]
 
     #Once the loop finishes, add all statistics to StatisticsDict for reporting in the log file.
     StatisticsDict['PseudogenesTotal'] += len(IndividualList) + len(MergedList)
