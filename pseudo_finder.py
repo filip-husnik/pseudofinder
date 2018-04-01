@@ -641,7 +641,7 @@ def check_adjacent_regions(args, lori: List[RegionInfo]) -> tuple:
 
     i = 0   # Iterator
 
-    while i < len(sorted_lori)-1:
+    while i < len(sorted_lori)-1 and len(sorted_lori) > 1:
 
         NewPseudoMade = False
 
@@ -1068,19 +1068,24 @@ def main():
     for contig_index, contig in enumerate(AllRegionsByContig):
 
         # Reports the contig number being examined.
-        print('%s\tChecking contig %s / %s for pseudogenes.' % (current_time(),
-                                                                contig_index+1,  #indices are 0 based so I added 1 to make it more intuitive
-                                                                len(AllRegionsByContig))),
+        print('\033[1m'+'%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
+                                                                                 contig_index+1,  #indices are 0 based so I added 1 to make it more intuitive
+                                                                                 len(AllRegionsByContig))),
         sys.stdout.flush()
 
         #Annotate pseudogenes
         PseudoGenes = annotate_pseudos(args=args, contig=contig)
+        print('\t\t\tNumber of ORFs on this contig: %s\n'
+              '\t\t\tNumber of pseudogenes flagged: %s' % (len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+                                                           len(PseudoGenes))),
+        sys.stdout.flush()
+
 
         #Retrieve functional genes by comparing ORFs to annotated pseudogenes
         try:
             FunctionalGenes = get_functional_genes(contig=ORFsByContig[contig_index], pseudos=PseudoGenes)
         except IndexError: #If there are no ORFs on a small contig, an error will be thrown when trying to check that contig.
-            break
+            continue
 
         #Write the appropriate output types
         if '1' in OutputTypes: # Write GFF file with pseudogenes in it
