@@ -918,6 +918,29 @@ def get_sequences_from_fasta(infile: str, outfile: str, regions: List[RegionInfo
         sys.stderr.write('\033[1m'+"Error: Pseudo_finder.py expected proteome file to be in the same directory as BlastP file.\n"+'\033[0m')
         exit()
 
+
+def get_sequences_from_gbk(args, contig_name: str, regions: List[RegionInfo], outfile: str) -> None:
+    '''
+    Parse genbank input file for the regions provided and write them to the output file with coordinates.
+    '''
+    #Generates a list of [start:end] tuples that will be used to retrieve sequences
+    coord_list = [(region.start, region.end) for region in regions]
+    #Where the info for writing to the fasta file will be stored
+    fasta_list = []
+    # Parse all contigs in the multicontig genbank
+    for contig in SeqIO.parse(args.genome, "genbank"):  # contig = all information for an entire contig
+        if contig_name == contig.name:
+            for counter, coord in enumerate(coord_list):
+                fasta_list.append(
+                    SeqRecord(seq=contig.seq[coord[0]:coord[1]],
+                              id="%s_%04d" % (contig.name, counter+1),
+                              description="%s-%s +" % (coord[0], coord[1]))
+                )
+
+    # Write to the fasta file
+    SeqIO.write(fasta_list, open(outfile, "a"), "fasta")
+
+
 def write_summary_file(args) -> None:
     '''
     Writes a summary file of statistics from the pseudo_finder run.
@@ -1054,9 +1077,10 @@ def main():
         StatisticsDict['OutputFiles'].append("Output [2]: %s" % FunctionalGff)
 
     if '3' in OutputTypes: #TODO: not yet properly implemented
-        print('\033[1m' + "Notice! --outformat 3 specified but this output has not yet been implemented." +'\033[0m'),
+        print('\033[1m' + "Notice! --outformat 3 specified but this output has not yet been tested." +'\033[0m'),
         sys.stdout.flush()
-        # faa_filename_3 = args.outprefix + "_" + os.path.basename(args.genome) + "_pseudos.faa"
+        fasta_filename_3 = args.outprefix + "_" + os.path.basename(args.genome) + "_pseudos.fasta"
+        open(fasta_filename_3, 'w').close()
 
     if '4' in OutputTypes:
         FunctionalFaa = args.outprefix + "_" + os.path.basename(args.genome) + "_functional.faa"
@@ -1094,10 +1118,11 @@ def main():
         if '2' in OutputTypes: # TODO: implement this if it is ever needed
             write_genes_to_gff(lopg=FunctionalGenes, gff=FunctionalGff)
 
-        # if '3' in OutputTypes: #TODO: implement this if it is ever needed
-        #     get_sequences_from_fasta(infile=faa_filename, #from the beginning of main()
-        #                              outfile=faa_filename_3, #generated just above
-        #                              regions=pseudos)
+        if '3' in OutputTypes: #TODO: implement this if it is ever needed
+            get_sequences_from_gbk(args,
+                                   contig_name=contig.name,
+                                   outfile=fasta_filename_3, #generated just above
+                                   regions=PseudoGenes)
 
         if '4' in OutputTypes: #Write FAA file with protein coding genes in it
             get_sequences_from_fasta(infile=ProteomeFilename,
