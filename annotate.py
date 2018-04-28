@@ -167,7 +167,9 @@ def get_args():
                                'Calculated as a percentage of maximum number of allowed hits (--hitcap).\n'
                                'Default is %(default)s.')
 
-    args = parser.parse_args()
+    # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
+    # We only care about the known arguments, so we take [0].
+    args = parser.parse_known_args()[0]
 
     if args.blastx is None and args.blastp is None and args.database is None:
         parser.error("Pseudofinder requires a database input unless blast results are provided.")
