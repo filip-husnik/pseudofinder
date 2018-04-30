@@ -54,6 +54,10 @@ sudo apt-get install git
 Installation of 3rd party python3 libraries on Ubuntu (as an administrator):
 ```
 sudo pip3 install biopython
+sudo pip3 install plotly
+sudo pip3 install pandas
+sudo pip3 install numpy
+sudo pip3 install reportlab
 ```
 
 *Alternative installation with conda (no root access required) is also possible:*
@@ -62,6 +66,10 @@ sudo pip3 install biopython
 #install Python3 miniconda https://conda.io/miniconda.html
 conda install -c conda-forge biopython
 conda install -c bioconda blast
+conda install plotly
+conda install pandas
+conda install numpy
+conda install reportlab
 ```
 
 Clone the up to date pseudo_finder.py code from github (no root access required):
@@ -89,7 +97,7 @@ This flowchart shows all steps of the pseudofinder pipeline.
 
 ![alt text](https://github.com/filip-husnik/pseudo-finder/blob/master/pseudofinder_flowchart.png)
 
-## Running pseudo finder
+## Running pseudo finder to detect pseudogenes
 
 As with any other python script, there are two ways how to run it.
 
@@ -106,10 +114,10 @@ Providing input files.
 ```
 # Run the full pipeline on 16 processors (for BlastX/BlastP searches).
 # Unless you have a $BLASTDB environmental variable set on your system, you have to provide a full path to the NR database.
-python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --database /PATH/TO/NR/nr --threads 16 
+python3 pseudo_finder.py annotate --genome GENOME.GBF --output PREFIX --database /PATH/TO/NR/nr --threads 16 
 
 # Run only pseudogene detection (e.g. when blast output files are already available from a previous run).
-python3 pseudo_finder.py --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
+python3 pseudo_finder.py annotate --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
 ```
 
 ```
@@ -168,7 +176,8 @@ Every run should result in two or more output files: a summary log.txt file and 
 
 log.txt: The log file includes basic statistics about pseudogene candidates detected.
 
-Explanation of output choices
+Explanation of output choices:
+
 '--outformat 1': GFF file containing only ORFs flagged as pseudogenes.
 	The .gff file can be used to overlay the original annotation (we use the Artemis genome browser [http://www.sanger.ac.uk/science/tools/artemis]) with predicted pseudogene candidates.
 
@@ -182,6 +191,31 @@ Explanation of output choices
 	This file can be used for any downstream analysis of functional genes. 
 
 *Note: Outputs can be combined. If '-of 12' is specified, files '1' and '2' will be written.
+
+
+## Visualizing settings
+
+One strength of Pseudo-finder is its ability to be fine-tuned to the user's preferences. To help visualize the effects of changing the parameters of this program, we have provided the 'visualize' command. This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. It is run by providing the blast files from the 'annotate' command:
+```
+python pseudo_finder.py visualize \
+    --genome GENOME.GBF \
+    --blastx BLASTXFILE.TSV \
+    --blastp BLASTPFILE.TSV \
+    --outprefix PREFIX \
+    --hitcap HITCAP
+```
+Please note: Since the annotation depends on your choice of '--hitcap', you must enter it here. This value can be found in the log file of the run that generated your blast files.
+
+## Mapping pseudogenes
+
+Pseudo-finder can generate a chromosome map to display detected pseudogenes with a single command:
+
+```
+pseudo_finder.py map --genome GENOME --gff GFF --outprefix PREFIX
+```
+Please provide your pseudogene calls in GFF format (the default output from pseudofinder.py annotate).
+
+The resulting chromosome map will show the original annotation in the center track, and pseudogenes will appear on the outer track in red.
 
 ## Contributing
 

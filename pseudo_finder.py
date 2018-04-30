@@ -10,24 +10,30 @@ Installation requirements:
 
  """
 __author__ = "Mitch Syberg-Olsen & Filip Husnik"
-__version__ = "0.08"
+__version__ = "0.09"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
 from sys import argv, stderr
-import annotate
-import visualize
+import annotate, visualize, genome_map
 
 print("Please note: the pseudo_finder code is currently being reorganized. Up to date documentation will be written shortly.")
 
-errormessage=("Options: [pseudo_finder.py annotate] or [pseudo_finder.py visualize]\n")
+errormessage=("Options: pseudo_finder.py [ annotate | visualize | map | help ]\n")
 
 try:
     if argv[1] == "annotate":
         annotate.main()
     elif argv[1] == "visualize":
         visualize.main()
+    elif argv[1] == "map":
+        genome_map.main()
+    elif argv[1] == "help":
+        stderr.write("\tpseudofinder.py annotate: Flags candidate pseudogenes.\n"
+                     "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of settings.\n"
+                     "\tpseudofinder.py map: Generates a chromosome map to show where pseudogenes have been called.\n")
+        exit() #TODO: write a more informative help message
     else:
-        stderr.write(errormessage)
+        stderr.write(errormessage); exit()
 except IndexError:
-    stderr.write(errormessage)
+    stderr.write(errormessage); exit()

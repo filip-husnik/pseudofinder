@@ -1,5 +1,16 @@
 Pseudo finder change log
 ########################
+v0.09 -- 30/04/2018
+*Major code reorganization
+    -previously: all executable code was in one file, pseudo_finder.py
+    -now: pseudo_finder.py routes users to either annotate.py, visualize.py or genome_map.py
+*New feature: visualize
+    -allows users to generate a 3D surface plot in HTML format to inspect the quantity of pseudogenes called when
+     '--length_pseudo' and '--shared_hits' are varied.
+*New feature: map
+    -allows users to plot all pseudogene calls from a GFF file on to a chromosome map.
+*README.md has been updated to reflect the changes.
+
 v0.08 -- 02/03/2018
 *Added 4 new adjustable parameters (see --help for more info):
 	--distance: Maximum distance between two regions to consider joining them.
