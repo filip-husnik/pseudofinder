@@ -4,9 +4,9 @@ pseudo_finder.py: A script to find pseudogene candidates in annotated genbank fi
 Tested mostly on .gbk files annotated by Prokka with the --compliant flag.
 
 Installation requirements:
-    python3
-    3rd party libraries: biopython
-    libraries from the Python standard library: see annotate.py and visualize.py
+    *python3
+    *3rd party libraries: biopython, plotly, pandas, numpy, reportlab
+    *libraries from the Python standard library: see annotate.py, visualize.py and genome_map.py
 
  """
 __author__ = "Mitch Syberg-Olsen & Filip Husnik"

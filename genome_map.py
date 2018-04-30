@@ -98,7 +98,11 @@ def make_diagram(args, genome_record: SeqIO.SeqRecord, pseudo_record: SeqIO.SeqR
             color = colors.lightblue
         original_features.add_feature(feature, color=color)
 
-    track_for_original_features = GenomeDiagram.Track(name="Original Features")
+    track_for_original_features = GenomeDiagram.Track(name="Original Features",
+                                                      scale_largetick_interval=100000,
+                                                      scale_largeticks=5,
+                                                      scale_fontangle=180,
+                                                      scale_fontsize=10)
     track_for_original_features.add_set(original_features)
     diagram.add_track(track=track_for_original_features, track_level=1)
 
@@ -110,7 +114,7 @@ def make_diagram(args, genome_record: SeqIO.SeqRecord, pseudo_record: SeqIO.SeqR
             color = colors.lightcoral
         pseudo_features.add_feature(feature, color=color)
 
-    track_for_pseudogenes = GenomeDiagram.Track(name="Pseudogenes")
+    track_for_pseudogenes = GenomeDiagram.Track(name="Pseudogenes", scale_largetick_labels=0)
     track_for_pseudogenes.add_set(pseudo_features)
     diagram.add_track(track=track_for_pseudogenes, track_level=2)
 
