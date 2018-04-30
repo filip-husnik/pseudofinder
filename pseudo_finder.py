@@ -17,8 +17,6 @@ __email__ = "filip.husnik@gmail.com"
 from sys import argv, stderr
 import annotate, visualize, genome_map
 
-print("Please note: the pseudo_finder code is currently being reorganized. Up to date documentation will be written shortly.")
-
 errormessage=("Options: pseudo_finder.py [ annotate | visualize | map | help ]\n")
 
 try:
