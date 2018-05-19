@@ -189,7 +189,7 @@ def get_proteome(args, faa: str) -> None:
         with open(faa, "w") as output_handle:
             for seq_record in SeqIO.parse(input_handle, "genbank"):
                 for seq_feature in seq_record.features:
-                    if seq_feature.type == "gene":
+                    if seq_feature.type == "CDS":
                         assert len(seq_feature.qualifiers['translation']) == 1
                         output_handle.write(">%s %s %s\n%s\n" % (seq_feature.qualifiers['locus_tag'][0],
                                                                  seq_record.name,
@@ -218,7 +218,7 @@ def get_intergenic_regions(args, fasta: str) -> None:
         intergenic_records = []  # List of intergenic regions that has been extracted from in between coding regions.
         
         for feature in contig.features:  # Loop over the contig, get the gene features on each of the strands
-            if feature.type == 'gene':  # Only present if prokka was run with --compliant flag
+            if feature.type == "CDS":  # Only present if prokka was run with --compliant flag
                 start_position = feature.location._start.position
                 end_position = feature.location._end.position
                 gene_list.append((start_position, end_position))
