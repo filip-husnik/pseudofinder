@@ -68,34 +68,15 @@ def settings_loop(args):
     interval = 1 / args.resolution
     path_to_annotate = os.path.dirname(__file__)+"/annotate.py"
 
-    for length_pseudo in numpy.arange(0.0,1.01,interval):
+    for length_pseudo in numpy.arange(0.0, 1.01, interval):
         print("Collecting data: %d%% completed" % round(length_pseudo*100, 2), end='\r')
-        for shared_hits in numpy.arange(0.0,1.01,interval):
+        for shared_hits in numpy.arange(0.0, 1.01, interval):
             filename = "%s/L%s_S%s" % (args.outprefix, length_pseudo, shared_hits)
             # Runs annotate.py as if you were using the command line
-            subprocess.call(
-                "python %s --genome %s --outprefix %s --blastp %s --blastx %s --length_pseudo %s --shared_hits %s --hitcap %s"
-                " --outformat 0 > /dev/null" % (path_to_annotate, args.genome, filename, args.blastp, args.blastx,
-                                                length_pseudo, shared_hits, args.hitcap),
-                shell=True)
-
-            # os.system("python %s "
-            #           "--genome %s "
-            #           "--outprefix %s "
-            #           "--blastp %s "
-            #           "--blastx %s "
-            #           "--length_pseudo %s "
-            #           "--shared_hits %s "
-            #           "--hitcap %s "
-            #           "--outformat 0"
-            #           " > /dev/null" % (path_to_annotate,
-            #                             args.genome,
-            #                             filename,
-            #                             args.blastp,
-            #                             args.blastx,
-            #                             length_pseudo,
-            #                             shared_hits,
-            #                             args.hitcap))
+            subprocess.call("python3 %s --genome %s --outprefix %s --blastp %s --blastx %s --length_pseudo %s --shared_hits %s"
+                            " --hitcap %s --outformat 0 > /dev/null" % (path_to_annotate, args.genome, filename, args.blastp,
+                                                                        args.blastx, length_pseudo, shared_hits, args.hitcap),
+                            shell=True)
 
     print('') #Necessary because the previous print was rolling back on itself
 
@@ -146,7 +127,7 @@ def make_plot(args):
 
     fig = Figure(data=data, layout=layout)
     plot(fig, filename=args.outprefix+".html", auto_open=False)
-
+    print("Figure plotted: %s.html" % args.outprefix)
 
 def main():
     args = get_args()
