@@ -189,7 +189,7 @@ def get_proteome(args, faa: str) -> None:
         with open(faa, "w") as output_handle:
             for seq_record in SeqIO.parse(input_handle, "genbank"):
                 for seq_feature in seq_record.features:
-                    if seq_feature.type == "CDS":
+                    if seq_feature.type == "gene":
                         assert len(seq_feature.qualifiers['translation']) == 1
                         output_handle.write(">%s %s %s\n%s\n" % (seq_feature.qualifiers['locus_tag'][0],
                                                                  seq_record.name,
