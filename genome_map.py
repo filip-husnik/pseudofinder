@@ -128,3 +128,6 @@ def main():
     base_record = read_gbk(args)
     pseudos_record = read_gff(args)
     make_diagram(args, base_record, pseudos_record)
+
+if __name__ == '__main__':
+    main()

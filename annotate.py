@@ -1008,8 +1008,6 @@ def main():
     #Collect arguments from parser
     args = get_args()
 
-    #global StatisticsDict =
-
     #If blast files are not provided, must run blast.
     if args.blastp is None and args.blastx is None:
 

@@ -8,6 +8,7 @@ import sys, os
 import argparse
 import re
 import shutil
+import subprocess
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -63,7 +64,7 @@ def get_args():
 
 
 def settings_loop(args):
-    "This function will run annotate.py with a variety of settings."
+    """This function will run annotate.py with a variety of settings."""
     interval = 1 / args.resolution
     path_to_annotate = os.path.dirname(__file__)+"/annotate.py"
 
@@ -72,28 +73,35 @@ def settings_loop(args):
         for shared_hits in numpy.arange(0.0,1.01,interval):
             filename = "%s/L%s_S%s" % (args.outprefix, length_pseudo, shared_hits)
             # Runs annotate.py as if you were using the command line
-            os.system("python %s "
-                   "--genome %s "
-                   "--outprefix %s "
-                   "--blastp %s "
-                   "--blastx %s "
-                   "--length_pseudo %s "
-                   "--shared_hits %s "
-                   "--hitcap %s "
-                   "--outformat 0"
-                   " > /dev/null" % (path_to_annotate,
-                                     args.genome,
-                                     filename,
-                                     args.blastp,
-                                     args.blastx,
-                                     length_pseudo,
-                                     shared_hits,
-                                     args.hitcap))
-    print('\n') #Necessary because the previous print was rolling back on itself
+            subprocess.call(
+                "python %s --genome %s --outprefix %s --blastp %s --blastx %s --length_pseudo %s --shared_hits %s --hitcap %s"
+                " --outformat 0 > /dev/null" % (path_to_annotate, args.genome, filename, args.blastp, args.blastx,
+                                                length_pseudo, shared_hits, args.hitcap),
+                shell=True)
+
+            # os.system("python %s "
+            #           "--genome %s "
+            #           "--outprefix %s "
+            #           "--blastp %s "
+            #           "--blastx %s "
+            #           "--length_pseudo %s "
+            #           "--shared_hits %s "
+            #           "--hitcap %s "
+            #           "--outformat 0"
+            #           " > /dev/null" % (path_to_annotate,
+            #                             args.genome,
+            #                             filename,
+            #                             args.blastp,
+            #                             args.blastx,
+            #                             length_pseudo,
+            #                             shared_hits,
+            #                             args.hitcap))
+
+    print('') #Necessary because the previous print was rolling back on itself
 
 
 def parse_summary_files(args):
-    "This function will parse the summary files for the values needed to generate a 3D plot."
+    """This function will parse the summary files for the values needed to generate a 3D plot."""
 
     outfile = open(args.outprefix + '_matrix.tsv', 'w')
     outfile.write("length_pseudo\tshared_hits\tpseudogenes\n") #header for the output file
@@ -117,7 +125,7 @@ def parse_summary_files(args):
 
 
 def make_plot(args):
-    "This function will generate a 3D surface plot."
+    """This function will generate a 3D surface plot."""
     raw_data = pd.read_csv(args.outprefix+'_matrix.tsv', sep="\t", dtype=float, names=['length_pseudo', 'shared_hits', 'vals'], header=0)
     matrix = raw_data.pivot(index='length_pseudo', columns='shared_hits', values='vals')
 
@@ -137,7 +145,7 @@ def make_plot(args):
     )
 
     fig = Figure(data=data, layout=layout)
-    plot(fig, image_filename=args.outprefix, image='png')
+    plot(fig, filename=args.outprefix+".html", auto_open=False)
 
 
 def main():
@@ -154,3 +162,6 @@ def main():
 
     if args.keep_files is False:
         shutil.rmtree(args.outprefix)
+
+if __name__ == '__main__':
+    main()
