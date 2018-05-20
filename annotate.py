@@ -463,8 +463,11 @@ def split_regions_into_contigs(lori: List[RegionInfo]) -> List[Contig]:
     contig_list = []
 
     for contig_name in contig_names:
-        #splits a contig name (ie. EOKKIDHA_1) by the underscore, and takes the number.
-        contig_number = int(contig_name.split(sep='_')[1])
+        # Finds all numbers in the contig name (ie. '15' in EOKKIDHA_15) and returns them as a single integer
+        contig_number = "".join(re.findall('\d', str(contig_name)))
+        # splits a contig name (ie. EOKKIDHA_1) by the underscore, and takes the number.
+        # contig_number = int(contig_name.split(sep='_')[1])
+        
         #this will store the List[RegionInfo] to be contained on a contig
         regions_on_contig = []
 
