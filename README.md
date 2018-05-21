@@ -258,9 +258,9 @@ Large scale and significant expression from pseudogenes in Sodalis glossinidius 
 ## Wish list
 There are several additional features we'll try to include in the script in the near future.
 
-**1. Include an optional FPKM cut-off when there are RNA-Seq data available.**
+1. Include an optional FPKM cut-off when there are RNA-Seq data available.
 
-**2. Improve logic for ORFs on contigs ends broken by assembly issues (e.g. metagenome-assembled genomes).**
+2. Improve logic for ORFs on contigs ends broken by assembly issues (e.g. metagenome-assembled genomes).
 
 3. Check if the ORFs called as pseudogenes do not represent individual protein domains that can exists and evolve independently of the rest of the original multi-domain protein chain (PFAM?)
 
