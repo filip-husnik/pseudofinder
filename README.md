@@ -259,11 +259,17 @@ Large scale and significant expression from pseudogenes in Sodalis glossinidius 
 There are several additional features we'll try to include in the script in the near future.
 
 **1. Include an optional FPKM cut-off when there are RNA-Seq data available.**
+
 **2. Improve logic for ORFs on contigs ends broken by assembly issues (e.g. metagenome-assembled genomes).**
+
 3. Check if the ORFs called as pseudogenes do not represent individual protein domains that can exists and evolve independently of the rest of the original multi-domain protein chain (PFAM?)
+
 4. Include an optional analysis of cryptic pseudogenes based on dN/dS ratios (PAML?...) when there are closely related genomes available.
+
 5. Fine tune pseudogene finding for mobile elements such as transposases.
+
 6. Visualize results by a scatter plot of all genes/pseudogenes (dN/dS, GC content, expression, length ratio, ...).
+
 7. Sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastP hits by blastX.
 
 Please suggest any additional features here: [https://github.com/filip-husnik/pseudo-finder/issues].
