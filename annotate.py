@@ -218,7 +218,7 @@ def get_intergenic_regions(args, fasta: str) -> None:
         intergenic_records = []  # List of intergenic regions that has been extracted from in between coding regions.
         
         for feature in contig.features:  # Loop over the contig, get the gene features on each of the strands
-            if feature.type == "CDS":  # Only present if prokka was run with --compliant flag
+            if feature.type == "gene":  # Only present if prokka was run with --compliant flag
                 start_position = feature.location._start.position
                 end_position = feature.location._end.position
                 gene_list.append((start_position, end_position))
