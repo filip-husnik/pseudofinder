@@ -266,10 +266,12 @@ There are several additional features we'll try to include in the script in the 
 
 4. Include an optional analysis of cryptic pseudogenes based on dN/dS ratios (PAML?...) when there are closely related genomes available.
 
-5. Fine tune pseudogene finding for mobile elements such as transposases.
+5. Include DIAMOND blastX and blastP as much faster alternatives to NCBI BlastX and BlastP.
 
-6. Visualize results by a scatter plot of all genes/pseudogenes (dN/dS, GC content, expression, length ratio, ...).
+6. Fine tune pseudogene finding for mobile elements such as transposases.
 
-7. Sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastP hits by blastX.
+7. Visualize results by a scatter plot of all genes/pseudogenes (dN/dS, GC content, expression, length ratio, ...).
+
+8. Sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastP hits by blastX.
 
 Please suggest any additional features here: [https://github.com/filip-husnik/pseudo-finder/issues].
