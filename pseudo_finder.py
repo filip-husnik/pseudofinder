@@ -26,6 +26,8 @@ try:
         visualize.main()
     elif argv[1] == "map":
         genome_map.main()
+    elif argv[1] == "test":
+        pseudofinder_test.main()
     elif argv[1] == "help":
         stderr.write("\tpseudofinder.py annotate: Flags candidate pseudogenes.\n"
                      "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of settings.\n"
