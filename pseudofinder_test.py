@@ -2,7 +2,7 @@
 ##############  UNDER CONSTRUCTION    ##############
 ##############  UNDER CONSTRUCTION    ##############
 ##############  UNDER CONSTRUCTION    ##############
-import subprocess, os, argparse
+import subprocess, os
 from collections import OrderedDict
 
 
@@ -31,8 +31,8 @@ def main():
     CommandDict['annotate_command'] = "python3 %s annotate -g %s -db %s -op %s" % (path_to_pseudofinder, genome, database, output_prefix)
     CommandDict['visualize_command'] = "python3 %s visualize -g %s -op %s -p %s -x %s -hc %s" % (path_to_pseudofinder, genome, output_prefix, blastp_file, blastx_file, hitcap)
     CommandDict['map_command'] = "pyton3 %s map -g %s -gff %s -op %s" % (path_to_pseudofinder, genome, gff_file, output_prefix)
-
     print(CommandDict['annotate_command'])
     exit()
 
-main()
+if __name__ == '__main__':
+    main()

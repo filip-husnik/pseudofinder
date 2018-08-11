@@ -15,9 +15,9 @@ __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
 from sys import argv, stderr
-import annotate, visualize, genome_map
+import annotate, visualize, genome_map, pseudofinder_test
 
-errormessage=("Options: pseudo_finder.py [ annotate | visualize | map | help ]\n")
+errormessage=("Options: pseudo_finder.py [ annotate | visualize | map | test | help ]\n")
 
 try:
     if argv[1] == "annotate":
@@ -27,7 +27,8 @@ try:
     elif argv[1] == "map":
         genome_map.main()
     elif argv[1] == "test":
-        pseudofinder_test.main()
+        print("what what what")
+        #pseudofinder_test.main()
     elif argv[1] == "help":
         stderr.write("\tpseudofinder.py annotate: Flags candidate pseudogenes.\n"
                      "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of settings.\n"
@@ -35,5 +36,5 @@ try:
         exit() #TODO: write a more informative help message
     else:
         stderr.write(errormessage); exit()
-except IndexError:
+except IndexError: #catches if the user does not provide any arguments
     stderr.write(errormessage); exit()
