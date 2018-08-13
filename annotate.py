@@ -21,6 +21,13 @@ BlastHit = NamedTuple('BlastHit', [('accession', str),
                                    ('s_end', int),
                                    ('eval', float)])
 
+# All possible types of regions
+RegionType = Enum('RegionType', ['ORF',
+                                 'intergenic',
+                                 'shortpseudo',
+                                 'fragmentedpseudo',
+                                 'intergenicpseudo'])
+
 # All information about a given region (either an ORF or intergenic region).
 RegionInfo = NamedTuple('RegionInfo', [('contig', str),
                                        ('query', str),
@@ -31,12 +38,6 @@ RegionInfo = NamedTuple('RegionInfo', [('contig', str),
                                        ('note', str),
                                        ('region_type', RegionType)])
 
-# All possible types of regions
-RegionType = Enum('RegionType', ['ORF',
-                                 'intergenic',
-                                 'shortpseudo',
-                                 'fragmentedpseudo',
-                                 'intergenicpseudo'])
 
 # A collection of regions (ORFs and intergenic regions) on the same contig.
 Contig = NamedTuple('Contig', [('regions', List[RegionInfo]),
