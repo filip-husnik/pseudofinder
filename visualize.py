@@ -1,39 +1,41 @@
 #!/usr/bin/env python3
 
-from plotly.offline import plot
-from plotly.graph_objs import Surface, Layout, Scene, Figure
-import pandas as pd
-import numpy
-import sys, os
+import sys
+import os
 import argparse
 import re
 import shutil
 import subprocess
+
+import pandas as pd
+import numpy
+from plotly.offline import plot
+from plotly.graph_objs import Surface, Layout, Scene, Figure
+
 
 def get_args():
     parser = argparse.ArgumentParser(
         usage='\033[1m'+"[pseudo_finder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -hc HITCAP] or "
                         "[pseudo_finder.py visualize --help] for more options."+'\033[0m')
 
-    ##########################  Always required #################################
+    # Always required
     always_required = parser.add_argument_group('\033[1m' + 'Required arguments' + '\033[0m')
 
     always_required.add_argument('-g', '--genome',
-                          help='Please provide your genome file in the genbank format.',
-                          required=True)
+                                 help='Please provide your genome file in the genbank format.',
+                                 required=True)
     always_required.add_argument('-op', '--outprefix',
-                        help='Specify an output prefix. A folder will also be created with this name.',
-                        required=True)
+                                 help='Specify an output prefix. A folder will also be created with this name.',
+                                 required=True)
     always_required.add_argument('-p', '--blastp',
-                        help='Specify an input blastp file.')
+                                 help='Specify an input blastp file.')
     always_required.add_argument('-x', '--blastx',
-                        help='Specify an input blastx file.')
+                                 help='Specify an input blastx file.')
     always_required.add_argument('-hc', '--hitcap',
-                          type=int,
-                          help='The hitcap from used to generate your blast files is required.\n\n')
+                                 type=int,
+                                 help='The hitcap from used to generate your blast files is required.\n\n')
 
-    ##############################################################################
-    ##############################################################################
+    # Optional
     optional = parser.add_argument_group('\033[1m' + 'Optional parameters' + '\033[0m')
 
     optional.add_argument('-r', '--resolution',
@@ -41,23 +43,25 @@ def get_args():
                           type=int,
                           help='Specifies the resolution of your 3D plot. '
                                'Lowering the resolution will increase the speed of this process.'
-                               '\'-r 100\' means the program will generate a 100x100 data matrix. Default is %(default)s.')
+                               '\'-r 100\' means the program will generate a 100x100 data matrix. '
+                               'Default is %(default)s.')
     optional.add_argument('-k', '--keep_files',
                           default=False,
                           type=bool,
-                          help='Specifies whether to keep all output files. \'-k False\' will remove all files except for'
-                               ' the graph and data matrix after running. Default is %(default)s.')
+                          help='Specifies whether to keep all output files. \'-k False\' will remove'
+                               ' all files except for the graph and data matrix after running. Default is %(default)s.')
     optional.add_argument('-t', '--title',
                           default=None,
                           type=str,
                           help='Specifies a title for your plot. Default is None.')
 
-    #parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
-    #We only care about the known arguments, so we take [0].
+    # "parse_known_args" will create a tuple of known arguments in the first position and unknown in the second.
+    # We only care about the known arguments, so we take [0].
     args = parser.parse_known_args()[0]
 
     if args.hitcap is None:
-        sys.stderr.write("Error: Hitcap is required to correctly call pseudogenes. The value can be found in the log file from your annotation.\n")
+        sys.stderr.write("Error: Hitcap is required to correctly call pseudogenes. "
+                         "The value can be found in the log file from your annotation.\n")
         exit()
 
     return args
@@ -73,27 +77,29 @@ def settings_loop(args):
         for shared_hits in numpy.arange(0.0, 1.01, interval):
             filename = "%s/L%s_S%s" % (args.outprefix, length_pseudo, shared_hits)
             # Runs annotate.py as if you were using the command line
-            subprocess.call("python3 %s --genome %s --outprefix %s --blastp %s --blastx %s --length_pseudo %s --shared_hits %s"
-                            " --hitcap %s --outformat 0 > /dev/null" % (path_to_annotate, args.genome, filename, args.blastp,
-                                                                        args.blastx, length_pseudo, shared_hits, args.hitcap),
+            subprocess.call("python3 %s --genome %s --outprefix %s --blastp %s "
+                            "--blastx %s --length_pseudo %s --shared_hits %s"
+                            " --hitcap %s --outformat 0 > /dev/null" % (
+                                path_to_annotate, args.genome, filename, args.blastp,
+                                args.blastx, length_pseudo, shared_hits, args.hitcap),
                             shell=True)
 
-    print('') #Necessary because the previous print was rolling back on itself
+    print('')  # Necessary because the previous print was rolling back on itself
 
 
 def parse_summary_files(args):
     """This function will parse the summary files for the values needed to generate a 3D plot."""
 
     outfile = open(args.outprefix + '_matrix.tsv', 'w')
-    outfile.write("length_pseudo\tshared_hits\tpseudogenes\n") #header for the output file
+    outfile.write("length_pseudo\tshared_hits\tpseudogenes\n")  # header for the output file
 
     for root, dirs, files in os.walk(args.outprefix):
         for file in files:
-            path = os.path.join(root,file)
+            path = os.path.join(root, file)
             with open(path, 'r') as infile:
                 lines = infile.readlines()
                 data = []
-                #regex to find 'length_pseudo', 'shared_hits', 'num_pseudos'
+                # regex to find 'length_pseudo', 'shared_hits', 'num_pseudos'
                 for line in lines:
                     if re.match('Length_pseudo', line):
                         data.append(float(line.split(sep='\t')[1]))
@@ -107,7 +113,8 @@ def parse_summary_files(args):
 
 def make_plot(args):
     """This function will generate a 3D surface plot."""
-    raw_data = pd.read_csv(args.outprefix+'_matrix.tsv', sep="\t", dtype=float, names=['length_pseudo', 'shared_hits', 'vals'], header=0)
+    raw_data = pd.read_csv(args.outprefix+'_matrix.tsv', sep="\t", dtype=float,
+                           names=['length_pseudo', 'shared_hits', 'vals'], header=0)
     matrix = raw_data.pivot(index='length_pseudo', columns='shared_hits', values='vals')
 
     data = [Surface(x=matrix.columns,
@@ -129,17 +136,18 @@ def make_plot(args):
     plot(fig, filename=args.outprefix+".html", auto_open=False)
     print("Figure plotted: %s.html" % args.outprefix)
 
+
 def main():
     args = get_args()
 
-    #Reset the folder specified to contain the outputs
+    # Reset the folder specified to contain the outputs
     if os.path.exists(args.outprefix):
         shutil.rmtree(args.outprefix)
     os.makedirs(args.outprefix)
 
-    settings_loop(args) #Generates the data
-    parse_summary_files(args) #Collects and builds the matrix
-    make_plot(args) #Plots the data
+    settings_loop(args)  # Generates the data
+    parse_summary_files(args)  # Collects and builds the matrix
+    make_plot(args)  # Plots the data
 
     if args.keep_files is False:
         shutil.rmtree(args.outprefix)
