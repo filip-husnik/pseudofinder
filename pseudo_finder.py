@@ -28,13 +28,15 @@ try:
     elif argv[1] == "map":
         genome_map.main()
     elif argv[1] == "test":
-        print("what what what")
-        # pseudofinder_test.main()
+        pseudofinder_test.main()
     elif argv[1] == "help":
         stderr.write("\tpseudofinder.py annotate: Flags candidate pseudogenes.\n"
-                     "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of settings.\n"
-                     "\tpseudofinder.py map: Generates a chromosome map to show where pseudogenes have been called.\n")
-        exit()  # TODO: write a more informative help message
+                     "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of "
+                     "settings.\n"
+                     "\tpseudofinder.py map: Generates a chromosome map to show where pseudogenes have been called.\n"
+                     "\tpseudofinder.py test: Runs all commands on a test dataset and checks that the outputs "
+                     "are as expected.\n")
+        exit()
     else:
         stderr.write(errorMessage)
         exit()
