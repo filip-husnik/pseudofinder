@@ -5,3 +5,7 @@
 # Python generated files #
 ##########################
 __pycache__/
+
+# Test generated files #
+########################
+test/*results*

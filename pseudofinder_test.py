@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 
 def current_time() -> str:
-    """Returns the current time. When this function was executed."""
+    """Returns the current time when this function was executed."""
     return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
 
 
@@ -32,14 +32,34 @@ def get_args():
     return args
 
 
+def manage_folders(path: str, folder_name: str):
+    """Creates a folder to store test results."""
+    try:  # simplest solution
+        os.makedirs(folder_name)
+    except FileExistsError:  # unless the folder already exists.
+        current_folders = os.listdir(path)
+        results_folders = [folder for folder in current_folders if re.match(strftime("%Y%m%d"), folder)]
+        folder_numbers = [int(folder[-1]) for folder in results_folders if re.match("[0-9]", folder[-1])]
+
+        if not folder_numbers:
+            os.makedirs(folder_name + "_1")
+        else:
+            biggest_folder_number = sorted(folder_numbers, key=int, reverse=True)[0]
+            new_number = biggest_folder_number + 1
+            os.makedirs(folder_name + "_" + str(new_number))
+
+
 def test_command(command_name: str, full_command: str):
     """
     Tests the given pseudofinder command to make sure that:
         1.  The command runs without an error
         2.  The command produces the expected files
     """
-    print("Testing the %s command.\nFull shell command: %s" % (command_name, full_command))
-    subprocess.call(full_command, shell=True)
+    print("%s\tTesting the %s command.\nFull shell command: %s" % (current_time(), command_name, full_command))
+    try:
+        subprocess.run(full_command, shell=True, check=True)
+    except subprocess.CalledProcessError:
+        print("%s\tCommand failure: %s" % (current_time(), command_name))
 
 
 def main():
@@ -65,21 +85,11 @@ def main():
     command_dict['map_command'] = "pyton3 %s map -g %s -gff %s -op %s" % (
         path_to_pseudofinder, genome, gff_file, output_prefix)
 
-    # Make the directory
-    try:
-        os.makedirs(folder_name)
-    except FileExistsError:
-        current_folders = os.listdir(path_to_test_data)
-        results_folders = [folder for folder in current_folders if re.match(strftime("%Y%m%d"), folder)]
-        folder_numbers = [int(folder[-1]) for folder in results_folders if re.match("[0-9]", folder[-1])]
+    # Workflow
+    manage_folders(path_to_test_data, folder_name)
+    for command in command_dict:
+        test_command(command_name=command, full_command=command_dict[command])
 
-        if not folder_numbers:
-            os.makedirs(folder_name + "_1")
-        else:
-            biggest_folder_number = sorted(folder_numbers, key=int, reverse=True)[0]
-            new_number = biggest_folder_number + 1
-            os.makedirs(folder_name + "_" + str(new_number))
-    exit()
 
 if __name__ == '__main__':
     main()
