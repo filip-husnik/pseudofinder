@@ -125,14 +125,14 @@ def get_args():
                           help='Please provide percentage of length for pseudo candidates, '
                                'default is 0.60 (60%%). \nExample: \"-l 0.50\" will consider genes that are '
                                'less than 50%% of the average length of similar genes.',
-                          default=0.60,
+                          default=0.65,
                           type=float)
 
     optional.add_argument('-s', '--shared_hits',
                           help='Percentage of blast hits that must be shared in order to join two nearby regions,'
                                ' default is 0.30 (30%%). \nExample: \"-s 0.50\" will merge nearby regions if '
                                'they shared 50%% of their blast hits.',
-                          default=0.30,
+                          default=0.50,
                           type=float)
 
     optional.add_argument('-e', '--evalue',
