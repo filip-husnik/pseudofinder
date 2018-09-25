@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from sys import argv, stderr
-import annotate, visualize, genome_map, pseudofinder_test  # all pseudofinder modules
+from modules import annotate, visualize, genome_map, pseudofinder_test  # all pseudofinder modules
 
 """
 pseudo_finder.py: A script to find pseudogene candidates in annotated genbank files.

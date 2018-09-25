@@ -1,5 +1,14 @@
 Pseudo finder change log
 ########################
+v0.10 -- 25/09/2018
+*Minor code reorganization
+    -previously: all modules were contained in the main directory
+    -now: pseudo_finder.py is still found in the main directory, but all other modules were moved to ./modules.
+*New feature: Test
+    -Allows users to run the full pipeline on Candidatus Tremblaya Princeps PCIT
+*Reformatted all code to fit PEP8 guidelines.
+*Various other smaller changes.
+
 v0.09 -- 30/04/2018
 *Major code reorganization
     -previously: all executable code was in one file, pseudo_finder.py

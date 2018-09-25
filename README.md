@@ -130,7 +130,6 @@ python3 pseudo_finder.py annotate --genome GENOME.GBF --output PREFIX --blastp B
 # All command line arguments.
 optional arguments:
   -h, --help            show this help message and exit
-  -v, --version         show program's version number and exit
 
 Required arguments:
   -g GENOME, --genome GENOME
@@ -170,7 +169,7 @@ Adjustable parameters:
                         Maximum number of allowed hits for BLAST. Default is 15.
                         
   -ce, --contig_ends    Forces the program to include intergenic regions at contig ends. If not specified,
-                        the program will ignore any sequence after the last ORF on a contig.
+                        the program will ignore any sequence before the first ORF and after the last ORF on a contig.
   -it INTERGENIC_THRESHOLD, --intergenic_threshold INTERGENIC_THRESHOLD
                         Number of BlastX hits needed to annotate an intergenic region as a pseudogene.
                         Calculated as a percentage of maximum number of allowed hits (--hitcap).
