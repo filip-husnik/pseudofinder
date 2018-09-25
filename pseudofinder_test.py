@@ -86,9 +86,9 @@ def main():
     genome_full_path = path_to_test_data + genome_name
     database = args.database
     output_prefix = folder_name+"/test"
-    blastp_file = output_prefix+genome_name+"_proteome.faa.blastP_output.tsv"
-    blastx_file = output_prefix+genome_name+"_intergenic.fasta.blastX_output.tsv"
-    gff_file = output_prefix+genome_name+"_pseudos.gff"
+    blastp_file = output_prefix+"_"+genome_name+"_proteome.faa.blastP_output.tsv"
+    blastx_file = output_prefix+"_"+genome_name+"_intergenic.fasta.blastX_output.tsv"
+    gff_file = output_prefix+"_"+genome_name+"_pseudos.gff"
     hitcap = 15
 
     # A dictionary to store the names and shell commands for each section of pseudofinder
