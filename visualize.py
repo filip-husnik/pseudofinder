@@ -6,11 +6,17 @@ import argparse
 import re
 import shutil
 import subprocess
+from time import localtime, strftime
 
 import pandas as pd
 import numpy
 from plotly.offline import plot
 from plotly.graph_objs import Surface, Layout, Scene, Figure
+
+
+def current_time() -> str:
+    """Returns the current time when this function was executed."""
+    return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
 
 
 def get_args():
@@ -73,7 +79,7 @@ def settings_loop(args):
     path_to_annotate = os.path.dirname(__file__)+"/annotate.py"
 
     for length_pseudo in numpy.arange(0.0, 1.01, interval):
-        print("Collecting data: %d%% completed" % round(length_pseudo*100, 2), end='\r')
+        print("%s\tCollecting data: %d%% completed" % (current_time(), round(length_pseudo*100, 2)), end='\r')
         for shared_hits in numpy.arange(0.0, 1.01, interval):
             filename = "%s/L%s_S%s" % (args.outprefix, length_pseudo, shared_hits)
             # Runs annotate.py as if you were using the command line
@@ -134,7 +140,7 @@ def make_plot(args):
 
     fig = Figure(data=data, layout=layout)
     plot(fig, filename=args.outprefix+".html", auto_open=False)
-    print("Figure plotted: %s.html" % args.outprefix)
+    print("%s\tFigure plotted: %s.html" % (current_time(), args.outprefix))
 
 
 def main():

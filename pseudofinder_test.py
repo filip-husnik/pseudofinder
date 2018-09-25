@@ -60,21 +60,16 @@ def manage_folders(path: str):
 
 def test_command(command_name: str, full_command: str):
     """
-    Tests the given pseudofinder command to make sure that:
-        1.  The command runs without an error
-        2.  The command produces the expected files
+    Tests the given pseudofinder command to make sure that the command runs without an error.
     """
     print("%s\tTesting the %s command.\n"
           "%s\tFull shell command: %s" % (current_time(), command_name, current_time(), full_command))
 
-    # 1. The command runs without an error
     try:
         subprocess.run(full_command, shell=True, check=True)
     except subprocess.CalledProcessError:
         print("%s\tCommand failure: %s" % (current_time(), command_name))
 
-    # 2. The command produces the expected files
-    # TODO: Fill this in
 
 def main():
     # Inputs for all the test commands
@@ -100,7 +95,6 @@ def main():
     command_dict['Map'] = "python3 %s map -g %s -gff %s -op %s" % (
         path_to_pseudofinder, genome_full_path, gff_file, output_prefix)
 
-    # TODO: Also check if dependencies are installed.
     for command in command_dict:
         test_command(command_name=command, full_command=command_dict[command])
 

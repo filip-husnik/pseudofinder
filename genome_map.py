@@ -2,11 +2,17 @@
 
 import argparse
 import re
-from reportlab.lib import colors
+from time import localtime, strftime
 
+from reportlab.lib import colors
 from Bio.Graphics import GenomeDiagram
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
+
+
+def current_time() -> str:
+    """Returns the current time when this function was executed."""
+    return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
 
 
 def get_args():
@@ -126,6 +132,7 @@ def make_diagram(args, genome_record: SeqIO.SeqRecord, pseudo_record: SeqIO.SeqR
     diagram.draw(format="circular", circular=True,
                  start=0, end=len(genome_record), circle_core=0.8)
     diagram.write(filename=args.outprefix+".pdf", output="PDF")
+    print("%s\tFigure plotted: %s.pdf" % (current_time(), args.outprefix))
 
 
 def main():
