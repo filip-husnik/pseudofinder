@@ -64,7 +64,8 @@ def test_command(command_name: str, full_command: str):
         1.  The command runs without an error
         2.  The command produces the expected files
     """
-    print("%s\tTesting the %s command.\nFull shell command: %s" % (current_time(), command_name, full_command))
+    print("%s\tTesting the %s command.\n"
+          "%s\tFull shell command: %s" % (current_time(), command_name, current_time(), full_command))
 
     # 1. The command runs without an error
     try:
@@ -83,7 +84,7 @@ def main():
     folder_name = manage_folders(path_to_test_data)
     genome = path_to_test_data + "candidatus_tremblaya_princeps_PCIT.gbf"
     database = args.database
-    output_prefix = folder_name+"_test"
+    output_prefix = folder_name+"/test"
     blastp_file = ""
     blastx_file = ""
     gff_file = ""
@@ -95,7 +96,7 @@ def main():
         path_to_pseudofinder, genome, database, output_prefix)
     command_dict['visualize_command'] = "python3 %s visualize -g %s -op %s -p %s -x %s -hc %s" % (
         path_to_pseudofinder, genome, output_prefix, blastp_file, blastx_file, hitcap)
-    command_dict['map_command'] = "pyton3 %s map -g %s -gff %s -op %s" % (
+    command_dict['map_command'] = "python3 %s map -g %s -gff %s -op %s" % (
         path_to_pseudofinder, genome, gff_file, output_prefix)
 
     # TODO: Also check if dependencies are installed.
