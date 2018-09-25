@@ -82,22 +82,23 @@ def main():
     path_to_test_data = os.path.dirname(__file__) + "/test/"
     path_to_pseudofinder = os.path.dirname(__file__) + "/pseudo_finder.py"
     folder_name = manage_folders(path_to_test_data)
-    genome = path_to_test_data + "candidatus_tremblaya_princeps_PCIT.gbf"
+    genome_name = "candidatus_tremblaya_princeps_PCIT.gbf"
+    genome_full_path = path_to_test_data + genome_name
     database = args.database
     output_prefix = folder_name+"/test"
-    blastp_file = output_prefix+genome+"_proteome.faa.blastP_output.tsv"
-    blastx_file = output_prefix+genome+"_intergenic.fasta.blastX_output.tsv"
-    gff_file = output_prefix+genome+"_pseudos.gff"
+    blastp_file = output_prefix+genome_name+"_proteome.faa.blastP_output.tsv"
+    blastx_file = output_prefix+genome_name+"_intergenic.fasta.blastX_output.tsv"
+    gff_file = output_prefix+genome_name+"_pseudos.gff"
     hitcap = 15
 
     # A dictionary to store the names and shell commands for each section of pseudofinder
     command_dict = OrderedDict()
     command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s" % (
-        path_to_pseudofinder, genome, database, output_prefix)
+        path_to_pseudofinder, genome_full_path, database, output_prefix)
     command_dict['Visualize'] = "python3 %s visualize -g %s -op %s -p %s -x %s -hc %s" % (
-        path_to_pseudofinder, genome, output_prefix, blastp_file, blastx_file, hitcap)
+        path_to_pseudofinder, genome_full_path, output_prefix, blastp_file, blastx_file, hitcap)
     command_dict['Map'] = "python3 %s map -g %s -gff %s -op %s" % (
-        path_to_pseudofinder, genome, gff_file, output_prefix)
+        path_to_pseudofinder, genome_full_path, gff_file, output_prefix)
 
     # TODO: Also check if dependencies are installed.
     for command in command_dict:
