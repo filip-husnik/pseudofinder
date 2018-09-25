@@ -74,8 +74,8 @@ def test_command(command_name: str, full_command: str):
 def main():
     # Inputs for all the test commands
     args = get_args()
-    path_to_test_data = os.path.dirname(__file__) + "../test/"
-    path_to_pseudofinder = os.path.dirname(__file__) + "../pseudo_finder.py"
+    path_to_test_data = os.path.dirname(__file__) + "/../test/"
+    path_to_pseudofinder = os.path.dirname(__file__) + "/../pseudo_finder.py"
     folder_name = manage_folders(path_to_test_data)
     genome_name = "candidatus_tremblaya_princeps_PCIT.gbf"
     genome_full_path = path_to_test_data + genome_name
