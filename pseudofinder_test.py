@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-import subprocess
-import os
 import argparse
+import os
 import re
-from time import localtime, strftime
+import subprocess
 from collections import OrderedDict
+from time import localtime, strftime
 
 
 def current_time() -> str:
@@ -32,21 +32,30 @@ def get_args():
     return args
 
 
-def manage_folders(path: str, folder_name: str):
-    """Creates a folder to store test results."""
+def manage_folders(path: str):
+    """Creates a folder to store test results and returns the name."""
+
+    folder_name = path+strftime("%Y%m%d"+"_results")
+
     try:  # simplest solution
         os.makedirs(folder_name)
+
     except FileExistsError:  # unless the folder already exists.
         current_folders = os.listdir(path)
         results_folders = [folder for folder in current_folders if re.match(strftime("%Y%m%d"), folder)]
         folder_numbers = [int(folder[-1]) for folder in results_folders if re.match("[0-9]", folder[-1])]
 
-        if not folder_numbers:
-            os.makedirs(folder_name + "_1")
-        else:
+        if not folder_numbers:  # If no numbered folders exist yet, start with "folder_name_1"
+            folder_name = folder_name + "_1"
+            os.makedirs(folder_name)
+
+        else:  # increment the number by 1, ie. "folder_name_2"
             biggest_folder_number = sorted(folder_numbers, key=int, reverse=True)[0]
             new_number = biggest_folder_number + 1
-            os.makedirs(folder_name + "_" + str(new_number))
+            folder_name = folder_name + "_" + str(new_number)
+            os.makedirs(folder_name)
+
+    return folder_name
 
 
 def test_command(command_name: str, full_command: str):
@@ -56,21 +65,25 @@ def test_command(command_name: str, full_command: str):
         2.  The command produces the expected files
     """
     print("%s\tTesting the %s command.\nFull shell command: %s" % (current_time(), command_name, full_command))
+
+    # 1. The command runs without an error
     try:
         subprocess.run(full_command, shell=True, check=True)
     except subprocess.CalledProcessError:
         print("%s\tCommand failure: %s" % (current_time(), command_name))
 
+    # 2. The command produces the expected files
+    # TODO: Fill this in
 
 def main():
     # Inputs for all the test commands
     args = get_args()
     path_to_test_data = os.path.dirname(__file__) + "/test/"
     path_to_pseudofinder = os.path.dirname(__file__) + "/pseudo_finder.py"
-    folder_name = path_to_test_data+strftime("%Y%m%d"+"_results")
+    folder_name = manage_folders(path_to_test_data)
     genome = path_to_test_data + "candidatus_tremblaya_princeps_PCIT.gbf"
     database = args.database
-    output_prefix = ""
+    output_prefix = folder_name+"_test"
     blastp_file = ""
     blastx_file = ""
     gff_file = ""
@@ -85,8 +98,7 @@ def main():
     command_dict['map_command'] = "pyton3 %s map -g %s -gff %s -op %s" % (
         path_to_pseudofinder, genome, gff_file, output_prefix)
 
-    # Workflow
-    manage_folders(path_to_test_data, folder_name)
+    # TODO: Also check if dependencies are installed.
     for command in command_dict:
         test_command(command_name=command, full_command=command_dict[command])
 
