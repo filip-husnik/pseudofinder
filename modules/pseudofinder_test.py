@@ -62,13 +62,13 @@ def test_command(command_name: str, full_command: str):
     """
     Tests the given pseudofinder command to make sure that the command runs without an error.
     """
-    print("%s\tTesting the %s command.\n"
+    print("\033[1m"+"%s\tTesting the %s command.\n\033[0m"
           "%s\tFull shell command: %s" % (current_time(), command_name, current_time(), full_command))
 
     try:
         subprocess.run(full_command, shell=True, check=True)
     except subprocess.CalledProcessError:
-        print("%s\tCommand failure: %s" % (current_time(), command_name))
+        print("\033[1m"+"%s\tCommand failure: %s\033[0m" % (current_time(), command_name))
 
 
 def main():
