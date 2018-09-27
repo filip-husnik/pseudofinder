@@ -3,7 +3,7 @@
 <h1 align="center">Pseudofinder</h1>
 <h5 align="center">Automated detection of pseudogenes in prokaryotic genomes.</h5>
 </p>
-
+<br>
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -14,7 +14,7 @@
 - [Preparing your genome](#preparing-your-genome)
     - [Assembly recommendations](#assembly-recommendations)
     - [Annotation recommendations](#annotation-recommendations)
-- [How does Pseudofinder detect pseudogene candidates?](#how-does-Pseudofinder-detect-pseudogene-candidates?)
+- [How does Pseudofinder detect pseudogene candidates?](#how-does-pseudofinder-detect-pseudogene-candidates?)
 - [Commands](#commands)
     - [Annotate](#annotate)
     - [Visualize](#visualize)
@@ -221,8 +221,6 @@ Explanation of output choices:
 
 ### Visualize
 
-TODO: Add a blurb about this command.
-
 One strength of Pseudofinder is its ability to be fine-tuned to the user's preferences. To help visualize the effects of changing the parameters of this program, we have provided the 'visualize' command. This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. It is run by providing the blast files from the 'annotate' command:
 ```
 python pseudo_finder.py visualize \
@@ -236,8 +234,6 @@ Please note: Since the annotation depends on your choice of '--hitcap', you must
 
 
 ### Map
-
-TODO: Add a blurb about this command.
 
 Pseudofinder can generate a chromosome map to display detected pseudogenes with a single command:
 
@@ -253,17 +249,21 @@ The resulting chromosome map will show the original annotation in the center tra
 
 Read the ChangeLog.txt [https://github.com/filip-husnik/pseudo-finder/blob/master/ChangeLog.txt] for major changes or look at Github commits for everything else [https://github.com/filip-husnik/pseudo-finder/commits/master].
 
+
 ## Contributing
 
 We appreciate any critical comments or suggestions for improvements. Please raise issues or submit pull requests.
+
 
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE.md](LICENSE.md) file for details.
 
+
 ## Acknowledgements
 
 This code was inspired mostly by work on bacterial symbionts in early stages of becoming intracellular and strictly host-associated. This ecological shift releases selection pressure ('use it or loose it') on many genes considered essential for free-living bacteria, so relatively recent symbionts can have over 50% of their genes pseudogenized.
+
 
 ## References
 
@@ -308,9 +308,9 @@ Please suggest any additional features here: [https://github.com/filip-husnik/ps
 
 ## Citing Pseudofinder
 
-Pseudofinder is developed by: <br>
-Mitch Syberg-Olsen & Filip Husnik <br>
-University of British Columbia, Vancouver, Canada
+Pseudofinder was created by: <br>
+<b>Mitch Syberg-Olsen & Filip Husnik <br>
+University of British Columbia, Vancouver, Canada</b>
 
 This project still a work in progress, so there is no official publication. If it was useful for your work, you can cite it as: M. Syberg-Olsen & F. Husnik 2018: Pseudofinder, GitHub repository: https://github.com/filip-husnik/pseudo-finder/.
 
