@@ -14,7 +14,7 @@ Installation requirements:
 
  """
 __author__ = "Mitch Syberg-Olsen & Filip Husnik"
-__version__ = "0.09"
+__version__ = "0.10"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 

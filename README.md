@@ -1,28 +1,42 @@
-# Pseudo finder
+<p align="center">
+<b>Warning: This repository is still a work in progress!</b>
+<h3 align="center">Pseudofinder</h3>
+Automated detection of pseudogenes in prokaryotic genomes.
+</p>
 
-**Warning: This repository is still a work in progress!**
 
-Pseudo finder is a Python3 script that detects pseudogene candidates [https://en.wikipedia.org/wiki/Pseudogene] from annotated genbank files of bacterial and archaeal genomes.
+## Table of contents
+- [Introduction](#Introduction)
+- [Getting started](#Getting Started)
+    - [Prerequisites](#Prerequisites)
+    - [Installation](#Installation)
+    - [Test run](#Test run)
+- [Preparing your genome](#Preparing your genome)
+    - [Assembly recommendations](#Assembly recommendations)
+    - [Annotation recommendations](#Annotation recommendations)
+- [How does Pseudofinder detect pseudogene candidates?](#How does Pseudofinder detect pseudogene candidates?)
+- [Commands](#Commands)
+    - [Annotate](#Annotate)
+    - [Visualize](#Visualize)
+    - [Map](#Map)
+    - [Test](#Test)
+- [Versions and changes](#Versions and changes)
+- [Contributing](#Contributing)
+- [License](#License)
+- [Acknowledgements](#Acknowledgements)
+- [References](#References)
+- [Wish list](#Wish list)
+- [Citing Pseudofinder](#Citing pseudofinder)
+
+
+## Introduction
+
+Pseudofinder is a Python3 script that detects pseudogene candidates [https://en.wikipedia.org/wiki/Pseudogene] from annotated genbank files of bacterial and archaeal genomes.
 
 It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag (i.e. including both /gene and /CDS annotations).
 
 There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them is open source and allows fine-tuning of parameters.
 
-
-## Authors
-Mitch Syberg-Olsen & Filip Husnik
-
-University of British Columbia, Vancouver, Canada
-
-## Versions and changes
-
-Read the ChangeLog.txt [https://github.com/filip-husnik/pseudo-finder/blob/master/ChangeLog.txt] for major changes or look at Github commits for everything else [https://github.com/filip-husnik/pseudo-finder/commits/master].
-
-## Citation
-
-Pseudo finder is still a work in progress, so there is no official publication. If it was useful for your work, you can cite it as: M. Syberg-Olsen & F. Husnik 2018: Pseudo finder, GitHub repository: https://github.com/filip-husnik/pseudo-finder/.
-
-Please also cite various dependencies used by Pseudo finder (listed below).
 
 ## Getting Started
 
@@ -30,18 +44,19 @@ These instructions will (hopefully) get you the pipeline up and running on your 
 
 ### Prerequisites
 
-Installation requirements: python3, pip3 (or any other way how to install python libraries, e.g. conda or easy_install), biopython, ncbi-blast+
+Installation requirements: 
+- python3
+- pip3 (or any other way how to install python libraries, e.g. conda or easy_install)
+- biopython
+- ncbi-blast+
+- Databases: NCBI-NR (non-redundant) protein database (or similar such as SwissProt) formatted for blastP/blastX searches.
+- An annotated prokaryotic genome in genbank (.gbf/.gbk) format.
 
-Databases: NCBI-NR (non-redundant) protein database (or similar such as SwissProt) formatted for blastP/blastX searches.
-
-Input files: A genome sequence with gene annotations in the genbank (.gbf/.gbk) format.
-
-
-### Installing
+### Installation
 
 A step by step series of commands to install all system dependencies:
 
-Installation of python3, pip3, git (optional), and ncbi-blast+ on Ubuntu (as an administrator):
+<b>Installation of python3, pip3, git (optional), and ncbi-blast+ on Ubuntu (as an administrator):</b>
 ```
 sudo apt-get update
 
@@ -51,7 +66,7 @@ sudo apt-get install ncbi-blast+
 sudo apt-get install git
 ```
 
-Installation of 3rd party python3 libraries on Ubuntu (as an administrator):
+<b>Installation of 3rd party python3 libraries on Ubuntu (as an administrator):</b>
 ```
 sudo pip3 install biopython
 sudo pip3 install plotly
@@ -72,24 +87,26 @@ conda install numpy
 conda install reportlab
 ```
 
-Clone the up to date pseudo_finder.py code from github (no root access required):
+<b>Clone the up to date pseudo_finder.py code from github (no root access required):</b>
 
 ```
 git clone https://github.com/filip-husnik/pseudo-finder.git
 ```
-Or download a stable release:
+*Or download a stable release:*
 
 ```
 # No stable version released yet.
 ```
 
-## Preparing your genome assembly
+## Preparing your genome
 
-We recommend several rounds of Pilon polishing with Illumina reads to improve your consensus sequence [https://github.com/broadinstitute/pilon/wiki], particularly if you're interested to find pseudogenes in minION/PacBio assemblies. However, Pseudo-finder can also help with finding sequencing/basecalling errors potentially breaking genes in MinION/PacBio-only assemblies.
+### Assembly recommendations
+
+We recommend several rounds of Pilon polishing with Illumina reads to improve your consensus sequence [https://github.com/broadinstitute/pilon/wiki], particularly if you're interested to find pseudogenes in minION/PacBio assemblies. However, Pseudofinder can also help with finding sequencing/basecalling errors potentially breaking genes in MinION/PacBio-only assemblies.
 
 Genomes closed into one or several circular-mapping molecules (chromosomes, plasmids, and phages) should be ideally oriented based on their origin of replication [e.g. by Ori-Finder 2; http://tubic.tju.edu.cn/Ori-Finder2/] to avoid broken genes on contigs randomly linearized by the genome assembler.
 
-## Preparing your genome annotation
+### Annotation recommendations
 
 We recommend genbank (.gbf/.gbk) files generated by Prokka [https://github.com/tseemann/prokka] with the --compliant and --rfam flags. Annotating rRNAs, tRNAs, and other ncRNAs in Prokka is recommended to eliminate any false positive 'pseudogene' candidates. ORFs overlapping with non-coding RNAs such as rRNA can be sometimes misannotated in databases as 'hypothetical proteins'.
 
@@ -97,16 +114,19 @@ We recommend genbank (.gbf/.gbk) files generated by Prokka [https://github.com/t
 ```
 prokka --compliant --rfam contigs.fa
 ```
-## How does pseudo finder detect pseudogene candidates?
+## How does Pseudofinder detect pseudogene candidates?
 
-This flowchart shows all steps of the pseudofinder pipeline.
+This flowchart shows all steps of the Pseudofinder pipeline.
 
 ![alt text](https://github.com/filip-husnik/pseudo-finder/blob/master/flowchart.png)
 
-## Running pseudo finder to detect pseudogenes
+## Commands
 
-As with any other python script, there are two ways how to run it.
+### Annotate
 
+TODO: Add a blurb about this command.
+
+As with any other python script, there are two ways how to run it:
 ```
 # Call it directly with python3.
 python3 pseudo_finder.py
@@ -116,7 +136,7 @@ chmod u+x
 ./pseudo_finder.py
 ```
 
-Providing input files.
+Providing input files:
 ```
 # Run the full pipeline on 16 processors (for BlastX/BlastP searches).
 # Unless you have a $BLASTDB environmental variable set on your system, you have to provide a full path to the NR database.
@@ -126,11 +146,8 @@ python3 pseudo_finder.py annotate --genome GENOME.GBF --output PREFIX --database
 python3 pseudo_finder.py annotate --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
 ```
 
+All command line arguments:
 ```
-# All command line arguments.
-optional arguments:
-  -h, --help            show this help message and exit
-
 Required arguments:
   -g GENOME, --genome GENOME
                         Please provide your genome file in the genbank format.
@@ -176,7 +193,9 @@ Adjustable parameters:
                         Default is 0.3.
 
 ```
-## Output of pseudo finder
+
+Output of Annotate:
+
 Every run should result in two or more output files: a summary log.txt file and .gff or .faa files.
 
 log.txt: The log file includes basic statistics about pseudogene candidates detected.
@@ -198,9 +217,11 @@ Explanation of output choices:
 *Note: Outputs can be combined. If '-of 12' is specified, files '1' and '2' will be written.
 
 
-## Visualizing settings
+### Visualize
 
-One strength of Pseudo-finder is its ability to be fine-tuned to the user's preferences. To help visualize the effects of changing the parameters of this program, we have provided the 'visualize' command. This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. It is run by providing the blast files from the 'annotate' command:
+TODO: Add a blurb about this command.
+
+One strength of Pseudofinder is its ability to be fine-tuned to the user's preferences. To help visualize the effects of changing the parameters of this program, we have provided the 'visualize' command. This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. It is run by providing the blast files from the 'annotate' command:
 ```
 python pseudo_finder.py visualize \
     --genome GENOME.GBF \
@@ -211,9 +232,12 @@ python pseudo_finder.py visualize \
 ```
 Please note: Since the annotation depends on your choice of '--hitcap', you must enter it here. This value can be found in the log file of the run that generated your blast files.
 
-## Mapping pseudogenes
 
-Pseudo-finder can generate a chromosome map to display detected pseudogenes with a single command:
+### Map
+
+TODO: Add a blurb about this command.
+
+Pseudofinder can generate a chromosome map to display detected pseudogenes with a single command:
 
 ```
 pseudo_finder.py map --genome GENOME --gff GFF --outprefix PREFIX
@@ -222,17 +246,22 @@ Please provide your pseudogene calls in GFF format (the default output from pseu
 
 The resulting chromosome map will show the original annotation in the center track, and pseudogenes will appear on the outer track in red.
 
+
+## Versions and changes
+
+Read the ChangeLog.txt [https://github.com/filip-husnik/pseudo-finder/blob/master/ChangeLog.txt] for major changes or look at Github commits for everything else [https://github.com/filip-husnik/pseudo-finder/commits/master].
+
 ## Contributing
 
 We appreciate any critical comments or suggestions for improvements. Please raise issues or submit pull requests.
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE.md](LICENSE.md) file for details.
 
-## Acknowledgments
+## Acknowledgements
 
-* This code was inspired mostly by work on bacterial symbionts in early stages of becoming intracellular and strictly host-associated. This ecological shift releases selection pressure ('use it or loose it') on many genes considered essential for free-living bacteria, so relatively recent symbionts can have over 50% of their genes pseudogenized.
+This code was inspired mostly by work on bacterial symbionts in early stages of becoming intracellular and strictly host-associated. This ecological shift releases selection pressure ('use it or loose it') on many genes considered essential for free-living bacteria, so relatively recent symbionts can have over 50% of their genes pseudogenized.
 
 ## References
 
@@ -274,3 +303,13 @@ There are several additional features we'll try to include in the script in the 
 8. Sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastP hits by blastX.
 
 Please suggest any additional features here: [https://github.com/filip-husnik/pseudo-finder/issues].
+
+## Citing Pseudofinder
+
+Pseudofinder is developed by: <br>
+Mitch Syberg-Olsen & Filip Husnik <br>
+University of British Columbia, Vancouver, Canada
+
+This project still a work in progress, so there is no official publication. If it was useful for your work, you can cite it as: M. Syberg-Olsen & F. Husnik 2018: Pseudofinder, GitHub repository: https://github.com/filip-husnik/pseudo-finder/.
+
+Please also cite various dependencies used by Pseudofinder.

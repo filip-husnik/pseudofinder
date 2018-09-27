@@ -1014,7 +1014,7 @@ def main():
         make_gff_header(args=args, gff=functional_gff)
         StatisticsDict['OutputFiles'].append("Output [2]: %s" % functional_gff)
 
-    if '3' in output_types: # TODO: not yet properly tested
+    if '3' in output_types:  # TODO: not yet properly tested
         print('\033[1m' + "Notice! --outformat 3 specified but this output has not yet been tested." + '\033[0m'),
         sys.stdout.flush()
         fasta_filename_3 = args.outprefix + "_" + os.path.basename(args.genome) + "_pseudos.fasta"
@@ -1039,7 +1039,7 @@ def main():
         pseudo_genes = annotate_pseudos(args=args, contig=contig)
         print('\t\t\tNumber of orfs on this contig: %s\n'
               '\t\t\tNumber of pseudogenes flagged: %s' % (
-              len([region for region in contig.regions if region.region_type == RegionType.ORF]), len(pseudo_genes))),
+                  len([region for region in contig.regions if region.region_type == RegionType.ORF]), len(pseudo_genes))),
         sys.stdout.flush()
 
         # Retrieve functional genes by comparing orfs to annotated pseudogenes
@@ -1061,7 +1061,7 @@ def main():
                                    outfile=fasta_filename_3,  #generated just above
                                    regions=pseudo_genes)
 
-        if '4' in output_types: # Write FAA file with protein coding genes in it
+        if '4' in output_types:  # Write FAA file with protein coding genes in it
             get_sequences_from_fasta(infile=proteome_filename,
                                      outfile=functional_faa,
                                      regions=functional_genes,
