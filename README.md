@@ -1,32 +1,32 @@
 <p align="center">
 <b>Warning: This repository is still a work in progress!</b>
-<h3 align="center">Pseudofinder</h3>
-Automated detection of pseudogenes in prokaryotic genomes.
+<h1 align="center">Pseudofinder</h1>
+<h5 align="center">Automated detection of pseudogenes in prokaryotic genomes.</h5>
 </p>
 
 
 ## Table of contents
 - [Introduction](#Introduction)
-- [Getting started](#Getting Started)
+- [Getting started](#Getting-started)
     - [Prerequisites](#Prerequisites)
     - [Installation](#Installation)
-    - [Test run](#Test run)
-- [Preparing your genome](#Preparing your genome)
-    - [Assembly recommendations](#Assembly recommendations)
-    - [Annotation recommendations](#Annotation recommendations)
-- [How does Pseudofinder detect pseudogene candidates?](#How does Pseudofinder detect pseudogene candidates?)
+    - [Test run](#Test-run)
+- [Preparing your genome](#Preparing-your-genome)
+    - [Assembly recommendations](#Assembly-recommendations)
+    - [Annotation recommendations](#Annotation-recommendations)
+- [How does Pseudofinder detect pseudogene candidates?](#How-does-Pseudofinder-detect-pseudogene-candidates?)
 - [Commands](#Commands)
     - [Annotate](#Annotate)
     - [Visualize](#Visualize)
     - [Map](#Map)
     - [Test](#Test)
-- [Versions and changes](#Versions and changes)
+- [Versions and changes](#Versions-and-changes)
 - [Contributing](#Contributing)
 - [License](#License)
 - [Acknowledgements](#Acknowledgements)
 - [References](#References)
-- [Wish list](#Wish list)
-- [Citing Pseudofinder](#Citing pseudofinder)
+- [Wish list](#Wish-list)
+- [Citing Pseudofinder](#Citing-pseudofinder)
 
 
 ## Introduction
@@ -38,7 +38,7 @@ It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://g
 There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them is open source and allows fine-tuning of parameters.
 
 
-## Getting Started
+## Getting started
 
 These instructions will (hopefully) get you the pipeline up and running on your local machine.
 
@@ -97,6 +97,8 @@ git clone https://github.com/filip-husnik/pseudo-finder.git
 ```
 # No stable version released yet.
 ```
+
+### Test run
 
 ## Preparing your genome
 
