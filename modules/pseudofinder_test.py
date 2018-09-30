@@ -15,8 +15,8 @@ def current_time() -> str:
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
-                                     usage='\033[1m' + "[pseudo_finder.py test -db DATABASE] or "
-                                                       "[pseudo_finder.py test --help] for more options." + '\033[0m')
+                                     usage='\033[1m' + "[pseudofinder.py test -db DATABASE] or "
+                                                       "[pseudofinder.py test --help] for more options." + '\033[0m')
 
     # Required argument
     required = parser.add_argument_group('\033[1m' + 'Required arguments' + '\033[0m')
@@ -75,7 +75,7 @@ def main():
     # Inputs for all the test commands
     args = get_args()
     path_to_test_data = os.path.dirname(__file__) + "/../test/"
-    path_to_pseudofinder = os.path.dirname(__file__) + "/../pseudo_finder.py"
+    path_to_pseudofinder = os.path.dirname(__file__) + "/../pseudofinder.py"
     folder_name = manage_folders(path_to_test_data)
     genome_name = "candidatus_tremblaya_princeps_PCIT.gbf"
     genome_full_path = path_to_test_data + genome_name

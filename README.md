@@ -86,7 +86,7 @@ conda install numpy
 conda install reportlab
 ```
 
-<b>Clone the up to date pseudo_finder.py code from github (no root access required):</b>
+<b>Clone the up to date pseudofinder.py code from github (no root access required):</b>
 
 ```
 git clone https://github.com/filip-husnik/pseudo-finder.git
@@ -132,21 +132,21 @@ This flowchart shows all steps of the Pseudofinder pipeline.
 As with any other python script, there are two ways how to run it:
 ```
 # Call it directly with python3.
-python3 pseudo_finder.py
+python3 pseudofinder.py
 
 # Or make the file executable and then rely on its shebang line [#!/usr/bin/env python3].
 chmod u+x
-./pseudo_finder.py
+./pseudofinder.py
 ```
 
 Providing input files:
 ```
 # Run the full pipeline on 16 processors (for BlastX/BlastP searches).
 # Unless you have a $BLASTDB environmental variable set on your system, you have to provide a full path to the NR database.
-python3 pseudo_finder.py annotate --genome GENOME.GBF --output PREFIX --database /PATH/TO/NR/nr --threads 16 
+python3 pseudofinder.py annotate --genome GENOME.GBF --output PREFIX --database /PATH/TO/NR/nr --threads 16 
 
 # Run only pseudogene detection (e.g. when blast output files are already available from a previous run).
-python3 pseudo_finder.py annotate --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
+python3 pseudofinder.py annotate --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
 ```
 
 All command line arguments:
@@ -224,7 +224,7 @@ Explanation of output choices:
 
 One strength of Pseudofinder is its ability to be fine-tuned to the user's preferences. To help visualize the effects of changing the parameters of this program, we have provided the <b>visualize</b> command. This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. It is run by providing the blast files from the <b>annotate</b> command:
 ```
-python pseudo_finder.py visualize \
+python pseudofinder.py visualize \
     --genome GENOME.GBF \
     --blastx BLASTXFILE.TSV \
     --blastp BLASTPFILE.TSV \
@@ -239,7 +239,7 @@ Please note: Since the annotation depends on your choice of '--hitcap', you must
 Pseudofinder can generate a chromosome map to display detected pseudogenes with a single command:
 
 ```
-pseudo_finder.py map --genome GENOME --gff GFF --outprefix PREFIX
+pseudofinder.py map --genome GENOME --gff GFF --outprefix PREFIX
 ```
 Please provide your pseudogene calls in GFF format (the default output from pseudofinder.py annotate).
 
@@ -253,7 +253,7 @@ With a single command, the entire Pseudofinder workflow can be run on the genome
 Simply enter the following command:
 
 ```
-python pseudo_finder.py test --database /PATH/TO/NR/nr
+python pseudofinder.py test --database /PATH/TO/NR/nr
 ```
 The workflow will begin immediately and write the results to a timestamped folder found in ```/pseudo-finder/test/```.
 

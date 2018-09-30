@@ -54,7 +54,8 @@ StatisticsDict = {
                     'PseudogenesTotal': 0,
                     'PseudogenesShort': 0,
                     'PseudogenesFragmented': 0,
-                    'PseudogenesIntergenic': 0
+                    'PseudogenesIntergenic': 0,
+                    'OutputFiles': []
                   }
 
 
@@ -66,8 +67,8 @@ def current_time() -> str:
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
-                                     usage='\033[1m'+"[pseudo_finder.py annotate -g GENOME -op OUTPREFIX] or "
-                                           "[pseudo_finder.py annotate --help] for more options."+'\033[0m',
+                                     usage='\033[1m'+"[pseudofinder.py annotate -g GENOME -op OUTPREFIX] or "
+                                           "[pseudofinder.py annotate --help] for more options."+'\033[0m',
                                      epilog='\033[1m'+'Explanation of output choices\n'+'\033[0m'
                                             '\'--outformat 1\': GFF file containing only ORFs flagged as pseudogenes.\n'
                                             '\'--outformat 2\': GFF file containing only ORFs not flagged as pseudogenes. *Not yet implemented*\n'
@@ -76,7 +77,7 @@ def get_args():
                                             'Note: Outputs can be combined. If \'-of 12\' '
                                             'is specified, files \'1\' and \'2\' will be written.')
 
-    # TODO: I think this should be removed as the version will now be stored in pseudo_finder.py
+    # TODO: I think this should be removed as the version will now be stored in pseudofinder.py
     # parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
 
     # Always required
@@ -175,11 +176,11 @@ def get_args():
     return args
 
 
-def get_proteome(args, faa: str) -> None:
+def get_proteome(args, out_faa: str) -> None:
     """Parse genbank input file for coding sequences (CDSs) and write them to the output file with coordinates."""
 
     with open(args.genome, "r") as input_handle:
-        with open(faa, "w") as output_handle:
+        with open(out_faa, "w") as output_handle:
             for seq_record in SeqIO.parse(input_handle, "genbank"):
                 for seq_feature in seq_record.features:
                     if seq_feature.type == "CDS":
@@ -190,11 +191,11 @@ def get_proteome(args, faa: str) -> None:
                                                                  seq_feature.qualifiers['translation'][0]))
 
     print('%s\tProteome extracted from:\t\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, faa,)),
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_faa,)),
     sys.stdout.flush()
 
 
-def get_intergenic_regions(args, fasta: str) -> None:
+def get_intergenic_regions(args, out_fasta: str) -> None:
     """Parse genbank input file for intergenic regions and write them to the output file with coordinates.
 
     Copied/modified from "get_interregions" by Iddo Friedberg & Ian MC Fleming
@@ -203,7 +204,7 @@ def get_intergenic_regions(args, fasta: str) -> None:
     Such strand information is not needed here, so I arbitrarily select plus strand sequence."""
     
     # Resets 'fasta' if it contains content already
-    open(fasta, 'w').close()
+    open(out_fasta, 'w').close()
 
     # Parse all contigs in the multicontig genbank
     for contig in SeqIO.parse(args.genome, "genbank"):  # contig = all information for an entire contig
@@ -242,20 +243,20 @@ def get_intergenic_regions(args, fasta: str) -> None:
                 intergenic_records.append(intergenic_region)
 
         # Write to the intergenic records file
-        SeqIO.write(intergenic_records, open(fasta, "a"), "fasta")
+        SeqIO.write(intergenic_records, open(out_fasta, "a"), "fasta")
 
     print('%s\tIntergenic regions extracted from:\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, fasta,)),
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_fasta,)),
     sys.stdout.flush()
 
 
-def run_blastp(args, faa: str) -> None:
+def run_blastp(args, in_faa: str, out_tsv: str) -> None:
     """"Run BLASTP with FAA file against DB of your choice."""
 
     print('%s\tBlastP executed with %s threads.' % (current_time(), args.threads)),
     sys.stdout.flush()
 
-    blastp_cline = NcbiblastpCommandline(query=faa,
+    blastp_cline = NcbiblastpCommandline(query=in_faa,
                                          num_threads=args.threads,
                                          db=args.database,
                                          max_target_seqs=args.hitcap,
@@ -263,17 +264,17 @@ def run_blastp(args, faa: str) -> None:
                                          evalue=args.evalue,
                                          outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend "
                                                 "sstart send slen evalue bitscore frames stitle\'",
-                                         out=faa + ".blastP_output.tsv")
+                                         out=out_tsv)
     blastp_cline()
 
 
-def run_blastx(args, fasta: str) -> None:
-    """Run BLASTX with FNA file against DB of your choice."""
+def run_blastx(args, in_fasta: str, out_tsv: str) -> None:
+    """Run BLASTX with FASTA file against DB of your choice."""
 
     print('%s\tBlastX executed with %s threads.' % (current_time(), args.threads)),
     sys.stdout.flush()
 
-    blastx_cline = NcbiblastxCommandline(query=fasta,
+    blastx_cline = NcbiblastxCommandline(query=in_fasta,
                                          num_threads=args.threads,
                                          db=args.database,
                                          max_target_seqs=args.hitcap,
@@ -281,7 +282,7 @@ def run_blastx(args, fasta: str) -> None:
                                          evalue=args.evalue,
                                          outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend "
                                                 "sstart send slen evalue bitscore frames stitle\'",
-                                         out=fasta + ".blastX_output.tsv")
+                                         out=out_tsv)
     blastx_cline()
 
 
@@ -781,23 +782,50 @@ def add_locus_tags(lori: List[RegionInfo], contig: str) -> List[RegionInfo]:
 
     return final_list
 
+# TODO: REMOVE THIS ONCE DONE IT DOES NOT BELONG
+def make_gff_header(args, gff: str) -> None:
+    """Prepare a GFF file header (a list of sequence identifiers)"""
 
-def write_genes_to_gff(lopg: List[RegionInfo], gff: str) -> None:
+    # open file specified by input 'gff'
+    with open(gff, "w") as gff_output_handle:
+        gff_output_handle.write("##gff-version 3\n#!annotation-date\t%s\n" % (current_time()))  # first line
+
+        for i, seq_record in enumerate(SeqIO.parse(args.genome, "genbank")):  # writes one line for each contig
+
+            gff_output_handle.write("%s %s %s %s\n" % (
+                "##sequence-region",
+                "gnl|Prokka|%s" % seq_record.id,  # contig seqid
+                1,  # contig start
+                (len(seq_record)))  # contig end
+                                    )
+
+
+def write_genes_to_gff(args, lopg: List[RegionInfo], gff: str) -> None:
     """Takes an input list of genes and writes them to a GFF file in proper format."""
 
-    with open(gff, 'a') as gff_output_handle:
+    with open(gff, 'w') as gff_output_handle:
+        # write header
+        gff_output_handle.write("##gff-version 3\n#!annotation-date\t%s\n" % (current_time()))  # first line
+        for i, seq_record in enumerate(SeqIO.parse(args.genome, "genbank")):  # writes one line for each contig
+            gff_output_handle.write("%s %s %s %s\n" % (
+                "##sequence-region",                # Necessary to comply with GFF3 formatting
+                "gnl|Prokka|%s" % seq_record.id,    # contig seqid
+                1,                                  # contig start
+                (len(seq_record)))                  # contig end
+                                    )
+
+        # write genes
         for pseudo in lopg:
-            # Write a single line, tab separated string with all the information about a particular feature
             gff_output_handle.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" %
-                                    ("gnl|Prokka|%s" % pseudo.contig,  # 1
-                                     "pseudo_finder",  # 2
-                                     "gene",  # 3
-                                     pseudo.start,  # 4
-                                     pseudo.end,  # 5
-                                     '.',  # 6
-                                     pseudo.strand,  # 7
-                                     '.',  # 8
-                                     pseudo.note))  # 9
+                                    ("gnl|Prokka|%s" % pseudo.contig,   # 1
+                                     "pseudo_finder",                   # 2
+                                     "gene",                            # 3
+                                     pseudo.start,                      # 4
+                                     pseudo.end,                        # 5
+                                     '.',                               # 6
+                                     pseudo.strand,                     # 7
+                                     '.',                               # 8
+                                     pseudo.note))                      # 9
 
 # Explanation of the string above:
 # 1: seqname - name of the chromosome or scaffold
@@ -860,6 +888,8 @@ def get_sequences_from_fasta(infile: str, outfile: str, regions: List[RegionInfo
 def get_sequences_from_gbk(args, contig_name: str, regions: List[RegionInfo], outfile: str) -> None:
     """Parse genbank input file for the regions provided and write them to the output file with coordinates."""
 
+    print(regions[0].contig)
+    print(contig_name)
     # Generates a list of [start:end] tuples that will be used to retrieve sequences
     coord_list = [(region.start, region.end) for region in regions]
     # Where the info for writing to the fasta file will be stored
@@ -930,8 +960,8 @@ def write_summary_file(args) -> None:
                    % (current_time(),
                       args.genome,
                       args.database,
-                      StatisticsDict['BlastpFilename'],
-                      StatisticsDict['BlastxFilename'],
+                      StatisticsDict['BlastpFilename'],  # TODO: this is not appearing when reannotating.
+                      StatisticsDict['BlastxFilename'],  # TODO: this is not appearing when reannotating.
                       "\n".join(StatisticsDict['OutputFiles']),
                       args.intergenic_length,
                       args.length_pseudo,
@@ -953,80 +983,42 @@ def write_summary_file(args) -> None:
 
 
 def main():
-    # Collect arguments from parser
     args = get_args()
 
-    # If blast files are not provided, must run blast.
-    if args.blastp is None and args.blastx is None:
+    base_outfile_name = args.outprefix + "_" + os.path.basename(args.genome)
+    
+    file_dict = {
+        'proteome_filename': base_outfile_name + "_proteome.faa",
+        'intergenic_filename': base_outfile_name + "_intergenic.fasta",
+        'blastp_filename': base_outfile_name + "_proteome.faa" + ".blastP_output.tsv",
+        'blastx_filename': base_outfile_name + "_intergenic.fasta" + ".blastX_output.tsv",
+        'pseudos_gff': base_outfile_name + "_pseudos.gff",
+        'pseudos_fasta': base_outfile_name + "_pseudos.fasta",
+        'functional_gff': base_outfile_name + "_functional.gff",
+        'functional_faa': base_outfile_name + "_functional.faa",
+    }
 
-        # files generated:
-        proteome_filename = args.outprefix + "_" + os.path.basename(args.genome) + "_proteome.faa"
-        intergenic_filename = args.outprefix + "_" + os.path.basename(args.genome) + "_intergenic.fasta"
-        blastp_filename = proteome_filename + ".blastP_output.tsv"
-        blastx_filename = intergenic_filename + ".blastX_output.tsv"
+    # Collect sequences
+    get_proteome(args=args, out_faa=file_dict['proteome_filename'])
+    get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
 
-        # Collect sequences
-        get_proteome(args=args, faa=proteome_filename)
-        get_intergenic_regions(args=args, fasta=intergenic_filename)
-
-        # Run blast
-        run_blastp(args=args, faa=proteome_filename)
-        run_blastx(args=args, fasta=intergenic_filename)
-
-    # If blast files are provided, use them.
-    else:
-        blastp_filename = args.blastp
-        blastx_filename = args.blastx
-        proteome_filename = blastp_filename.replace(".blastP_output.tsv", "")
-        intergenic_filename = blastx_filename.replace(".blastX_output.tsv", "")
-
-    # BlastP and BlastX files have just been formally declared, so now we will add their names to the StatisticsDict
-    StatisticsDict['blastp_filename'] = blastp_filename
-    StatisticsDict['blastx_filename'] = blastx_filename
+    # Run blast
+    run_blastp(args=args, in_faa=file_dict['proteome_filename'], out_tsv=file_dict['blastp_filename'])
+    run_blastx(args=args, in_fasta=file_dict['intergenic_filename'], out_tsv=file_dict['blastx_filename'])
 
     # Collect everything from the blast files
-    orfs = parse_blast(filename=blastp_filename, blast_format='BlastP')
-    intergenic_regions = parse_blast(filename=blastx_filename, blast_format='BlastX')
-    # Add all the regions together
+    orfs = parse_blast(filename=file_dict['blastp_filename'], blast_format='BlastP')
+    intergenic_regions = parse_blast(filename=file_dict['blastx_filename'], blast_format='BlastX')
     all_regions = orfs + intergenic_regions
 
     # Sorted list of contigs containing only orfs, no intergenic regions
-    orfs_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=orfs))
+    orfs_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=orfs))  # TODO: maybe remove this?
     # Sorted list of contigs containing orfs and intergenic regions
     all_regions_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=all_regions))
 
-    # Add number of contigs to the StatisticsDict
-    StatisticsDict['NumberOfContigs'] = len(all_regions_by_contig)
+    pseudogenes = []
+    functional_genes = []
 
-    # Prepare for writing results
-    output_types = set(str(args.outformat))  # converts args.outformat into a set of integers that can be checked
-    StatisticsDict['OutputFiles'] = []
-
-    if '1' in output_types:
-        pseudos_gff = args.outprefix + "_" + os.path.basename(args.genome) + "_pseudos.gff"
-        make_gff_header(args=args, gff=pseudos_gff)
-        StatisticsDict['OutputFiles'].append("Output [1]: %s" % pseudos_gff)
-
-    if '2' in output_types:  # TODO: Not yet properly tested
-        print('\033[1m'+"Notice! --outformat 2 specified but this output has not yet been implemented."+'\033[0m'),
-        sys.stdout.flush()
-        functional_gff = args.outprefix + "_" + os.path.basename(args.genome) + "_functional.gff"
-        make_gff_header(args=args, gff=functional_gff)
-        StatisticsDict['OutputFiles'].append("Output [2]: %s" % functional_gff)
-
-    if '3' in output_types:  # TODO: not yet properly tested
-        print('\033[1m' + "Notice! --outformat 3 specified but this output has not yet been tested." + '\033[0m'),
-        sys.stdout.flush()
-        fasta_filename_3 = args.outprefix + "_" + os.path.basename(args.genome) + "_pseudos.fasta"
-        open(fasta_filename_3, 'w').close()
-
-    if '4' in output_types:
-        functional_faa = args.outprefix + "_" + os.path.basename(args.genome) + "_functional.faa"
-        # Clear file contents if this file already exists:
-        open(functional_faa, 'w').close()
-        StatisticsDict['OutputFiles'].append("Output [4]: %s" % functional_faa)
-
-    # For each contig:
     for contig_index, contig in enumerate(all_regions_by_contig):
 
         # Reports the contig number being examined. Indices are 0 based so I added 1 to make it more intuitive
@@ -1036,53 +1028,28 @@ def main():
         sys.stdout.flush()
 
         # Annotate pseudogenes
-        pseudo_genes = annotate_pseudos(args=args, contig=contig)
-        print('\t\t\tNumber of orfs on this contig: %s\n'
-              '\t\t\tNumber of pseudogenes flagged: %s' % (
-                  len([region for region in contig.regions if region.region_type == RegionType.ORF]), len(pseudo_genes))),
-        sys.stdout.flush()
-
-        # Retrieve functional genes by comparing orfs to annotated pseudogenes
+        pseudos_on_contig = annotate_pseudos(args=args, contig=contig)
+        pseudogenes.extend(pseudos_on_contig)
         try:
-            functional_genes = get_functional_genes(contig=orfs_by_contig[contig_index], pseudos=pseudo_genes)
+            functional_genes.extend(get_functional_genes(contig=orfs_by_contig[contig_index], pseudos=pseudos_on_contig))
         except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
             continue
 
-        # Write the appropriate output types
-        if '1' in output_types:  # Write GFF file with pseudogenes in it
-            write_genes_to_gff(lopg=pseudo_genes, gff=pseudos_gff)
+        print('\t\t\tNumber of orfs on this contig: %s\n'
+              '\t\t\tNumber of pseudogenes flagged: %s' % (
+                  len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+                  len(pseudos_on_contig))),
+        sys.stdout.flush()
 
-        if '2' in output_types:  # TODO: implement this if it is ever needed
-            write_genes_to_gff(lopg=functional_genes, gff=functional_gff)
+        get_sequences_from_gbk(args, contig_name=contig.name, outfile=file_dict['pseudos_fasta'], regions=pseudogenes)
+        get_sequences_from_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
+                                 regions=functional_genes, contig=contig.name)
 
-        if '3' in output_types:  # TODO: implement this if it is ever needed
-            get_sequences_from_gbk(args,
-                                   contig_name=contig.name,
-                                   outfile=fasta_filename_3,  #generated just above
-                                   regions=pseudo_genes)
-
-        if '4' in output_types:  # Write FAA file with protein coding genes in it
-            get_sequences_from_fasta(infile=proteome_filename,
-                                     outfile=functional_faa,
-                                     regions=functional_genes,
-                                     contig=contig.name)
+    write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
+    write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
 
     # Finish by writing a summary file
     write_summary_file(args=args)
 
-
 if __name__ == '__main__':
     main()
-
-
-def notes():
-    # ADDITIONAL FEATURES TO INCORPORATE?
-    # TODO: sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastp hits by blastx
-    # TODO: include an analysis of cryptic pseudogenes based on dN/dS ratios (PAML?...)
-    # TODO: include an optional analysis when RNA-Seq data are available
-    # TODO: exclude mobile elements such as transposases? or treat them differently
-    # TODO: visualize results by matplotlib with a simple scatter plot of all genes/pseudogenes (dN/dS, GC content, length ratio, ...)
-    # TODO: put all output files into a separate folder, include folder name among arguments to parse
-    # TODO: check if files are already in the folder before starting -- rewrite/append/ask
-
-    pass

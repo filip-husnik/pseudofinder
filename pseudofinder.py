@@ -4,7 +4,7 @@ from sys import argv, stderr
 from modules import annotate, visualize, genome_map, pseudofinder_test  # all pseudofinder modules
 
 """
-pseudo_finder.py: A script to find pseudogene candidates in annotated genbank files.
+pseudofinder.py: A script to find pseudogene candidates in annotated genbank files.
 Tested mostly on .gbk files annotated by Prokka with the --compliant flag.
 
 Installation requirements:
@@ -18,7 +18,7 @@ __version__ = "0.10"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
-errorMessage = "Options: pseudo_finder.py [ annotate | visualize | map | test | help ]\n"
+errorMessage = "Options: pseudofinder.py [ annotate | visualize | map | test | help ]\n"
 
 try:
     if argv[1] == "annotate":

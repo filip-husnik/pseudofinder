@@ -17,8 +17,8 @@ def current_time() -> str:
 
 def get_args():
     parser = argparse.ArgumentParser(
-        usage='\033[1m'+"[pseudo_finder.py map -g GENOME -gff GFF -op OUTPREFIX] or "
-                        "[pseudo_finder.py map --help] for more options."+'\033[0m')
+        usage='\033[1m'+"[pseudofinder.py map -g GENOME -gff GFF -op OUTPREFIX] or "
+                        "[pseudofinder.py map --help] for more options."+'\033[0m')
 
     # Always required
     always_required = parser.add_argument_group('\033[1m' + 'Required arguments' + '\033[0m')

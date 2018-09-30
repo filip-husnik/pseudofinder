@@ -21,8 +21,8 @@ def current_time() -> str:
 
 def get_args():
     parser = argparse.ArgumentParser(
-        usage='\033[1m'+"[pseudo_finder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -hc HITCAP] or "
-                        "[pseudo_finder.py visualize --help] for more options."+'\033[0m')
+        usage='\033[1m'+"[pseudofinder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -hc HITCAP] or "
+                        "[pseudofinder.py visualize --help] for more options."+'\033[0m')
 
     # Always required
     always_required = parser.add_argument_group('\033[1m' + 'Required arguments' + '\033[0m')
