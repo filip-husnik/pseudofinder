@@ -1,5 +1,6 @@
 <p align="center">
-<b>Warning: This repository is still a work in progress!</b>
+<b>Warning: This repository is still a work in progress, and is in the middle of a major code overhaul! 
+Please allow a few days for code to return to working condition.</b>
 <h1 align="center">Pseudofinder</h1>
 <h5 align="center">Automated detection of pseudogenes in prokaryotic genomes.</h5>
 </p>
