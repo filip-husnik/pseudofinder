@@ -35,7 +35,7 @@ Pseudofinder is a Python3 script that detects pseudogene candidates [https://en.
 
 It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag (i.e. including both /gene and /CDS annotations).
 
-There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them is open source and allows fine-tuning of parameters.
+There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them is open source and allows easy fine-tuning of parameters.
 
 
 ## Getting started
@@ -132,7 +132,7 @@ This flowchart shows all steps of the Pseudofinder pipeline.
 
 As with any other python script, there are two ways how to run it:
 ```
-# Call it directly with python3.
+# Call it directly with python3 (or just python if python3 is your default).
 python3 pseudofinder.py
 
 # Or make the file executable and then rely on its shebang line [#!/usr/bin/env python3].
@@ -147,7 +147,7 @@ Providing input files:
 python3 pseudofinder.py annotate --genome GENOME.GBF --output PREFIX --database /PATH/TO/NR/nr --threads 16 
 
 # Run only pseudogene detection (e.g. when blast output files are already available from a previous run).
-python3 pseudofinder.py annotate --genome GENOME.GBF --output PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
+python3 pseudofinder.py annotate --genome GENOME.GBF --outprefix PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
 ```
 
 All command line arguments:
@@ -225,7 +225,7 @@ Explanation of output choices:
 
 One strength of Pseudofinder is its ability to be fine-tuned to the user's preferences. To help visualize the effects of changing the parameters of this program, we have provided the <b>visualize</b> command. This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. It is run by providing the blast files from the <b>annotate</b> command:
 ```
-python pseudofinder.py visualize \
+python3 pseudofinder.py visualize \
     --genome GENOME.GBF \
     --blastx BLASTXFILE.TSV \
     --blastp BLASTPFILE.TSV \
@@ -240,7 +240,7 @@ Please note: Since the annotation depends on your choice of '--hitcap', you must
 Pseudofinder can generate a chromosome map to display detected pseudogenes with a single command:
 
 ```
-pseudofinder.py map --genome GENOME --gff GFF --outprefix PREFIX
+python3 pseudofinder.py map --genome GENOME --gff GFF --outprefix PREFIX
 ```
 Please provide your pseudogene calls in GFF format (the default output from pseudofinder.py annotate).
 
@@ -249,12 +249,12 @@ The resulting chromosome map will show the original annotation in the center tra
 
 ### Test
 
-With a single command, the entire Pseudofinder workflow can be run on the genome of <i>Candidatus Tremblaya Princeps</i> strain PCIT.
+With a single command, the entire Pseudofinder workflow can be run on the 139 kbp genome of <i>Candidatus</i> Tremblaya princeps strain PCIT.
 
 Simply enter the following command:
 
 ```
-python pseudofinder.py test --database /PATH/TO/NR/nr
+python3 pseudofinder.py test --database /PATH/TO/NR/nr
 ```
 The workflow will begin immediately and write the results to a timestamped folder found in ```/pseudo-finder/test/```.
 
