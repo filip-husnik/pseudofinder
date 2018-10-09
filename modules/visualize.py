@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from . import reannotate
+
 import sys
 import os
 import argparse
@@ -7,6 +9,7 @@ import re
 import shutil
 import subprocess
 from time import localtime, strftime
+from contextlib import contextmanager
 
 import pandas as pd
 import numpy
@@ -21,7 +24,7 @@ def current_time() -> str:
 
 def get_args():
     parser = argparse.ArgumentParser(
-        usage='\033[1m'+"[pseudofinder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -hc HITCAP] or "
+        usage='\033[1m'+"[pseudofinder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -log LOGFILE] or "
                         "[pseudofinder.py visualize --help] for more options."+'\033[0m')
 
     # Always required
@@ -33,13 +36,12 @@ def get_args():
     always_required.add_argument('-op', '--outprefix',
                                  help='Specify an output prefix. A folder will also be created with this name.',
                                  required=True)
-    always_required.add_argument('-p', '--blastp',
+    always_required.add_argument('-p', '--blastp', required=True,
                                  help='Specify an input blastp file.')
-    always_required.add_argument('-x', '--blastx',
+    always_required.add_argument('-x', '--blastx', required=True,
                                  help='Specify an input blastx file.')
-    always_required.add_argument('-hc', '--hitcap',
-                                 type=int,
-                                 help='The hitcap from used to generate your blast files is required.\n\n')
+    always_required.add_argument('-log', '--logfile', required=True,
+                                 help='Provide the log file from the run that generated the blast files.')
 
     # Optional
     optional = parser.add_argument_group('\033[1m' + 'Optional parameters' + '\033[0m')
@@ -60,36 +62,55 @@ def get_args():
                           default=None,
                           type=str,
                           help='Specifies a title for your plot. Default is None.')
+    optional.add_argument('-it', '--intergenic_threshold', default=None, type=float,
+                          help='Number of BlastX hits needed to annotate an intergenic region as a pseudogene.\n'
+                               'Calculated as a percentage of maximum number of allowed hits (--hitcap).\n'
+                               'Default is %(default)s.')
+    optional.add_argument('-d', '--distance', default=None, type=int,
+                          help='Maximum distance between two regions to consider joining them. Default is %(default)s.')
 
     # "parse_known_args" will create a tuple of known arguments in the first position and unknown in the second.
     # We only care about the known arguments, so we take [0].
     args = parser.parse_known_args()[0]
 
-    if args.hitcap is None:
-        sys.stderr.write("Error: Hitcap is required to correctly call pseudogenes. "
-                         "The value can be found in the log file from your annotation.\n")
-        exit()
-
     return args
+
+
+@contextmanager
+def suppress_output_to_console():
+    """Prevents reannotate.py from writing to stdout, which would be a huge mess."""
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
 
 
 def settings_loop(args):
     """This function will run annotate.py with a variety of settings."""
-    interval = 1 / args.resolution
-    path_to_annotate = os.path.dirname(__file__)+"/annotate.py"
+
+    interval = 1 / args.resolution  # interval will be used to print the progress to stdout
+
+    # Preparing arguments for reannotate.py
+    command_line_args = args
+    logged_args = reannotate.parse_log(args.logfile)
+    reannotate.fix_args(command_line_args, logged_args)
+    basename = args.outprefix
 
     for length_pseudo in numpy.arange(0.0, 1.01, interval):
         print("%s\tCollecting data: %d%% completed" % (current_time(), round(length_pseudo*100, 2)), end='\r')
-        for shared_hits in numpy.arange(0.0, 1.01, interval):
-            filename = "%s/L%s_S%s" % (args.outprefix, length_pseudo, shared_hits)
-            # Runs annotate.py as if you were using the command line
-            subprocess.call("python3 %s --genome %s --outprefix %s --blastp %s "
-                            "--blastx %s --length_pseudo %s --shared_hits %s"
-                            " --hitcap %s --outformat 0 > /dev/null" % (
-                                path_to_annotate, args.genome, filename, args.blastp,
-                                args.blastx, length_pseudo, shared_hits, args.hitcap),
-                            shell=True)
 
+        for shared_hits in numpy.arange(0.0, 1.01, interval):
+            args.length_pseudo = length_pseudo
+            args.shared_hits = shared_hits
+            args.outprefix = "%s/L%s_S%s" % (basename, length_pseudo, shared_hits)
+
+            with suppress_output_to_console():  # Prevents writing to stdout
+                reannotate.reannotate(args)
+
+    args.outprefix = basename  # Have to put this back to its original value
     print('')  # Necessary because the previous print was rolling back on itself
 
 
@@ -100,7 +121,8 @@ def parse_summary_files(args):
     outfile.write("length_pseudo\tshared_hits\tpseudogenes\n")  # header for the output file
 
     for root, dirs, files in os.walk(args.outprefix):
-        for file in files:
+        log_files = [file for file in files if "_log.txt" in file]
+        for file in log_files:
             path = os.path.join(root, file)
             with open(path, 'r') as infile:
                 lines = infile.readlines()
@@ -145,6 +167,8 @@ def make_plot(args):
 
 def main():
     args = get_args()
+    args.length_pseudo = None
+    args.shared_hits = None
 
     # Reset the folder specified to contain the outputs
     if os.path.exists(args.outprefix):

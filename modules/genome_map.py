@@ -15,6 +15,7 @@ def current_time() -> str:
     return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
 
 
+# Deprecated function. If you want to use this you'll have to update the arguments
 def get_args():
     parser = argparse.ArgumentParser(
         usage='\033[1m'+"[pseudofinder.py map -g GENOME -gff GFF -op OUTPREFIX] or "
@@ -33,14 +34,6 @@ def get_args():
                                  help='Specify an output prefix.',
                                  required=True)
 
-    # TODO: If at some point it would be good to have the plots have a title, this is ready.
-    # optional = parser.add_argument_group('\033[1m' + 'Optional parameters' + '\033[0m')
-    #
-    # optional.add_argument('-t', '--title',
-    #                       default='map',
-    #                       type=str,
-    #                       help='Specifies a title for your plot. Default is %(default)s.')
-
     # "parse_known_args" will create a tuple of known arguments in the first position and unknown in the second.
     # We only care about the known arguments, so we take [0].
     args = parser.parse_known_args()[0]
@@ -48,26 +41,27 @@ def get_args():
     return args
 
 
-def read_gbk(args) -> SeqIO.SeqRecord:
+def read_gbk(genome: str) -> SeqIO.SeqRecord:
     """Reads the input genome file and concatenates all contigs into a single SeqRecord."""
     whole_record = SeqIO.SeqRecord(seq="", id="", name="", features=None)  # Blank SeqRecord that will be added to
-    for record in SeqIO.parse(handle=args.genome, format='genbank'):  # Merge all contigs into one large SeqRecord
+    for record in SeqIO.parse(handle=genome, format='genbank'):  # Merge all contigs into one large SeqRecord
         whole_record += record
     return whole_record
 
 
-def read_gff(args) -> SeqIO.SeqRecord:
+def read_gff(gff: str) -> SeqIO.SeqRecord:
     """Reads the input GFF file and creates a single SeqRecord with all features."""
 
     feature_list = []   # Blank list that will be added to the SeqRecord at the end
     contig_dict = {}    # Stores info specific for each contig in the GFF file
 
-    with open(args.gff, 'r') as gff:
+    with open(gff, 'r') as gff:
         lines = gff.readlines()
         previous_absolute_end = 0   # GFF is written with every contig starting at 1, so we use this to track distance
         for line in lines:
             if re.match("##sequence-region", line):  # These lines just list the lengths of all the contigs
-                name, length = line.split(sep=" ")[1], int(line.split(sep=" ")[3])
+                name = line.split(sep=" ")[1]
+                length = int(line.split(sep=" ")[3])
                 contig_dict[name] = {'name': name,
                                      'length': length,
                                      'absolute_start': previous_absolute_end+1}
@@ -79,6 +73,7 @@ def read_gff(args) -> SeqIO.SeqRecord:
                 start = int(line.split(sep="\t")[3])
                 end = int(line.split(sep="\t")[4])
                 strand = line.split(sep="\t")[6]
+
                 # Convert strand from symbol to number
                 if strand == '+':
                     strand = 1
@@ -94,7 +89,7 @@ def read_gff(args) -> SeqIO.SeqRecord:
 
 
 # Loosely based on tutorial at http://biopython.org/DIST/docs/tutorial/Tutorial.html#htoc254
-def make_diagram(args, genome_record: SeqIO.SeqRecord, pseudo_record: SeqIO.SeqRecord):
+def make_diagram(genome_record: SeqIO.SeqRecord, pseudo_record: SeqIO.SeqRecord, outfile: str):
     """Plots the genome with pseudogenes on another track"""
     diagram = GenomeDiagram.Diagram()
 
@@ -131,15 +126,19 @@ def make_diagram(args, genome_record: SeqIO.SeqRecord, pseudo_record: SeqIO.SeqR
 
     diagram.draw(format="circular", circular=True,
                  start=0, end=len(genome_record), circle_core=0.8)
-    diagram.write(filename=args.outprefix+".pdf", output="PDF")
-    print("%s\tFigure plotted: %s.pdf" % (current_time(), args.outprefix))
+    diagram.write(filename=outfile, output="PDF")
+    # print("%s\tFigure plotted: %s.pdf" % (current_time(), outprefix))
 
 
 def main():
     args = get_args()
-    base_record = read_gbk(args)
-    pseudos_record = read_gff(args)
-    make_diagram(args, base_record, pseudos_record)
+    base_record = read_gbk(args.genome)
+    pseudos_record = read_gff(args.gff)
+    make_diagram(base_record, pseudos_record, args.outprefix)
 
-if __name__ == '__main__':
-    main()
+
+# genome_map.full() allows this module to be called from another module, which is what happens in annotate.main()
+def full(genome: str, gff: str, outfile: str):
+    base_record = read_gbk(genome)
+    pseudos_record = read_gff(gff)
+    make_diagram(base_record, pseudos_record, outfile)

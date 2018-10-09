@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
 import re
 import sys
-from collections import OrderedDict
 from enum import Enum
 from typing import NamedTuple, List
 from time import localtime, strftime
@@ -13,6 +11,11 @@ from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 
+# This try block was added to stop a circular import error that occurs when this module is called from reannotate.py
+try:
+    from . import genome_map
+except ImportError:
+    pass
 
 # Data definitions
 # An individual blast hit to a region.
@@ -102,7 +105,7 @@ def get_args():
     optional.add_argument('-ce', '--contig_ends', default=False, action='store_true',
                           help='Forces the program to include intergenic regions at contig ends. If not specified,\n the '
                                'program will ignore any sequence before the first ORF and after the last ORF on a contig.')
-    optional.add_argument('-it', '--intergenic_threshold', default=0.30,
+    optional.add_argument('-it', '--intergenic_threshold', default=0.30, type=float,
                           help='Number of BlastX hits needed to annotate an intergenic region as a pseudogene.\n'
                                'Calculated as a percentage of maximum number of allowed hits (--hitcap).\n'
                                'Default is %(default)s.')
@@ -222,27 +225,6 @@ def run_blastx(args, in_fasta: str, out_tsv: str) -> None:
                                                 "sstart send slen evalue bitscore frames stitle\'",
                                          out=out_tsv)
     blastx_cline()
-
-
-# try: parse locus and size from everything
-# TODO: find the last locus tag number and continue from there
-#  locus_tag
-def make_gff_header(args, gff: str) -> None:
-    """Prepare a GFF file header (a list of sequence identifiers)"""
-    
-    # open file specified by input 'gff'
-    with open(gff, "w") as gff_output_handle:
-        
-        gff_output_handle.write("##gff-version 3\n#!annotation-date\t%s\n" % (current_time()))  # first line
-        
-        for i, seq_record in enumerate(SeqIO.parse(args.genome, "genbank")):  # writes one line for each contig
-
-            gff_output_handle.write("%s %s %s %s\n" % (
-                                                        "##sequence-region",
-                                                        "gnl|Prokka|%s" % seq_record.id,   # contig seqid
-                                                        1,                                 # contig start
-                                                        (len(seq_record)))                 # contig end
-                                    )                
 
 
 def collect_query_ids(filename: str) -> List[str]:
@@ -373,6 +355,7 @@ def split_regions_into_contigs(lori: List[RegionInfo]) -> List[Contig]:
 
     # collects all contig names. Doesn't store duplicates, so a contig name will not be stored more than once.
     contig_names = list(set([ri.contig for ri in lori]))
+    StatisticsDict['NumberOfContigs'] = len(contig_names)
     contig_list = []  # this will store the output
 
     for contig_name in contig_names:
@@ -721,23 +704,6 @@ def add_locus_tags(lori: List[RegionInfo], contig: str) -> List[RegionInfo]:
 
     return final_list
 
-# TODO: REMOVE THIS ONCE DONE IT DOES NOT BELONG
-def make_gff_header(args, gff: str) -> None:
-    """Prepare a GFF file header (a list of sequence identifiers)"""
-
-    # open file specified by input 'gff'
-    with open(gff, "w") as gff_output_handle:
-        gff_output_handle.write("##gff-version 3\n#!annotation-date\t%s\n" % (current_time()))  # first line
-
-        for i, seq_record in enumerate(SeqIO.parse(args.genome, "genbank")):  # writes one line for each contig
-
-            gff_output_handle.write("%s %s %s %s\n" % (
-                "##sequence-region",
-                "gnl|Prokka|%s" % seq_record.id,  # contig seqid
-                1,  # contig start
-                (len(seq_record)))  # contig end
-                                    )
-
 
 def write_genes_to_gff(args, lopg: List[RegionInfo], gff: str) -> None:
     """Takes an input list of genes and writes them to a GFF file in proper format."""
@@ -751,13 +717,12 @@ def write_genes_to_gff(args, lopg: List[RegionInfo], gff: str) -> None:
                               1,                                  # contig start
                               len(seq_record)]
 
-            gff_output_handle.write('\t'.join(map(str, entry_elements))+'\n')
+            gff_output_handle.write(' '.join(map(str, entry_elements))+'\n')
 
         # write genes
         for region in lopg:
-            entry_elements = ["gnl|Prokka|%s",
-                              region.contig,
-                              "region_finder",
+            entry_elements = ["gnl|Prokka|%s" % region.contig,
+                              "pseudofinder",
                               "gene",
                               region.start,
                               region.end,
@@ -767,19 +732,6 @@ def write_genes_to_gff(args, lopg: List[RegionInfo], gff: str) -> None:
                               region.note]
 
             gff_output_handle.write('\t'.join(map(str, entry_elements))+'\n')
-
-# Explanation of the string above:
-# 1: seqname - name of the chromosome or scaffold
-# 2: source - name of the program that generated this feature
-# 3: feature - feature type name, e.g. Gene, Variation, Similarity
-# 4: start - Start position of the feature, with sequence numbering starting at 1.
-# 5: end - End position of the feature, with sequence numbering starting at 1.
-# 6: score - A floating point value.
-# 7: strand - defined as + (forward) or - (reverse).
-# 8: frame - One of '0', '1' or '2'.
-        #  '0' indicates that the first base of the feature is the first base of a codon,
-        #  '1' that the second base is the first base of a codon, and so on..
-# 9: attribute - A semicolon-separated list of tag-value pairs, providing additional information about each feature.
 
 
 def get_functional_genes(contig: Contig, pseudos: List[RegionInfo]) -> Contig:
@@ -803,6 +755,7 @@ def get_functional_genes(contig: Contig, pseudos: List[RegionInfo]) -> Contig:
     functional_genes = Contig(regions=functional_list, name=contig.name, number=contig.number)
 
     return functional_genes
+
 
 #TODO: FINISH THIS BOY
 def write_functional_to_fasta(infile: str, outfile: str, contigs: List[Contig]) -> None:
@@ -844,44 +797,47 @@ def write_pseudos_to_fasta(args, pseudofinder_regions: List[RegionInfo], outfile
     SeqIO.write(fasta_list, open(outfile, "w"), "fasta")
 
 
-def write_summary_file(args, name: str) -> None:
+def write_summary_file(args, file_dict: dict) -> None:
     """Writes a summary file of statistics from the pseudo_finder run."""
 
-    print('%s\tWriting summary of run:\t%s' % (current_time(), name)),
+    print('%s\tWriting summary of run:\t%s' % (current_time(), file_dict['log'])),
     sys.stdout.flush()
 
-    with open(name, 'w') as logfile:
+    with open(file_dict['log'], 'w') as logfile:
         logfile.write(
-            "####### Summary from annotate.py #######\n\n"
-            "Date/time:\t%s\n\n"
-            # TODO: add runtime
-            
-            "#######    Input Files   #######\n"
-            "Genome:\t%s\n"
-            "Database:\t%s\n"
-            "BlastP:\t%s\n"
-            "BlastX:\t%s\n\n"
-            
-            "#######   Output Files   #######\n"
-            "%s\n\n" 
-            
+            "####### Summary from annotate/reannotate #######\n\n"
+            "Date/time:\t" + current_time() + "\n\n"
+
+            "#######    Files   #######\n"
+            "Genome:\t" + args.genome + "\n"
+            "Database:\t" + args.database + "\n"
+            "BlastP:\t" + file_dict['blastp_filename'] + "\n"
+            "BlastX:\t" + file_dict['blastx_filename'] + "\n"
+            "Pseudogenes (GFF):\t" + file_dict['pseudos_gff'] + "\n"
+            "Pseudogenes (Fasta):\t" + file_dict['pseudos_fasta'] + "\n"
+            "Functional genes (GFF):\t" + file_dict['functional_gff'] + "\n"
+            "Functional genes (Fasta):\t" + file_dict['functional_faa'] + "\n"
+            "Chromosome map:\t" + file_dict['chromosome_map'] + "\n\n"
+
             "#######  Settings  #######\n"
-            "Intergenic_length:\t%s\n"
-            "Length_pseudo:\t%s\n"
-            "Shared_hits:\t%s\n"
-            "hitcap:\t%s\n\n"
-            
+            "Distance:\t" + str(args.distance) + "\n"
+            "hitcap:\t" + str(args.hitcap) + "\n"
+            "Intergenic_length:\t" + str(args.intergenic_length) + "\n"
+            "Intergenic_threshold:\t" + str(args.intergenic_threshold) + "\n"
+            "Length_pseudo:\t" + str(args.length_pseudo) + "\n"
+            "Shared_hits:\t" + str(args.shared_hits) + "\n\n"
+                
             "####### Statistics #######\n"
             "#Input:\n"
-            "Initial ORFs:\t%s\n"
-            "Number of contigs:\t%s\n"
+            "Initial ORFs:\t" + str(StatisticsDict['ProteomeOrfs']) + "\n"
+            "Number of contigs:\t" + str(StatisticsDict['NumberOfContigs']) + "\n"
             "#Output:\n"
-            "Inital ORFs joined:\t%s\n"
-            "Pseudogenes (total):\t%s\n"
-            "Pseudogenes (too short):\t%s\n"
-            "Pseudogenes (fragmented):\t%s\n"
-            "Pseudogenes (no predicted ORF):\t%s\n"
-            "Functional genes:\t%s\n\n"
+            "Inital ORFs joined:\t" + str(StatisticsDict['FragmentedOrfs']) + "\n"
+            "Pseudogenes (total):\t" + str(StatisticsDict['PseudogenesTotal']) + "\n"
+            "Pseudogenes (too short):\t" + str(StatisticsDict['PseudogenesShort']) + "\n"
+            "Pseudogenes (fragmented):\t" + str(StatisticsDict['PseudogenesFragmented']) + "\n"
+            "Pseudogenes (no predicted ORF):\t" + str(StatisticsDict['PseudogenesIntergenic']) + "\n"
+            "Functional genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']) + "\n\n"
 
             "####### Output Key #######\n"
             "Initial ORFs joined:\t\tThe number of input open reading frames "
@@ -889,47 +845,38 @@ def write_summary_file(args, name: str) -> None:
             "Pseudogenes (too short):\tORFs smaller than the \"shared_hits\" cutoff.\n"
             "Pseudogenes (fragmented):\tPseudogenes composed of merging 2 or more input ORFs.\n"
             "Functional genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)]\n"
+        )
 
 
-                   % (current_time(),
-                      args.genome,
-                      args.database,
-                      StatisticsDict['BlastpFilename'],  # TODO: this is not appearing when reannotating.
-                      StatisticsDict['BlastxFilename'],  # TODO: this is not appearing when reannotating.
-                      "\n".join(StatisticsDict['OutputFiles']),
-                      args.intergenic_length,
-                      args.length_pseudo,
-                      args.shared_hits,
-                      args.hitcap,
-                      StatisticsDict['ProteomeOrfs'],
-                      StatisticsDict['NumberOfContigs'],
-                      StatisticsDict['FragmentedOrfs'],
-                      StatisticsDict['PseudogenesTotal'],
-                      StatisticsDict['PseudogenesShort'],
-                      StatisticsDict['PseudogenesFragmented'],
-                      StatisticsDict['PseudogenesIntergenic'],
-                      StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']))
+def reset_statistics_dict():
+    """This function is needed because visualize.py was continuously accumulating values in StatisticsDict.
+    Calling this function at the end of reannotate.py runs will ensure that the values are reset properly."""
 
-# TODO: notes- Counting the number of genes going into get_functional
-# adds up to the total number of ORFs found in the proteome file
-# TODO: notes- Counting the number of functional genes from the get_functional
-#  adds up to the number of sequences found in the FAA file
+    StatisticsDict['ProteomeOrfs'] = 0
+    StatisticsDict['NumberOfContigs'] = 0
+    StatisticsDict['FragmentedOrfs'] = 0
+    StatisticsDict['PseudogenesTotal'] = 0
+    StatisticsDict['PseudogenesShort'] = 0
+    StatisticsDict['PseudogenesIntergenic'] = 0
+    StatisticsDict['PseudogenesFragmented'] = 0
+
 
 
 def main():
     # Declare variables used throughout the rest of the program
     args = get_args()
-    base_outfile_name = args.outprefix + "_" + os.path.basename(args.genome)
+    base_outfile_name = args.outprefix + "_"
     file_dict = {
-        'proteome_filename': base_outfile_name + "_proteome.faa",
-        'intergenic_filename': base_outfile_name + "_intergenic.fasta",
-        'blastp_filename': base_outfile_name + "_proteome.faa" + ".blastP_output.tsv",
-        'blastx_filename': base_outfile_name + "_intergenic.fasta" + ".blastX_output.tsv",
-        'pseudos_gff': base_outfile_name + "_pseudos.gff",
-        'pseudos_fasta': base_outfile_name + "_pseudos.fasta",
-        'functional_gff': base_outfile_name + "_functional.gff",
-        'functional_faa': base_outfile_name + "_functional.faa",
-        'log': args.outprefix + "_log.txt"
+        'proteome_filename': base_outfile_name + "proteome.faa",
+        'intergenic_filename': base_outfile_name + "intergenic.fasta",
+        'blastp_filename': base_outfile_name + "proteome.faa" + ".blastP_output.tsv",
+        'blastx_filename': base_outfile_name + "intergenic.fasta" + ".blastX_output.tsv",
+        'pseudos_gff': base_outfile_name + "pseudos.gff",
+        'pseudos_fasta': base_outfile_name + "pseudos.fasta",
+        'functional_gff': base_outfile_name + "functional.gff",
+        'functional_faa': base_outfile_name + "functional.faa",
+        'chromosome_map': base_outfile_name + "map.pdf",
+        'log': base_outfile_name + "log.txt"
     }
 
     # Collect sequences
@@ -946,7 +893,7 @@ def main():
     all_regions = orfs + intergenic_regions
 
     # Sorted list of contigs containing only orfs, no intergenic regions
-    orfs_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=orfs))  # TODO: maybe remove this?
+    orfs_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=orfs))
     # Sorted list of contigs containing orfs and intergenic regions
     all_regions_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=all_regions))
 
@@ -975,13 +922,15 @@ def main():
                   len(pseudos_on_contig.regions))),
         sys.stdout.flush()
 
+    # Write all output files
     write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
     write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
     write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
     # TODO: Activate this feature once you finish writing it
     # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
     #                           contigs=functional_genes)
-    write_summary_file(args=args, name=file_dict['log'])
+    genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+    write_summary_file(args=args, file_dict=file_dict)
 
 if __name__ == '__main__':
     main()

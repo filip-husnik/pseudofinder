@@ -24,6 +24,9 @@ def get_args():
                           help='Please provide name (if $BLASTB is set on your system)'
                                ' or absolute path of your blast database.',
                           required=True)
+    optional = parser.add_argument_group('\033[1m' + 'Optional arguments' + '\033[0m')
+    optional.add_argument('-t', '--threads', default=4,
+                          help='Please provide total number of threads to use for blast, default is 4.')
 
     # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
     # We only care about the known arguments, so we take [0].
@@ -79,21 +82,19 @@ def main():
     folder_name = manage_folders(path_to_test_data)
     genome_name = "candidatus_tremblaya_princeps_PCIT.gbf"
     genome_full_path = path_to_test_data + genome_name
-    database = args.database
     output_prefix = folder_name+"/test"
-    blastp_file = output_prefix+"_"+genome_name+"_proteome.faa.blastP_output.tsv"
-    blastx_file = output_prefix+"_"+genome_name+"_intergenic.fasta.blastX_output.tsv"
-    gff_file = output_prefix+"_"+genome_name+"_pseudos.gff"
-    hitcap = 15
+    blastp_file = output_prefix+"_proteome.faa.blastP_output.tsv"
+    blastx_file = output_prefix+"_intergenic.fasta.blastX_output.tsv"
+    log_file = output_prefix+"_log.txt"
 
     # A dictionary to store the names and shell commands for each section of pseudofinder
     command_dict = OrderedDict()
-    command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s" % (
-        path_to_pseudofinder, genome_full_path, database, output_prefix)
-    command_dict['Visualize'] = "python3 %s visualize -g %s -op %s -p %s -x %s -hc %s" % (
-        path_to_pseudofinder, genome_full_path, output_prefix, blastp_file, blastx_file, hitcap)
-    command_dict['Map'] = "python3 %s map -g %s -gff %s -op %s" % (
-        path_to_pseudofinder, genome_full_path, gff_file, output_prefix)
+    command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s -t %s" % (
+        path_to_pseudofinder, genome_full_path, args.database, output_prefix, args.threads)
+    command_dict['Visualize'] = "python3 %s visualize -g %s -op %s -p %s -x %s -log %s" % (
+        path_to_pseudofinder, genome_full_path, output_prefix, blastp_file, blastx_file, log_file)
+    command_dict['Reannotate'] = "python3 %s reannotate -g %s -p %s -x %s -log %s -op %s" % (
+        path_to_pseudofinder, genome_full_path, blastp_file, blastx_file, log_file, output_prefix)
 
     for command in command_dict:
         test_command(command_name=command, full_command=command_dict[command])
