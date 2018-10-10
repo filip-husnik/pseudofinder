@@ -1,8 +1,6 @@
 <p align="center">
-<b>Warning: This repository is still a work in progress, and is in the middle of a major code overhaul! 
-Please allow a few days for code to return to working condition.</b>
 <h1 align="center">Pseudofinder</h1>
-<h5 align="center">Automated detection of pseudogenes in prokaryotic genomes.</h5>
+<h5 align="center">Automated detection of pseudogene candidates in prokaryotic genomes.</h5>
 </p>
 <br>
 
@@ -17,8 +15,8 @@ Please allow a few days for code to return to working condition.</b>
 - [How does Pseudofinder detect pseudogene candidates?](#how-does-pseudofinder-detect-pseudogene-candidates?)
 - [Commands](#commands)
     - [Annotate](#annotate)
+    - [Reannotate](#reannotate)
     - [Visualize](#visualize)
-    - [Map](#map)
     - [Test](#test)
 - [Versions and changes](#versions-and-changes)
 - [Contributing](#contributing)
@@ -145,9 +143,6 @@ Providing input files:
 # Run the full pipeline on 16 processors (for BlastX/BlastP searches).
 # Unless you have a $BLASTDB environmental variable set on your system, you have to provide a full path to the NR database.
 python3 pseudofinder.py annotate --genome GENOME.GBF --output PREFIX --database /PATH/TO/NR/nr --threads 16 
-
-# Run only pseudogene detection (e.g. when blast output files are already available from a previous run).
-python3 pseudofinder.py annotate --genome GENOME.GBF --outprefix PREFIX --blastp BLASTPFILE.TSV --blastx BLASTX.TSV
 ```
 
 All command line arguments:
@@ -155,23 +150,12 @@ All command line arguments:
 Required arguments:
   -g GENOME, --genome GENOME
                         Please provide your genome file in the genbank format.
+  -db DATABASE, --database DATABASE
+                        Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.
   -op OUTPREFIX, --outprefix OUTPREFIX
                         Specify an output prefix.
 
-Required arguments if BLAST files are not provided:
-  -db DATABASE, --database DATABASE
-                        Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.
-
-Required arguments if providing BLAST files:
-  -p BLASTP, --blastp BLASTP
-                        Specify an input blastp file.
-  -x BLASTX, --blastx BLASTX
-                        Specify an input blastx file.
-
 Adjustable parameters:
-  -of OUTFORMAT, --outformat OUTFORMAT
-                        Specifies which style of output to write. Default is 1.
-                        See below for explanation.
   -t THREADS, --threads THREADS
                         Please provide total number of threads to use for blast, default is 4.
   -i INTERGENIC_LENGTH, --intergenic_length INTERGENIC_LENGTH
@@ -188,63 +172,50 @@ Adjustable parameters:
                         Maximum distance between two regions to consider joining them. Default is 1000.
   -hc HITCAP, --hitcap HITCAP
                         Maximum number of allowed hits for BLAST. Default is 15.
-                        
   -ce, --contig_ends    Forces the program to include intergenic regions at contig ends. If not specified,
-                        the program will ignore any sequence before the first ORF and after the last ORF on a contig.
+                         the program will ignore any sequence before the first ORF and after the last ORF on a contig.
   -it INTERGENIC_THRESHOLD, --intergenic_threshold INTERGENIC_THRESHOLD
                         Number of BlastX hits needed to annotate an intergenic region as a pseudogene.
                         Calculated as a percentage of maximum number of allowed hits (--hitcap).
                         Default is 0.3.
-
 ```
 
-<b><u>Output of Annotate:</u></b>
+<b>Output of Annotate:</b>
 
-Every run should result in two or more output files: a summary log.txt file and .gff or .faa files.
+Every run will produce the following files:
 
-log.txt: The log file includes basic statistics about pseudogene candidates detected.
+| File | Description |
+| --- | --- |
+| \[prefix]_functional.gff | Functional genes in GFF3 format. |
+| \[prefix]_functional.faa | Functional genes in fasta format. |
+| \[prefix]_intergenic.fasta | Intergenic regions in fasta format. |
+| \[prefix]_blastX_output.tsv | Tab-delimited output of BLASTX run on intergenic regions. |
+| \[prefix]_log.txt | Summary of all inputs, outputs, parameters and results. |
+| \[prefix]_map.pdf | Concatenated chromosome map. Input genes appear on the inner track in blue, and candidate pseudogenes are shown in red on the outer track. |
+| \[prefix]_proteome.faa | All protein sequences in fasta format. |
+| \[prefix]_blastP_output.tsv | Tab-delimited output of BLASTP run on proteome. |
+| \[prefix]_pseudos.gff | Candidate pseudogenes in GFF3 format. |
+| \[prefix]_pseudos.fasta | Candidate pseudogenes in fasta format. |
 
-Explanation of output choices:
 
-'--outformat 1': GFF file containing only ORFs flagged as pseudogenes.
-	The .gff file can be used to overlay the original annotation (we use the Artemis genome browser [http://www.sanger.ac.uk/science/tools/artemis]) with predicted pseudogene candidates.
+### Reannotate
+<b>Reannotate</b> will run the <b>annotate</b> workflow, beginning after the BLAST steps. 
+This command can very quickly reannotate pseudogenes if you would like to change any parameters downstream of BLAST.
 
-'--outformat 2': GFF file containing only ORFs not flagged as pseudogenes. 
-	*Currently only contains nucleotide positions, without qualifier information.*
-
-'--outformat 3': FASTA file containing only ORFs flagged as pseudogenes. 
-	*Not yet implemented*
-
-'--outformat 4': FAA file containing only ORFs not flagged as pseudogenes.
-	This file can be used for any downstream analysis of functional genes. 
-
-*Note: Outputs can be combined. If '-of 12' is specified, files '1' and '2' will be written.
-
+Usage:
+```
+pseudofinder.py reannotate -g GENOME -p BLASTP -x BLASTX -log LOGFILE -op OUTPREFIX
+``` 
 
 ### Visualize
 
-One strength of Pseudofinder is its ability to be fine-tuned to the user's preferences. To help visualize the effects of changing the parameters of this program, we have provided the <b>visualize</b> command. This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. It is run by providing the blast files from the <b>annotate</b> command:
+One strength of Pseudofinder is its ability to be fine-tuned to the user's preferences. 
+To help visualize the effects of changing the parameters of this program, we have provided the <b>visualize</b> command. 
+This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. 
+It is run by providing the blast files from the <b>annotate</b> command:
 ```
-python3 pseudofinder.py visualize \
-    --genome GENOME.GBF \
-    --blastx BLASTXFILE.TSV \
-    --blastp BLASTPFILE.TSV \
-    --outprefix PREFIX \
-    --hitcap HITCAP
+pseudofinder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -log LOGFILE
 ```
-Please note: Since the annotation depends on your choice of '--hitcap', you must enter it here. This value can be found in the log file of the run that generated your blast files.
-
-
-### Map
-
-Pseudofinder can generate a chromosome map to display detected pseudogenes with a single command:
-
-```
-python3 pseudofinder.py map --genome GENOME --gff GFF --outprefix PREFIX
-```
-Please provide your pseudogene calls in GFF format (the default output from pseudofinder.py annotate).
-
-The resulting chromosome map will show the original annotation in the center track, and pseudogenes will appear on the outer track in red.
 
 
 ### Test

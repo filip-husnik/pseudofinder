@@ -1,5 +1,15 @@
 Pseudo finder change log
 ########################
+v0.11 -- 09/10/2018
+*Major code refactoring:
+    -annotate.py: Completely reorganized annotate.main(). Code is more readable and faster. All output files are automatically written.
+    -reannotate.py: New module, replacing the old method of providing blast files to annotate.py for a reannotation.
+    -genome_map.py: No longer needs to be called explicitly, annotate.py will now automatically produce the chromosome map with each run.
+    -visualize.py: Makes use of the new reannotate.py module to increase code readability and consistency.
+    -pseudofinder_test.py: Small changes to accomodate the major changes to other modules.
+*Summary file is now more informative.
+*README.md updated
+
 v0.10 -- 25/09/2018
 *Minor code reorganization
     -previously: all modules were contained in the main directory

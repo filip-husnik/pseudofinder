@@ -861,7 +861,6 @@ def reset_statistics_dict():
     StatisticsDict['PseudogenesFragmented'] = 0
 
 
-
 def main():
     # Declare variables used throughout the rest of the program
     args = get_args()
