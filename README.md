@@ -142,7 +142,7 @@ Providing input files:
 ```
 # Run the full pipeline on 16 processors (for BlastX/BlastP searches).
 # Unless you have a $BLASTDB environmental variable set on your system, you have to provide a full path to the NR database.
-python3 pseudofinder.py annotate --genome GENOME.GBF --output PREFIX --database /PATH/TO/NR/nr --threads 16 
+python3 pseudofinder.py annotate --genome GENOME.GBF --outprefix PREFIX --database /PATH/TO/NR/nr --threads 16 
 ```
 
 All command line arguments:
