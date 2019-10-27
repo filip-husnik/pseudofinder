@@ -385,7 +385,7 @@ def delim(line):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="dnds-module.py",
+        prog="dnds.py",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=textwrap.dedent('''
         ************************************************************************
@@ -397,7 +397,6 @@ def main():
         ************************************************************************
         '''))
 
-    # parser.add_argument('-blast', type=str, help="clu.tsv output from mmseqs", default="NA")
 
     parser.add_argument('-n', type=str, help="ORFs in nucleic acid format", default="NA")
     parser.add_argument('-a', type=str, help="ORFs in amino acid format", default="NA")
