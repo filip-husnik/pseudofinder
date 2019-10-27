@@ -397,7 +397,6 @@ def main():
         ************************************************************************
         '''))
 
-
     parser.add_argument('-n', type=str, help="ORFs in nucleic acid format", default="NA")
     parser.add_argument('-a', type=str, help="ORFs in amino acid format", default="NA")
     parser.add_argument('-rn', type=str, help="Reference ORFs in nucleic acid format", default="NA")
@@ -415,174 +414,172 @@ def main():
     parser.add_argument('-m', type=float, help="minimum dS value for dN/dS calculation (default = 0.001)", default=0.001)
     parser.add_argument('-t', type=int, help="number of threads to use for BLAST or DIAMOND", default=1)
     parser.add_argument('-s', type=str, help="search engine to use (blast/diamond). Default = blast", default="blast")
+    parser.add_argument('--skip', type=str, help="skip all time-consuming analyses, and use previously-created output. "
+                                                 "You can use this flag if you want to tweak some of the paramters, "
+                                                 "but avoid all the time-consuming steps (e.g. BLAST, codeml). "
+                                                 "Do not invoke if this module crashed during a previous run", const=True, nargs="?")
 
 
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     cwd = os.getcwd()
 
-    os.system("echo ${ctl} > ctl.txt")
-    file = open("ctl.txt")
-    for i in file:
-        ctl = (i.rstrip())
-    os.system("rm ctl.txt")
+    if not args.skip:
+        os.system("echo ${ctl} > ctl.txt")
+        file = open("ctl.txt")
+        for i in file:
+            ctl = (i.rstrip())
+            ctl = ctl[1:len(ctl)-1]
+        os.system("rm ctl.txt")
 
-    if not re.findall(r'codeml', ctl):
-        if args.ctl == "NA":
-            print("\nCannot locate the necessary \ncodeml control file. Please double check that "
-                  "installation\n with the \'setup.sh\' script worked without any errors. If issues \npersist, please "
-                  "report an issue on GitHub\n")
-            raise SystemExit
+        if not re.findall(r'codeml', ctl):
+            if args.ctl == "NA":
+                print("\nCannot locate the necessary \ncodeml control file. Please double check that "
+                      "installation\n with the \'setup.sh\' script worked without any errors. If issues \npersist, please "
+                      "report an issue on GitHub\n")
+                raise SystemExit
+            else:
+                ctl = args.ctl
+
+        faa = args.a
+        fna = args.n
+
+        if args.ra != "NA" and args.rn != "NA":
+            refFaa = args.ra
+            refFna = args.rn
         else:
-            ctl = args.ctl
+            if args.r != "NA":
 
-    faa = args.a
-    fna = args.n
+                os.system("prodigal -i %s -a %s-proteins.faa -d %s-proteins.fna" % (args.r, args.r, args.r))
 
-    if args.ra != "NA" and args.rn != "NA":
-        refFaa = args.ra
-        refFna = args.rn
-    else:
-        if args.r != "NA":
-
-            os.system("prodigal -i %s -a %s-proteins.faa -d %s-proteins.fna" % (args.r, args.r, args.r))
-
-            refFna = args.r + "-proteins.fna"
-            refFaa = args.r + "-proteins.faa"
-        else:
-            print("Did not find reference datasets. Please provided these using the \'-ra\' and \'rn\', or \'r\' flag")
+                refFna = args.r + "-proteins.fna"
+                refFaa = args.r + "-proteins.faa"
+            else:
+                print("Did not find reference datasets. Please provided these using the \'-ra\' and \'rn\', or \'r\' flag")
 
 
-    print("Starting pipeline...")
+        print("Starting pipeline...")
 
-    os.system("mkdir " + args.out)
-    os.system('mkdir ' + args.out + "/dnds-analysis")
-
-    if args.s == "blast":
-        print("Running BLAST")
-        os.system("makeblastdb -dbtype prot -in %s -out %s" % (refFaa, refFaa))
-        # os.system("rm makeblastdb.out")
-        os.system("blastp -query %s -db %s "
-                  "-outfmt 6 -out %s/pseudogene.blast -evalue 1E-6 -num_threads %s -max_target_seqs 1" % (
-                      faa, refFaa, args.out, args.t))
-
-        os.system("rm %s.psq" % refFaa)
-        os.system("rm %s.phr" % refFaa)
-        os.system("rm %s.pin" % refFaa)
-
-    elif args.s == "diamond":
-        print("Running DIAMOND")
-        os.system(
-            "diamond makedb --in %s -d %s" % (refFaa, refFaa))
-
-        os.system("diamond blastp --db %s.dmnd --query %s --outfmt 6 --out %s/pseudogene.blast "
-                  "--max-target-seqs 1 --evalue 1E-6 --threads %d" % (refFaa, faa, args.out, args.t))
+        os.system("mkdir -p " + args.out)
+        os.system("mkdir -p" + args.out + "/dnds-analysis")
 
 
-    ####################################################################################################################
-    faaDict = open(faa)
-    faaDict = fasta2(faaDict)
+        if args.s == "blast":
+            print("Running BLAST")
+            os.system("makeblastdb -dbtype prot -in %s -out %s" % (refFaa, refFaa))
+            # os.system("rm makeblastdb.out")
+            os.system("blastp -query %s -db %s "
+                      "-outfmt 6 -out %s/pseudogene.blast -evalue 1E-6 -num_threads %s -max_target_seqs 1" % (
+                          faa, refFaa, args.out, args.t))
 
-    fnaDict = open(fna)
-    fnaDict = fasta2(fnaDict)
+            os.system("rm %s.psq" % refFaa)
+            os.system("rm %s.phr" % refFaa)
+            os.system("rm %s.pin" % refFaa)
 
-    refFaaDict = open(refFaa)
-    refFaaDict = fasta2(refFaaDict)
+        elif args.s == "diamond":
+            print("Running DIAMOND")
+            os.system(
+                "diamond makedb --in %s -d %s" % (refFaa, refFaa))
 
-    refFnaDict = open(refFna)
-    refFnaDict = fasta2(refFnaDict)
-
-    prescreened = []
-    alnLengthDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    blast = open("%s/pseudogene.blast" % args.out)
-    for i in blast:
-        ls = i.rstrip().split("\t")
-        if ls[0] not in prescreened:
-            alnLengthDict[ls[0]] = ls[3]
-
-            outNUC = open(args.out + "/dnds-analysis/%s.faa.fna" % ls[0], "w")
-            outNUC.write(">" + ls[1] + "\n")
-            outNUC.write(refFnaDict[ls[1]] + "\n")
-            outNUC.write(">" + ls[0] + "\n")
-            outNUC.write(fnaDict[ls[0]] + "\n")
-            outNUC.close()
-
-            outAA = open(args.out + "/dnds-analysis/%s.faa" % ls[0], "w")
-            outAA.write(">" + ls[1] + "\n")
-            outAA.write(refFaaDict[ls[1]] + "\n")
-            outAA.write(">" + ls[0] + "\n")
-            outAA.write(faaDict[ls[0]] + "\n")
-            outAA.close()
+            os.system("diamond blastp --db %s.dmnd --query %s --outfmt 6 --out %s/pseudogene.blast "
+                      "--max-target-seqs 1 --evalue 1E-6 --threads %d" % (refFaa, faa, args.out, args.t))
 
 
-    # ALIGNING PROTEIN SEQUENCES AND CREATING A CODON ALIGNMENT
-    print("aligning files...")
-    DIR = args.out + "/dnds-analysis"
-    os.system("for i in %s/*faa; do"
-              " muscle -in $i -out $i.aligned.fa;"
-              # " rm muscle.out;"
-              " pal2nal.pl $i.aligned.fa $i.fna -output fasta > $i.codonalign.fa;"
-              " done" % DIR)
+        ####################################################################################################################
+        faaDict = open(faa)
+        faaDict = fasta2(faaDict)
 
-    # BUILDING CONTROL FILES
-    print("preparing for codeml analysis")
-    DIR = args.out + "/dnds-analysis"
-    codealign = os.listdir(DIR)
-    count = 0
-    for file in codealign:
-        if re.findall(r'codonalign', file):
-            count += 1
-            clu = file.split(".faa")[0]
-            setup = open(ctl)
-            out = open("%s/%s.ctl" % (DIR, str(clu)), "w")
+        fnaDict = open(fna)
+        fnaDict = fasta2(fnaDict)
 
-            for i in setup:
-                if re.findall('seqfile', i):
-                    out.write(
-                        '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + 'seqfile' + ' ' + '= ' + args.out + '/dnds-analysis/' + file + ' ' + '*' + ' ' + 'sequence' + ' ' + 'data' + ' ' + 'filename\n')
+        refFaaDict = open(refFaa)
+        refFaaDict = fasta2(refFaaDict)
 
-                elif re.findall(r'outfile', i):
-                    out.write(
-                        '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + 'outfile' + ' ' + '=' + ' '
-                        + args.out + '/dnds-analysis/mlcTree_' + str(
-                            clu) + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' '
-                        + '' + ' ' + '' + ' ' + '' + ' ' + '*' + ' ' + 'main' + ' ' + 'result' + ' ' + 'file' + ' ' + 'name\n')
+        refFnaDict = open(refFna)
+        refFnaDict = fasta2(refFnaDict)
 
-                else:
-                    out.write(i)
-            out.close()
-    print("")
+        prescreened = []
+        alnLengthDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        blast = open("%s/pseudogene.blast" % args.out)
+        for i in blast:
+            ls = i.rstrip().split("\t")
+            if ls[0] not in prescreened:
+                alnLengthDict[ls[0]] = ls[3]
 
-    # RUNNING CODEML FOR DN/DS CALCULATION
-    total = 0
-    for i in codealign:
-        if re.findall(r'codonalign', i):
-            total += 1
+                outNUC = open(args.out + "/dnds-analysis/%s.faa.fna" % ls[0], "w")
+                outNUC.write(">" + ls[1] + "\n")
+                outNUC.write(refFnaDict[ls[1]] + "\n")
+                outNUC.write(">" + ls[0] + "\n")
+                outNUC.write(fnaDict[ls[0]] + "\n")
+                outNUC.close()
 
-    count = 0
-    codealign = os.listdir(DIR)
-    for file in codealign:
-        if lastItem(file.split(".")) == "ctl":
-            count += 1
-            perc = (count / total) * 100
-            sys.stdout.write("running codeml: %d%%   \r" % (perc))
-            sys.stdout.flush()
-            os.system("codeml %s/dnds-analysis/%s" % (args.out, file))
-            # os.system("rm codeml.out")
+                outAA = open(args.out + "/dnds-analysis/%s.faa" % ls[0], "w")
+                outAA.write(">" + ls[1] + "\n")
+                outAA.write(refFaaDict[ls[1]] + "\n")
+                outAA.write(">" + ls[0] + "\n")
+                outAA.write(faaDict[ls[0]] + "\n")
+                outAA.close()
+
+
+        # ALIGNING PROTEIN SEQUENCES AND CREATING A CODON ALIGNMENT
+        print("aligning files...")
+        DIR = args.out + "/dnds-analysis"
+        os.system("for i in %s/*faa; do"
+                  " muscle -in $i -out $i.aligned.fa;"
+                  # " rm muscle.out;"
+                  " pal2nal.pl $i.aligned.fa $i.fna -output fasta > $i.codonalign.fa;"
+                  " done" % DIR)
+
+        # BUILDING CONTROL FILES
+        print("preparing for codeml analysis")
+        DIR = args.out + "/dnds-analysis"
+        codealign = os.listdir(DIR)
+        count = 0
+        for file in codealign:
+            if re.findall(r'codonalign', file):
+                count += 1
+                clu = file.split(".faa")[0]
+                setup = open(ctl)
+                out = open("%s/%s.ctl" % (DIR, str(clu)), "w")
+
+                for i in setup:
+                    if re.findall('seqfile', i):
+                        out.write(
+                            '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + 'seqfile' + ' ' + '= ' + args.out + '/dnds-analysis/' + file + ' ' + '*' + ' ' + 'sequence' + ' ' + 'data' + ' ' + 'filename\n')
+
+                    elif re.findall(r'outfile', i):
+                        out.write(
+                            '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + 'outfile' + ' ' + '=' + ' '
+                            + args.out + '/dnds-analysis/mlcTree_' + str(
+                                clu) + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' '
+                            + '' + ' ' + '' + ' ' + '' + ' ' + '*' + ' ' + 'main' + ' ' + 'result' + ' ' + 'file' + ' ' + 'name\n')
+
+                    else:
+                        out.write(i)
+                out.close()
+        print("")
+
+        # RUNNING CODEML FOR DN/DS CALCULATION
+        total = 0
+        for i in codealign:
+            if re.findall(r'codonalign', i):
+                total += 1
+
+        count = 0
+        codealign = os.listdir(DIR)
+        for file in codealign:
+            if lastItem(file.split(".")) == "ctl":
+                count += 1
+                perc = (count / total) * 100
+                sys.stdout.write("running codeml: %d%%   \r" % (perc))
+                sys.stdout.flush()
+                os.system("codeml %s/dnds-analysis/%s" % (args.out, file))
+                # os.system("rm codeml.out")
 
     # PARSING CODEML OUTPUT
 
     cwd = os.getcwd()
     DIR = args.out + "/dnds-analysis"
-
-
-    alnLengthDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    alnIdDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    blast = open(args.out + "/pseudogene.blast")
-    for i in blast:
-        ls = i.rstrip().split("\t")
-        alnLengthDict[ls[0]][ls[1]] = ls[3]
-        alnIdDict[ls[0]][ls[1]] = ls[2]
 
     print("summarizing codeml output")
     codealign = os.listdir(DIR)
@@ -645,23 +642,32 @@ def main():
 
     out.close()
 
-    print("")
-    print("Done!")
-    print("********************************************************************************")
-    print("Identified a total of %d orthologs between the query and reference datasets," % total)
-    print("with %d orthologs between the dS range of %d-%d" % (len(dsList), args.m, args.M))
-    print("")
-    print("Average dS among orthologs within the specified dS range: " + str(ave(dsList)))
-    print("Average dN/dS among orthologs within the specified dS range: " + str(ave(dndsList)))
-    print("")
-    print("See %s/dnds-summay.csv for detailed results." % args.out)
-    print("********************************************************************************")
-    print("Thanks for using!")
+    if len(dsList) > 0:
 
-    os.system("rm -f %s/pseudogene.blast" % args.out)
-    os.system("rm -f 2NG.t 2NG.dN 2NG.dS rst1 rst 2ML.t 2ML.dN 2ML.dS 4fold.nuc rub")
+        print("")
+        print("Done!")
+        print("********************************************************************************")
+        print("Identified a total of %d orthologs between the query and reference datasets," % total)
+        print("with %d orthologs between the dS range of %d-%d" % (len(dsList), args.m, args.M))
+        print("")
+        print("Average dS among orthologs within the specified dS range: " + str(ave(dsList)))
+        print("Average dN/dS among orthologs within the specified dS range: " + str(ave(dndsList)))
+        print("")
+        print("See %s/dnds-summay.csv for detailed results." % args.out)
+        print("********************************************************************************")
+        print("Thanks for using!")
 
+        os.system("rm -f %s/pseudogene.blast" % args.out)
+        os.system("rm -f 2NG.t 2NG.dN 2NG.dS rst1 rst 2ML.t 2ML.dN 2ML.dS 4fold.nuc rub")
 
+    else:
+        print("")
+        print("Done!")
+        print("********************************************************************************")
+        print("Identified a total of %d orthologs between the query and reference datasets," % total)
+        print("However, there were not orthologs between the dS range of %d-%d" % (args.m, args.M))
+        print("Please consider increasing the allowable dS range, and re-running the program")
+        print("Thanks for using!")
 
 
 
