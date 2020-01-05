@@ -1,6 +1,7 @@
 # OS generated files #
 ######################
 .DS_Store
+.idea/
 
 # Python generated files #
 ##########################
@@ -9,3 +10,7 @@ __pycache__/
 # Test generated files #
 ########################
 test/*results*
+
+# Other #
+########
+uniprot_sprot.fasta

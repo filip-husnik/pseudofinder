@@ -136,6 +136,43 @@ def get_proteome(args, out_faa: str) -> None:
     sys.stdout.flush()
 
 
+def get_CDSs_1(args, out_fasta: str) -> None:
+    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to the output file with coordinates."""
+
+    with open(args.genome, "r") as input_handle:
+        with open(out_fasta, "w") as output_handle:
+            for seq_record in SeqIO.parse(input_handle, "genbank"):
+                for seq_feature in seq_record.features:
+                    if seq_feature.type == "CDS":
+                        assert len(seq_feature.qualifiers['translation']) == 1
+                        output_handle.write(">%s %s %s\n%s\n" % (seq_feature.qualifiers['locus_tag'][0],
+                                                                 seq_record.name,
+                                                                 seq_feature.location,
+                                                                 seq_feature.extract(seq_record.seq)))
+
+    print('%s\tProteome extracted from:\t\t%s\n'
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_fasta,)),
+    sys.stdout.flush()
+
+
+def get_CDSs_2(genbank: str) -> dict:
+    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to a dict.
+        Keys are the fasta headers
+        Values are the nucleotide sequences"""
+
+    cds_dict = {}
+    with open(genbank, "r") as input_handle:
+        for seq_record in SeqIO.parse(input_handle, "genbank"):
+            for seq_feature in seq_record.features:
+                if seq_feature.type == "CDS":
+                    assert len(seq_feature.qualifiers['translation']) == 1
+                    key = "%s %s %s" % (seq_feature.qualifiers['locus_tag'][0], seq_record.name, seq_feature.location)
+                    seq = str(seq_feature.extract(seq_record.seq))
+                    cds_dict[key] = seq
+
+    return cds_dict
+
+
 def get_intergenic_regions(args, out_fasta: str) -> None:
     """Parse genbank input file for intergenic regions and write them to the output file with coordinates.
 
@@ -203,8 +240,9 @@ def run_blastp(args, in_faa: str, out_tsv: str) -> None:
                                          max_target_seqs=args.hitcap,
                                          max_hsps=1,
                                          evalue=args.evalue,
-                                         outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend "
-                                                "sstart send slen evalue bitscore frames stitle\'",
+                                         #outfmt='7 qseqid',
+                                         outfmt="7 qseqid sseqid pident length mismatch gapopen qstart qend "
+                                                "sstart send slen evalue bitscore frames stitle",
                                          out=out_tsv)
     blastp_cline()
 
@@ -221,8 +259,8 @@ def run_blastx(args, in_fasta: str, out_tsv: str) -> None:
                                          max_target_seqs=args.hitcap,
                                          max_hsps=1,
                                          evalue=args.evalue,
-                                         outfmt="\'7 qseqid sseqid pident length mismatch gapopen qstart qend "
-                                                "sstart send slen evalue bitscore frames stitle\'",
+                                         outfmt="7 qseqid sseqid pident length mismatch gapopen qstart qend "
+                                                "sstart send slen evalue bitscore frames stitle",
                                          out=out_tsv)
     blastx_cline()
 
@@ -624,7 +662,7 @@ def region_proximity(r1: RegionInfo, r2: RegionInfo) -> int:
 def matching_hit_critera(args, r1: RegionInfo, r2: RegionInfo) -> bool:
     """This function determines if two regions meet the minimum blast hit criteria to be joined together."""
 
-    if len(r1.hits) is not 0 and len(r2.hits) is not 0:
+    if len(r1.hits) != 0 and len(r2.hits) != 0:
         # sorts the two regions based on number of blast hits.
         s = sorted([r1, r2], key=lambda r: len(r.hits))
 
