@@ -109,6 +109,8 @@ def reannotate(args):
 
     base_outfile_name = args.outprefix + "_"
     file_dict = {
+        'proteome_filename': args.blastp.replace('.blastP_output.tsv', ''),
+        'intergenic_filename': args.blastx.replace('.blastX_output.tsv', ''),
         'blastp_filename': args.blastp,
         'blastx_filename': args.blastx,
         'pseudos_gff': base_outfile_name + "pseudos.gff",
@@ -120,8 +122,8 @@ def reannotate(args):
     }
 
     # Collect everything from the blast files
-    orfs = annotate.parse_blast(filename=file_dict['blastp_filename'], blast_format='BlastP')
-    intergenic_regions = annotate.parse_blast(filename=file_dict['blastx_filename'], blast_format='BlastX')
+    orfs = annotate.parse_blast(fasta_file=file_dict['proteome_filename'], blast_file=file_dict['blastp_filename'], blast_format='blastp')
+    intergenic_regions = annotate.parse_blast(fasta_file=file_dict['intergenic_filename'], blast_file=file_dict['blastx_filename'], blast_format='blastx')
     all_regions = orfs + intergenic_regions
 
     # Sorted list of contigs containing only orfs, no intergenic regions

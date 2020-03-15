@@ -3,6 +3,7 @@
 import argparse
 import re
 import sys
+import os
 from enum import Enum
 from typing import NamedTuple, List
 from time import localtime, strftime
@@ -17,13 +18,27 @@ try:
 except ImportError:
     pass
 
+# importing dnds module
+try:
+    from . import dnds
+except ImportError:
+    pass
+
 # Data definitions
 # An individual blast hit to a region.
-BlastHit = NamedTuple('BlastHit', [('accession', str),
-                                   ('slen', int),
+BlastHit = NamedTuple('BlastHit', [('query', str),
+                                   ('subject_accession', str),
+                                   ('percent_ident', float),
+                                   ('nucleotide_length', int),
+                                   ('mismatch', int),
+                                   ('gapopen', int),
+                                   ('q_start', int),
+                                   ('q_end', int),
                                    ('s_start', int),
                                    ('s_end', int),
-                                   ('eval', float)])
+                                   ('evalue', float),
+                                   ('bitscore', float),
+                                   ('stitle', str)])
 
 # All possible types of regions
 RegionType = Enum('RegionType', ['ORF',
@@ -32,9 +47,71 @@ RegionType = Enum('RegionType', ['ORF',
                                  'fragmentedpseudo',
                                  'intergenicpseudo'])
 
-# All information about a given region (either an ORF or intergenic region).
+
+class RegionInfo_WIP:  # TODO: This is the start of changing data types into classes. Perhaps long term project, not urgent
+    def __init__(self):
+        self.contig = None
+        self.genbank_locus_tag = None
+        self.genbank_locus_tag_list = []
+        self.pseudo_locus_tag = None
+        self.start = None
+        self.end = None
+        self.strand = None
+        self.hits = []
+        self.source = None
+        self.note = None
+        self.region_type = None
+
+    def __str__(self):
+        return False #stub
+
+    def nucleotide_length(self):
+        #TODO: Make sure this is uniform across blastp/blastx and all that
+        return self.end - self.start
+
+    def ratio_gene_length_to_avg_hit_length(self):
+        hit_lengths = [hit.nucleotide_length for hit in self.hits]
+        avg_hit_length = sum(hit_lengths) / len(hit_lengths)
+        return self.nucleotide_length() / avg_hit_length
+
+    def pseudogene_reasoning(self):
+        """
+        Cases:
+            1. Reason: Predicted fragmentation of a single gene.
+            2. Reason: ORF is %s%% of the average length of hits to this gene.
+            3. Reason: Intergenic region with %s blast hits.
+        """
+        if self.region_type == RegionType.fragmentedpseudo:
+            return "Reason: Predicted fragmentation of a single gene."
+        elif self.region_type == RegionType.shortpseudo:
+            return "Reason: ORF is %s%% of the average length of hits to this gene." % self.ratio_gene_length_to_avg_hit_length()
+        elif self.region_type == RegionType.intergenicpseudo:
+            return "Reason: Intergenic region with %s blast hits." % len(self.hits)
+
+    def write_gff_note(self):
+        note = "Note=pseudogene candidate. %s" % self.pseudogene_reasoning()
+        colour = "colour=229 204 255"
+        locus_tag = "locus_tag=%s" % self.pseudo_locus_tag
+        genbank_locus_tags = "gbk_locus_tags=%s" % ",".join(self.genbank_locus_tag_list)
+        return ";".join([note, colour, locus_tag, genbank_locus_tags])
+
+    def gff_entry(self):  # gff-version 3 compliant entry
+        seqid = "gnl|Prokka|%s" % self.contig
+        source = "pseudofinder"
+        type = "gene"
+        start = self.start
+        end = self.end
+        score = "."
+        strand = self.strand
+        phase = "."
+        attributes = self.write_gff_note()
+
+        return "\t".join([seqid, source, type, start, end, score, strand, phase, attributes])
+
 RegionInfo = NamedTuple('RegionInfo', [('contig', str),
                                        ('query', str),
+                                       ('genbank_locus_tags', list),
+                                       ('pseudo_locus_tag', str),
                                        ('start', int),
                                        ('end', int),
                                        ('strand', str),
@@ -109,12 +186,79 @@ def get_args():
                           help='Number of BlastX hits needed to annotate an intergenic region as a pseudogene.\n'
                                'Calculated as a percentage of maximum number of allowed hits (--hitcap).\n'
                                'Default is %(default)s.')
+    parser.add_argument('-ref', type=str,
+                          help='Please provide a reference genome if you would like for the program to carry out\n'
+                               'maximum-likelihood phylogenentic analysis using PAML, and calculate dN/dS values for each \n'
+                               'identified ORF in your query genome.')
+    optional.add_argument('-dnds', '--max_dnds', default=0.30, type=float,
+                          help='maximum dN/dS value for gene too be considered \'intact\' (default = 0.3)')
+    optional.add_argument('-M', '--max_ds', default=3.00, type=float,
+                          help='maximum dS value for dN/dS calculation (default = 3)')
+    optional.add_argument('-m', '--min_ds', default=0.001, type=float,
+                          help='minimum dS value for dN/dS calculation (default = 0.001)')
+    optional.add_argument('--diamond', type=str, help="use DIAMOND BLAST as the search engine", const=True, nargs="?")
 
     # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
     # We only care about the known arguments, so we take [0].
     args = parser.parse_known_args()[0]
 
     return args
+
+
+def get_CDSs_1(args, out_fasta: str) -> None:
+    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to the output file with coordinates."""
+
+    with open(args.genome, "r") as input_handle:
+        with open(out_fasta, "w") as output_handle:
+            for seq_record in SeqIO.parse(input_handle, "genbank"):
+                for seq_feature in seq_record.features:
+                    if seq_feature.type == "CDS":
+                        assert len(seq_feature.qualifiers['translation']) == 1
+                        output_handle.write(">%s %s %s\n%s\n" % (seq_feature.qualifiers['locus_tag'][0],
+                                                                 seq_record.name,
+                                                                 seq_feature.location,
+                                                                 seq_feature.extract(seq_record.seq)))
+
+    print('%s\tCDS extracted from:\t\t%s\n'
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_fasta,)),
+    sys.stdout.flush()
+
+
+def get_CDSs_1ref(args, out_fasta: str) -> None:
+    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to the output file with coordinates."""
+
+    with open(args.ref, "r") as input_handle:
+        with open(out_fasta, "w") as output_handle:
+            for seq_record in SeqIO.parse(input_handle, "genbank"):
+                for seq_feature in seq_record.features:
+                    if seq_feature.type == "CDS":
+                        assert len(seq_feature.qualifiers['translation']) == 1
+                        output_handle.write(">%s %s %s\n%s\n" % (seq_feature.qualifiers['locus_tag'][0],
+                                                                 seq_record.name,
+                                                                 seq_feature.location,
+                                                                 seq_feature.extract(seq_record.seq)))
+
+    print('%s\tCDS extracted from:\t\t%s\n'
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_fasta,)),
+    sys.stdout.flush()
+
+
+def get_CDSs_2(genbank: str) -> dict:
+    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to a dict.
+        Keys are the fasta headers
+        Values are the nucleotide sequences"""
+
+    cds_dict = {}
+    with open(genbank, "r") as input_handle:
+        for seq_record in SeqIO.parse(input_handle, "genbank"):
+            for seq_feature in seq_record.features:
+                if seq_feature.type == "CDS":
+                    assert len(seq_feature.qualifiers['translation']) == 1
+                    key = "%s %s %s" % (seq_feature.qualifiers['locus_tag'][0], seq_record.name, seq_feature.location)
+                    seq = str(seq_feature.extract(seq_record.seq))
+                    cds_dict[key] = seq
+
+    return cds_dict
 
 
 def get_proteome(args, out_faa: str) -> None:
@@ -136,11 +280,11 @@ def get_proteome(args, out_faa: str) -> None:
     sys.stdout.flush()
 
 
-def get_CDSs_1(args, out_fasta: str) -> None:
-    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to the output file with coordinates."""
+def get_proteomeRef(args, out_faa: str) -> None:
+    """Parse genbank input file for coding sequences (CDSs) and write them to the output file with coordinates."""
 
-    with open(args.genome, "r") as input_handle:
-        with open(out_fasta, "w") as output_handle:
+    with open(args.ref, "r") as input_handle:
+        with open(out_faa, "w") as output_handle:
             for seq_record in SeqIO.parse(input_handle, "genbank"):
                 for seq_feature in seq_record.features:
                     if seq_feature.type == "CDS":
@@ -148,29 +292,11 @@ def get_CDSs_1(args, out_fasta: str) -> None:
                         output_handle.write(">%s %s %s\n%s\n" % (seq_feature.qualifiers['locus_tag'][0],
                                                                  seq_record.name,
                                                                  seq_feature.location,
-                                                                 seq_feature.extract(seq_record.seq)))
+                                                                 seq_feature.qualifiers['translation'][0]))
 
     print('%s\tProteome extracted from:\t\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_fasta,)),
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_faa,)),
     sys.stdout.flush()
-
-
-def get_CDSs_2(genbank: str) -> dict:
-    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to a dict.
-        Keys are the fasta headers
-        Values are the nucleotide sequences"""
-
-    cds_dict = {}
-    with open(genbank, "r") as input_handle:
-        for seq_record in SeqIO.parse(input_handle, "genbank"):
-            for seq_feature in seq_record.features:
-                if seq_feature.type == "CDS":
-                    assert len(seq_feature.qualifiers['translation']) == 1
-                    key = "%s %s %s" % (seq_feature.qualifiers['locus_tag'][0], seq_record.name, seq_feature.location)
-                    seq = str(seq_feature.extract(seq_record.seq))
-                    cds_dict[key] = seq
-
-    return cds_dict
 
 
 def get_intergenic_regions(args, out_fasta: str) -> None:
@@ -228,163 +354,112 @@ def get_intergenic_regions(args, out_fasta: str) -> None:
     sys.stdout.flush()
 
 
-def run_blastp(args, in_faa: str, out_tsv: str) -> None:
-    """"Run BLASTP with FAA file against DB of your choice."""
+def run_blast(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
+    """"Run BLASTP or BLASTX with fasta file against DB of your choice."""
 
-    print('%s\tBlastP executed with %s threads.' % (current_time(), args.threads)),
+    print('%s\t%s executed with %s threads.' % (current_time(), search_type, args.threads)),
     sys.stdout.flush()
 
-    blastp_cline = NcbiblastpCommandline(query=in_faa,
-                                         num_threads=args.threads,
-                                         db=args.database,
-                                         max_target_seqs=args.hitcap,
-                                         max_hsps=1,
-                                         evalue=args.evalue,
-                                         #outfmt='7 qseqid',
-                                         outfmt="7 qseqid sseqid pident length mismatch gapopen qstart qend "
-                                                "sstart send slen evalue bitscore frames stitle",
-                                         out=out_tsv)
-    blastp_cline()
+    blast_dict = {'query': in_fasta,
+                  'num_threads': args.threads,
+                  'db': args.database,
+                  'max_target_seqs': args.hitcap,
+                  'max_hsps': 1,
+                  'evalue': args.evalue,
+                  'outfmt': "6 qseqid sseqid pident slen mismatch gapopen qstart qend sstart send evalue bitscore stitle",
+                  'out': out_tsv}
+
+    if search_type == 'blastp':
+        NcbiblastpCommandline(**blast_dict)()
+    if search_type == 'blastx':
+        NcbiblastxCommandline(**blast_dict)()
 
 
-def run_blastx(args, in_fasta: str, out_tsv: str) -> None:
-    """Run BLASTX with FASTA file against DB of your choice."""
-
-    print('%s\tBlastX executed with %s threads.' % (current_time(), args.threads)),
-    sys.stdout.flush()
-
-    blastx_cline = NcbiblastxCommandline(query=in_fasta,
-                                         num_threads=args.threads,
-                                         db=args.database,
-                                         max_target_seqs=args.hitcap,
-                                         max_hsps=1,
-                                         evalue=args.evalue,
-                                         outfmt="7 qseqid sseqid pident length mismatch gapopen qstart qend "
-                                                "sstart send slen evalue bitscore frames stitle",
-                                         out=out_tsv)
-    blastx_cline()
+def manage_diamond_db(args):
+    try:
+        open(args.database + ".dmnd")
+        print("Found DMND database! " + args.database + ".dmnd")
+    except FileNotFoundError:
+        os.system('diamond makedb --in %s --db %s.dmnd' % (args.database, args.database))
 
 
-def collect_query_ids(filename: str) -> List[str]:
-    """Reads a TSV file and returns a list of Query names, to be used later."""
+def run_diamond(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
+    if search_type == 'blastp' or search_type == 'blastx':
+        diamond_cline = ('diamond %s --quiet --query %s --out %s --threads %s --max-target-seqs %s --evalue %s --db %s '
+                         '--outfmt 6 qseqid sseqid pident slen mismatch gapopen qstart qend sstart send evalue bitscore stitle --max-hsps 1'
+                         % (search_type, in_fasta, out_tsv, args.threads, args.hitcap, args.evalue, args.database))
+        os.system(diamond_cline)
 
-    loq = []  # list of Query names
-
-    with open(filename) as tsvfile:
-        lines = tsvfile.readlines()
-
-        for line in lines:
-            if re.match("^# Query:", line):
-                fields_in_line = list(filter(None, re.split("\s|\[|\]|:|\(|\)", line)))
-                query = fields_in_line[2]
-                loq.append(query)
-
-    return loq
+    else:
+        print("function run_diamond() can only accept \'blastp\' or \'blastx\' as search_type. Please use one of these options.")
+        exit()
 
 
-def parse_blast(filename: str, blast_format: str) -> List[RegionInfo]:
+def parse_blast(fasta_file: str, blast_file: str, blast_format: str) -> List[RegionInfo]:
     """This function needs to take a blast query and extract the relevant information (RegionInfo)."""
-
     print('%s\tExtracting information from %s file.' % (current_time(), blast_format)),
     sys.stdout.flush()
 
     query_dict = {}  # Dictionary of information relating to each query
-    region_list = []  # the final list of regions
 
-    with open(filename, 'r') as tsvfile:
-        lines = tsvfile.readlines()
+    # Read fasta file, build query dict without knowledge of blasthits
+    with open(fasta_file, 'r') as fasta:
+        lines = [line for line in fasta.readlines() if re.match("^>", line)]
+        if blast_format == 'blastp':
+            StatisticsDict['ProteomeOrfs'] = len(lines)
+        for line in lines:
+            fields_in_line = list(filter(None, re.split("\s|(?<=[0-9])-|\[|\]|:|\(|\)", line)))
+            query = fields_in_line[0][1:]
+            query_dict[query] = {'contig': fields_in_line[1],
+                                 'query': query,
+                                 'start': int(fields_in_line[2]),
+                                 'end': int(fields_in_line[3]),
+                                 'strand': fields_in_line[4],
+                                 'hits': []}
 
-        # This will soon be replaced by an actual query, just have to get past the first line
-        query = "Placeholder query that wont matching anything because it's way too long"
+    # Iterate through the tsv file, adding information from each line to the appropriate query
+    with open(blast_file, 'r') as tsv:
+        lines = tsv.readlines()
+        for line in lines:
+            fields_in_line = list(filter(None, re.split("\s|(?<=[0-9])-|\[|\]|:|\(|\)", line)))
+            line_query = fields_in_line[0]
+            blast_hit = BlastHit(query=line_query,
+                                 subject_accession=fields_in_line[1],
+                                 percent_ident=float(fields_in_line[2]),
+                                 nucleotide_length=int(fields_in_line[3])*3, # convert aa to nucleotide
+                                 mismatch=int(fields_in_line[4]),
+                                 gapopen=int(fields_in_line[5]),
+                                 q_start=int(fields_in_line[6]),
+                                 q_end=int(fields_in_line[7]),
+                                 s_start=int(fields_in_line[8]),
+                                 s_end=int(fields_in_line[9]),
+                                 evalue=float(fields_in_line[10]),
+                                 bitscore=float(fields_in_line[11]),
+                                 stitle=" ".join(fields_in_line[12:]))
 
-        for line_number, line in enumerate(lines):
-            # matching line example: "# Query: COGCCIIJ_00001 COGCCIIJ_1 [115:223](+)"
-            if re.match("^# Query:", line):
-                # fields_in_line splits all fields and filters unintentional whitespace
-                # example: "['#', 'Query', 'COGCCIIJ_00001', 'COGCCIIJ_1', '115', '223', '+']"
-                fields_in_line = list(filter(None, re.split("\s|(?<=[0-9])-|\[|\]|:|\(|\)", line)))
+            query_dict[line_query]['hits'].append(blast_hit)
 
-                query = fields_in_line[2]  # the query that is currently being looked at
+    # Write all of the information to a RegionInfo, which is then added to a list of RegionInfo
+    if blast_format == 'blastp':
+        note = "From BlastP;colour=51 153 102"
+        region_type = RegionType.ORF
+    elif blast_format == 'blastx':
+        note = "From BlastX"
+        region_type = RegionType.intergenic
 
-                # collect contig, start, end, strand from fields, add to dictionary
-                query_dict[query] = {'contig': fields_in_line[3],
-                                     'query': fields_in_line[2],
-                                     'start': int(fields_in_line[4])+1,
-                                     'end': int(fields_in_line[5]),
-                                     'strand': fields_in_line[6],
-                                     'hits': []}
-
-                # If you're parsing a BlastP file, keep track of how many ORFs are in the file
-                if blast_format == "BlastP":
-                    StatisticsDict['ProteomeOrfs'] += 1
-                else:
-                    pass
-
-            # Matches the current query at the front of the line
-            # match example: "COGCCIIJ_00002	sp|P86052|CYC4_THIRO	47.929	169	81	5	61	225	25	190	192	1.33e-40	140"
-            elif re.match("^%s" % query, line):
-                # fields_in_line acts the same as above
-                # example: "['COGCCIIJ_00002', 'sp|P86052|CYC4_THIRO', '47.929', '169', '81', '5', '61', '225', '25', '190', '192', '1.33e-40', '140']"
-                fields_in_line = list(filter(None, re.split("\s|\[|\]|:|\(|\)", line)))
-
-                # This try/catch is needed to prevent getting an error from trying
-                # to append to a dictionary key that does not exist.
-                try:
-                    query_dict[query]['hits']  # Check if the list exists
-                except KeyError:
-                    query_dict[query]['hits'] = []  # If it does not, make it an empty list
-
-                # Append hit info to list
-                query_dict[query]['hits'].append(BlastHit(accession=fields_in_line[1],
-                                                          slen=int(fields_in_line[10])*3,
-                                                          s_start=int(fields_in_line[6]),
-                                                          s_end=int(fields_in_line[7]),
-                                                          eval=float(fields_in_line[11])))
-
-    # Once all lines have been checked, write the results to a final list in the form of RegionInfo
-    for key in query_dict:
-        if blast_format == "BlastP":
-            region_list.append(RegionInfo(contig=query_dict[key]['contig'],
-                                          query=query_dict[key]['query'],
-                                          start=(query_dict[key]['start']),
-                                          end=(query_dict[key]['end']),
-                                          strand=query_dict[key]['strand'],
-                                          hits=query_dict[key]['hits'],
-                                          note='From BlastP;colour=51 153 102',
-                                          region_type=RegionType.ORF))
-
-        # Have to modify range for intergenic regions
-        if blast_format == "BlastX":
-            try:  # retrieve actual intergenic range based on blast hits
-                region_start, region_end = get_intergenic_query_range(query_dict[key]['hits'], query_dict[key]['start'])
-
-            except ValueError:  # If there are no blast hits, this region will not be considered
-                region_start, region_end = (0, 0)
-
-            region_list.append(RegionInfo(contig=query_dict[key]['contig'],
-                                          query=query_dict[key]['query'],
-                                          start=region_start,
-                                          end=region_end,
-                                          strand=query_dict[key]['strand'],
-                                          hits=query_dict[key]['hits'],
-                                          note='From BlastX',
-                                          region_type=RegionType.intergenic))
-
+    region_list = []
+    for query in query_dict:
+        region_list.append(RegionInfo(contig=query_dict[query]['contig'],
+                                      query=query,
+                                      genbank_locus_tags=[query],
+                                      pseudo_locus_tag="",
+                                      start=query_dict[query]['start'],
+                                      end=query_dict[query]['end'],
+                                      strand=query_dict[query]['strand'],
+                                      hits=query_dict[query]['hits'],
+                                      note=note,
+                                      region_type=region_type))
     return region_list
-
-
-def get_intergenic_query_range(lobh: List[BlastHit], start_position: int) -> tuple:
-    """Calculates the range of an intergenic region, based on the location of blast hits within the whole intergenic region.
-    This is necessary because the start and end positions of hits are defined locally in the blast output - this function
-    converts them to absolute positions on the contig."""
-
-    # Collect all start and end positions in a list of blast hits
-    all_values = [bh.s_start for bh in lobh] + [bh.s_end for bh in lobh]
-
-    region_start = start_position + min(all_values)
-    region_end = start_position + max(all_values)
-
-    return region_start, region_end
 
 
 def split_regions_into_contigs(lori: List[RegionInfo]) -> List[Contig]:
@@ -460,13 +535,13 @@ def check_individual_ORFs(args, lori: List[RegionInfo]) -> tuple:
     for region in initial_blastp_list:
 
         # Retrieves lengths of genes that this region has blasted against
-        list_of_database_lengths = [hit.slen for hit in region.hits]
+        list_of_database_lengths = [hit.nucleotide_length for hit in region.hits]
 
         # Calculates the average length of genes that this region has blasted against
         average_database_length = sum(list_of_database_lengths) / len(list_of_database_lengths)
 
         # Calculates the length of this region
-        region_length = region.end - region.start
+        region_length = (region.end - region.start)
 
         # ratio of the region's length to the average length of hits.
         ratio = (region_length/average_database_length)
@@ -498,13 +573,14 @@ def convert_region_to_pseudo(region: RegionInfo, ratio: float, number_of_hits: i
 
     pseudogene = RegionInfo(contig=region.contig,
                             query=region.query,
+                            genbank_locus_tags=region.genbank_locus_tags,
+                            pseudo_locus_tag="",
                             start=region.start,
                             end=region.end,
                             strand=region.strand,
                             hits=region.hits,
                             note=message,
                             region_type=pseudo_type)
-
     return pseudogene
 
 
@@ -519,7 +595,6 @@ def replace_pseudos_in_list(pseudos: List[RegionInfo], regions: List[RegionInfo]
             final_list.append(pseudo_present(region, pseudos)[1])
         else:
             final_list.append(region)  # if it is not, write the gene
-
     return final_list
 
 
@@ -534,7 +609,6 @@ def pseudo_present(region: RegionInfo, pseudos: List[RegionInfo]) -> tuple:
             return True, pseudo
         else:
             pass
-
     return False, region
 
 
@@ -671,7 +745,6 @@ def matching_hit_critera(args, r1: RegionInfo, r2: RegionInfo) -> bool:
             return True
         else:
             return False
-
     else:
         return False
 
@@ -679,8 +752,8 @@ def matching_hit_critera(args, r1: RegionInfo, r2: RegionInfo) -> bool:
 def number_of_matching_hits(r1: RegionInfo, r2: RegionInfo) -> int:
     """This function returns the number of blast hits that two regions have in common."""
 
-    r1_accessions = set([blasthit.accession for blasthit in r1.hits])
-    r2_accessions = set([blasthit.accession for blasthit in r2.hits])
+    r1_accessions = set([blasthit.subject_accession for blasthit in r1.hits])
+    r2_accessions = set([blasthit.subject_accession for blasthit in r2.hits])
 
     return len(set(r1_accessions) & set(r2_accessions))
 
@@ -693,6 +766,8 @@ def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
 
     merged_region = RegionInfo(contig=r1.contig,
                                query=r1.query+","+r2.query+",",
+                               genbank_locus_tags=r1.genbank_locus_tags + r2.genbank_locus_tags,
+                               pseudo_locus_tag="",
                                start=min([r1.start, r2.start]),
                                end=max([r1.end, r2.end]),
                                strand=r1.strand,
@@ -706,7 +781,7 @@ def join_regions(r1: RegionInfo, r2: RegionInfo) -> RegionInfo:
 def sort_hits_by_eval(lobh: List[BlastHit]) -> List[BlastHit]:
     """Sorts a list of blasthits by e-value from low to high (returning the hit with the lowest evalue first)."""
 
-    sorted_list = sorted(lobh, key=lambda r: r.eval)
+    sorted_list = sorted(lobh, key=lambda r: r.evalue)
     return sorted_list
 
 
@@ -726,16 +801,15 @@ def add_locus_tags(lori: List[RegionInfo], contig: str) -> List[RegionInfo]:
     final_list = []
 
     for counter, region in enumerate(sorted_by_start):
-        tagged_region = RegionInfo(region.contig,
-                                   region.query,
-                                   region.start,
-                                   region.end,
-                                   region.strand,
-                                   region.hits,
-                                   # adds a locus tag with 4 digits.
-                                   # ie, if counter = 2 and contig = 'contig1', result will be
-                                   # 'locus_tag=pseudo_contig_1_0002'
-                                   region.note + str(';locus_tag=%s_%04d' % (contig, counter+1)),
+        tagged_region = RegionInfo(contig=region.contig,
+                                   query=region.query,
+                                   genbank_locus_tags=region.genbank_locus_tags,
+                                   pseudo_locus_tag=str("%s_%04d" % (contig, counter+1)),
+                                   start=region.start,
+                                   end=region.end,
+                                   strand=region.strand,
+                                   hits=region.hits,
+                                   note=region.note,
                                    region_type=region.region_type)
 
         final_list.append(tagged_region)
@@ -759,6 +833,9 @@ def write_genes_to_gff(args, lopg: List[RegionInfo], gff: str) -> None:
 
         # write genes
         for region in lopg:
+            locus_tag = "locus_tag=%s" % region.pseudo_locus_tag
+            genbank_locus_tags = "gbk_locus_tags=%s" % ",".join(region.genbank_locus_tags)
+            attributes = ";".join([region.note, locus_tag, genbank_locus_tags])
             entry_elements = ["gnl|Prokka|%s" % region.contig,
                               "pseudofinder",
                               "gene",
@@ -767,7 +844,7 @@ def write_genes_to_gff(args, lopg: List[RegionInfo], gff: str) -> None:
                               '.',
                               region.strand,
                               '.',
-                              region.note]
+                              attributes]
 
             gff_output_handle.write('\t'.join(map(str, entry_elements))+'\n')
 
@@ -902,9 +979,25 @@ def reset_statistics_dict():
 def main():
     # Declare variables used throughout the rest of the program
     args = get_args()
+
+    if args.diamond:
+        search_engine = "diamond"
+    else:
+        search_engine = "blast"
+
+    os.system("echo ${ctl} > ctl.txt")
+    file = open("ctl.txt")
+    for i in file:
+        ctl = (i.rstrip())
+        ctl = ctl[1:len(ctl) - 1]
+    os.system("rm ctl.txt")
+
     base_outfile_name = args.outprefix + "_"
     file_dict = {
+        'cds_filename': base_outfile_name + "cds.faa",
+        'ref_cds_filename': base_outfile_name + "ref_cds.faa",
         'proteome_filename': base_outfile_name + "proteome.faa",
+        'ref_proteome_filename': base_outfile_name + "ref_proteome.faa",
         'intergenic_filename': base_outfile_name + "intergenic.fasta",
         'blastp_filename': base_outfile_name + "proteome.faa" + ".blastP_output.tsv",
         'blastx_filename': base_outfile_name + "intergenic.fasta" + ".blastX_output.tsv",
@@ -913,20 +1006,35 @@ def main():
         'functional_gff': base_outfile_name + "functional.gff",
         'functional_faa': base_outfile_name + "functional.faa",
         'chromosome_map': base_outfile_name + "map.pdf",
+        'dnds_out': base_outfile_name + ".csv",  # #######################################################
         'log': base_outfile_name + "log.txt"
     }
 
     # Collect sequences
+    get_CDSs_1(args=args, out_fasta=file_dict['cds_filename'])
     get_proteome(args=args, out_faa=file_dict['proteome_filename'])
     get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
 
-    # Run blast
-    run_blastp(args=args, in_faa=file_dict['proteome_filename'], out_tsv=file_dict['blastp_filename'])
-    run_blastx(args=args, in_fasta=file_dict['intergenic_filename'], out_tsv=file_dict['blastx_filename'])
+    if args.ref:  # #########################################################################################
+        get_CDSs_1ref(args=args, out_fasta=file_dict['ref_cds_filename'])
+        get_proteomeRef(args=args, out_faa=file_dict['ref_proteome_filename'])
+        dnds.full(skip=False, ref=args.ref, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
+                  referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],  # NEED TO COLLECT ORFS IN AMINO ACID AND NUCLEIC ACID FORMATS FROM PROVIDEDREFERENCE GENOME
+                  c=ctl, dnds=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
+
+    if search_engine == "blast":
+        # Run BLAST
+        run_blast(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'], out_tsv=file_dict['blastp_filename'])
+        run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'], out_tsv=file_dict['blastx_filename'])
+
+    elif search_engine == "diamond":
+        manage_diamond_db(args)
+        run_diamond(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'], out_tsv=file_dict['blastp_filename'])
+        run_diamond(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'], out_tsv=file_dict['blastx_filename'])
 
     # Collect everything from the blast files
-    orfs = parse_blast(filename=file_dict['blastp_filename'], blast_format='BlastP')
-    intergenic_regions = parse_blast(filename=file_dict['blastx_filename'], blast_format='BlastX')
+    orfs = parse_blast(fasta_file=file_dict['proteome_filename'], blast_file=file_dict['blastp_filename'], blast_format='blastp')
+    intergenic_regions = parse_blast(fasta_file=file_dict['intergenic_filename'], blast_file=file_dict['blastx_filename'], blast_format='blastx')
     all_regions = orfs + intergenic_regions
 
     # Sorted list of contigs containing only orfs, no intergenic regions
@@ -966,7 +1074,7 @@ def main():
     # TODO: Activate this feature once you finish writing it
     # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
     #                           contigs=functional_genes)
-    genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+    # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
     write_summary_file(args=args, file_dict=file_dict)
 
 if __name__ == '__main__':

@@ -16,21 +16,24 @@ chmod +x pseudofinder.py
 # conda config --add channels au-eoed 2> /dev/null
 
 ## creating GToTree environment and installing dependencies
-conda create -n gtotree -c conda-forge -c bioconda -c defaults biopython hmmer=3.2.1 muscle=3.8.1551 trimal=1.4.1 fasttree=2.1.10 iqtree=1.6.9 prodigal=2.6.3 taxonkit=0.3.0 parallel=20190722 --yes
+conda create -n pseudofinder -c conda-forge -c bioconda -c defaults biopython blast diamond pal2nal paml plotly pandas numpy reportlab hmmer=3.2.1 muscle=3.8.1551 prodigal=2.6.3 parallel=20190722 --yes
 
 ## activating environment
-source activate pseudo
+source activate pseudofinder
 
 ## creating directory for conda-env-specific source files
 mkdir -p ${CONDA_PREFIX}/etc/conda/activate.d
 
 ## adding codeml-2.ctl file path:
 echo '#!/bin/sh'" \
+
+
 export PATH=\"$(pwd):"'$PATH'\"" \
+
 export ctl=\"$(pwd)/codeml-2.ctl\"" >> ${CONDA_PREFIX}/etc/conda/activate.d/env_vars.sh
 
 # re-activating environment so variable and PATH changes take effect
-source activate pseudo
+source activate pseudofinder
 
 
 printf "\n        ${GREEN}DONE!${NC}\n\n"
