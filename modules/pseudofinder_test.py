@@ -87,18 +87,44 @@ def main():
     blastx_file = output_prefix+"_intergenic.fasta.blastX_output.tsv"
     log_file = output_prefix+"_log.txt"
 
+    path_to_master = os.path.dirname(__file__) + "/../"
+    ctl_name = "codeml-2.ctl"
+    ctl_full_path = path_to_master + ctl_name
+    os.system("echo ${ctl} > ctl.txt")
+    file = open("ctl.txt")
+    for i in file:
+        ctl = (i.rstrip())
+        if len(ctl) > 0:
+            ctl_full_path = ctl[0:len(ctl)]
+    os.system("rm ctl.txt")
+
+
+    ref_pep = path_to_test_data + "Mycobacterium_tuberculosis_H37Rv-subset.faa"
+    ref_nuc = path_to_test_data + "Mycobacterium_tuberculosis_H37Rv-subset.ffn"
+    pep = path_to_test_data + "Mycobacterium_leprae-subset.faa"
+    nuc = path_to_test_data + "Mycobacterium_leprae-subset.ffn"
+    dndsOutput = "dnds_output"
+    print(path_to_test_data)
+    print(folder_name)
+    print(dndsOutput)
+    print(ctl_full_path)
+
     # A dictionary to store the names and shell commands for each section of pseudofinder
     command_dict = OrderedDict()
-    command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s -t %s" % (
+    command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s -t %s --diamond" % (
         path_to_pseudofinder, genome_full_path, args.database, output_prefix, args.threads)
     command_dict['Visualize'] = "python3 %s visualize -g %s -op %s -p %s -x %s -log %s" % (
         path_to_pseudofinder, genome_full_path, output_prefix, blastp_file, blastx_file, log_file)
     command_dict['Reannotate'] = "python3 %s reannotate -g %s -p %s -x %s -log %s -op %s" % (
         path_to_pseudofinder, genome_full_path, blastp_file, blastx_file, log_file, output_prefix)
+    # command_dict['dnds'] = "python3 %s dnds -ra %s -rn %s -a %s -n %s -ctl %s -out %s" % (
+    #     path_to_pseudofinder, ref_pep, ref_nuc, pep, nuc, ctl_full_path, dndsOutput)
 
     for command in command_dict:
         test_command(command_name=command, full_command=command_dict[command])
 
+    os.system("rm -r " + dndsOutput)
 
 if __name__ == '__main__':
     main()
+
