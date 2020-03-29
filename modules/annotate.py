@@ -220,7 +220,7 @@ def get_CDSs(gbk: str, out_fasta: str) -> None:
                                                                  seq_feature.location,
                                                                  seq_feature.extract(seq_record.seq)))
 
-    print('%s\tCDS extracted from:\t\t%s\n'
+    print('%s\tCDS extracted from:\t\t\t%s\n'
           '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, out_fasta,)),
     sys.stdout.flush()
 
@@ -952,10 +952,11 @@ def main():
     os.system("echo ${ctl} > ctl.txt")
     file = open("ctl.txt")
     for i in file:
+        print("i: %s" % i)
         ctl = (i.rstrip())
         ctl = ctl[1:len(ctl) - 1]
     os.system("rm ctl.txt")
-
+    print(ctl)
     base_outfile_name = args.outprefix + "_"
     file_dict = {
         'cds_filename': base_outfile_name + "cds.fasta",
@@ -980,13 +981,13 @@ def main():
     get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
 
     if args.ref:  # #########################################################################################
-        get_CDSs(gbk=args.genome, out_fasta=file_dict['ref_cds_filename'])
-        get_proteome(gbk=args.genome, out_faa=file_dict['ref_proteome_filename'])
+        get_CDSs(gbk=args.ref, out_fasta=file_dict['ref_cds_filename'])
+        get_proteome(gbk=args.ref, out_faa=file_dict['ref_proteome_filename'])
         dnds.full(skip=False, ref=args.ref, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
                   referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],  # NEED TO COLLECT ORFS IN AMINO ACID AND NUCLEIC ACID FORMATS FROM PROVIDEDREFERENCE GENOME
                   c=ctl, dnds=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
 
-    if args.diamond:  # run diamon
+    if args.diamond:  # run diamond
         manage_diamond_db(args)
         run_diamond(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
                     out_tsv=file_dict['blastp_filename'])
