@@ -196,7 +196,8 @@ def get_args():
                           help='maximum dS value for dN/dS calculation (default = 3)')
     optional.add_argument('-m', '--min_ds', default=0.001, type=float,
                           help='minimum dS value for dN/dS calculation (default = 0.001)')
-    optional.add_argument('--diamond', type=str, help="use DIAMOND BLAST as the search engine", const=True, nargs="?")
+    optional.add_argument('--diamond', default=False, action='store_true',
+                          help="Use DIAMOND BLAST as the search engine. If not specified,\n standard BLAST will be used.")
 
     # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
     # We only care about the known arguments, so we take [0].
@@ -205,10 +206,10 @@ def get_args():
     return args
 
 
-def get_CDSs_1(args, out_fasta: str) -> None:
+def get_CDSs(gbk: str, out_fasta: str) -> None:
     """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to the output file with coordinates."""
 
-    with open(args.genome, "r") as input_handle:
+    with open(gbk, "r") as input_handle:
         with open(out_fasta, "w") as output_handle:
             for seq_record in SeqIO.parse(input_handle, "genbank"):
                 for seq_feature in seq_record.features:
@@ -220,51 +221,33 @@ def get_CDSs_1(args, out_fasta: str) -> None:
                                                                  seq_feature.extract(seq_record.seq)))
 
     print('%s\tCDS extracted from:\t\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_fasta,)),
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, out_fasta,)),
     sys.stdout.flush()
 
 
-def get_CDSs_1ref(args, out_fasta: str) -> None:
-    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to the output file with coordinates."""
-
-    with open(args.ref, "r") as input_handle:
-        with open(out_fasta, "w") as output_handle:
-            for seq_record in SeqIO.parse(input_handle, "genbank"):
-                for seq_feature in seq_record.features:
-                    if seq_feature.type == "CDS":
-                        assert len(seq_feature.qualifiers['translation']) == 1
-                        output_handle.write(">%s %s %s\n%s\n" % (seq_feature.qualifiers['locus_tag'][0],
-                                                                 seq_record.name,
-                                                                 seq_feature.location,
-                                                                 seq_feature.extract(seq_record.seq)))
-
-    print('%s\tCDS extracted from:\t\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_fasta,)),
-    sys.stdout.flush()
-
-
-def get_CDSs_2(genbank: str) -> dict:
-    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to a dict.
-        Keys are the fasta headers
-        Values are the nucleotide sequences"""
-
-    cds_dict = {}
-    with open(genbank, "r") as input_handle:
-        for seq_record in SeqIO.parse(input_handle, "genbank"):
-            for seq_feature in seq_record.features:
-                if seq_feature.type == "CDS":
-                    assert len(seq_feature.qualifiers['translation']) == 1
-                    key = "%s %s %s" % (seq_feature.qualifiers['locus_tag'][0], seq_record.name, seq_feature.location)
-                    seq = str(seq_feature.extract(seq_record.seq))
-                    cds_dict[key] = seq
-
-    return cds_dict
+# NOT IN USE BUT FULLY FUNCTIONAL #
+# def get_CDSs_2(genbank: str) -> dict:
+#     """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to a dict.
+#         Keys are the fasta headers
+#         Values are the nucleotide sequences"""
+#
+#     cds_dict = {}
+#     with open(genbank, "r") as input_handle:
+#         for seq_record in SeqIO.parse(input_handle, "genbank"):
+#             for seq_feature in seq_record.features:
+#                 if seq_feature.type == "CDS":
+#                     assert len(seq_feature.qualifiers['translation']) == 1
+#                     key = "%s %s %s" % (seq_feature.qualifiers['locus_tag'][0], seq_record.name, seq_feature.location)
+#                     seq = str(seq_feature.extract(seq_record.seq))
+#                     cds_dict[key] = seq
+#
+#     return cds_dict
 
 
-def get_proteome(args, out_faa: str) -> None:
+def get_proteome(gbk: str, out_faa: str) -> None:
     """Parse genbank input file for coding sequences (CDSs) and write them to the output file with coordinates."""
 
-    with open(args.genome, "r") as input_handle:
+    with open(gbk, "r") as input_handle:
         with open(out_faa, "w") as output_handle:
             for seq_record in SeqIO.parse(input_handle, "genbank"):
                 for seq_feature in seq_record.features:
@@ -276,26 +259,7 @@ def get_proteome(args, out_faa: str) -> None:
                                                                  seq_feature.qualifiers['translation'][0]))
 
     print('%s\tProteome extracted from:\t\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_faa,)),
-    sys.stdout.flush()
-
-
-def get_proteomeRef(args, out_faa: str) -> None:
-    """Parse genbank input file for coding sequences (CDSs) and write them to the output file with coordinates."""
-
-    with open(args.ref, "r") as input_handle:
-        with open(out_faa, "w") as output_handle:
-            for seq_record in SeqIO.parse(input_handle, "genbank"):
-                for seq_feature in seq_record.features:
-                    if seq_feature.type == "CDS":
-                        assert len(seq_feature.qualifiers['translation']) == 1
-                        output_handle.write(">%s %s %s\n%s\n" % (seq_feature.qualifiers['locus_tag'][0],
-                                                                 seq_record.name,
-                                                                 seq_feature.location,
-                                                                 seq_feature.qualifiers['translation'][0]))
-
-    print('%s\tProteome extracted from:\t\t%s\n'
-          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), args.genome, out_faa,)),
+          '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, out_faa,)),
     sys.stdout.flush()
 
 
@@ -994,8 +958,8 @@ def main():
 
     base_outfile_name = args.outprefix + "_"
     file_dict = {
-        'cds_filename': base_outfile_name + "cds.faa",
-        'ref_cds_filename': base_outfile_name + "ref_cds.faa",
+        'cds_filename': base_outfile_name + "cds.fasta",
+        'ref_cds_filename': base_outfile_name + "ref_cds.fasta",
         'proteome_filename': base_outfile_name + "proteome.faa",
         'ref_proteome_filename': base_outfile_name + "ref_proteome.faa",
         'intergenic_filename': base_outfile_name + "intergenic.fasta",
@@ -1011,26 +975,29 @@ def main():
     }
 
     # Collect sequences
-    get_CDSs_1(args=args, out_fasta=file_dict['cds_filename'])
-    get_proteome(args=args, out_faa=file_dict['proteome_filename'])
+    get_CDSs(gbk=args.genome, out_fasta=file_dict['cds_filename'])
+    get_proteome(gbk=args.genome, out_faa=file_dict['proteome_filename'])
     get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
 
     if args.ref:  # #########################################################################################
-        get_CDSs_1ref(args=args, out_fasta=file_dict['ref_cds_filename'])
-        get_proteomeRef(args=args, out_faa=file_dict['ref_proteome_filename'])
+        get_CDSs(gbk=args.genome, out_fasta=file_dict['ref_cds_filename'])
+        get_proteome(gbk=args.genome, out_faa=file_dict['ref_proteome_filename'])
         dnds.full(skip=False, ref=args.ref, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
                   referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],  # NEED TO COLLECT ORFS IN AMINO ACID AND NUCLEIC ACID FORMATS FROM PROVIDEDREFERENCE GENOME
                   c=ctl, dnds=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
 
-    if search_engine == "blast":
-        # Run BLAST
-        run_blast(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'], out_tsv=file_dict['blastp_filename'])
-        run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'], out_tsv=file_dict['blastx_filename'])
-
-    elif search_engine == "diamond":
+    if args.diamond:  # run diamon
         manage_diamond_db(args)
-        run_diamond(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'], out_tsv=file_dict['blastp_filename'])
-        run_diamond(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'], out_tsv=file_dict['blastx_filename'])
+        run_diamond(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
+                    out_tsv=file_dict['blastp_filename'])
+        run_diamond(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
+                    out_tsv=file_dict['blastx_filename'])
+
+    else:  # run vanilla blast
+        run_blast(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
+                  out_tsv=file_dict['blastp_filename'])
+        run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
+                  out_tsv=file_dict['blastx_filename'])
 
     # Collect everything from the blast files
     orfs = parse_blast(fasta_file=file_dict['proteome_filename'], blast_file=file_dict['blastp_filename'], blast_format='blastp')
