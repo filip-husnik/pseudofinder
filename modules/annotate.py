@@ -912,12 +912,14 @@ def write_summary_file(args, file_dict: dict) -> None:
             "#######    Files   #######\n"
             "Genome:\t" + args.genome + "\n"
             "Database:\t" + args.database + "\n"
+            "Reference Genome:\t" + args.ref + "\n"
             "BlastP:\t" + file_dict['blastp_filename'] + "\n"
             "BlastX:\t" + file_dict['blastx_filename'] + "\n"
             "Pseudogenes (GFF):\t" + file_dict['pseudos_gff'] + "\n"
             "Pseudogenes (Fasta):\t" + file_dict['pseudos_fasta'] + "\n"
             "Functional genes (GFF):\t" + file_dict['functional_gff'] + "\n"
-            "Functional genes (Fasta):\t" + file_dict['functional_faa'] + "\n"
+            "Functional genes (protein seq):\t" + file_dict['functional_faa'] + "\n"
+            "Functional genes (nucleotide seq):\t" + file_dict['functional_ffn'] + "\n"
             "Chromosome map:\t" + file_dict['chromosome_map'] + "\n\n"
 
             "#######  Settings  #######\n"
@@ -926,7 +928,10 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Intergenic_length:\t" + str(args.intergenic_length) + "\n"
             "Intergenic_threshold:\t" + str(args.intergenic_threshold) + "\n"
             "Length_pseudo:\t" + str(args.length_pseudo) + "\n"
-            "Shared_hits:\t" + str(args.shared_hits) + "\n\n"
+            "Shared_hits:\t" + str(args.shared_hits) + "\n"
+            "max_dnds:\t" + str(args.max_dnds) + "\n"
+            "max_ds:\t" + str(args.max_ds) + "\n"
+            "min_ds:\t" + str(args.min_ds) + "\n\n"
                 
             "####### Statistics #######\n"
             "#Input:\n"
@@ -934,18 +939,20 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Number of contigs:\t" + str(StatisticsDict['NumberOfContigs']) + "\n"
             "#Output:\n"
             "Inital ORFs joined:\t" + str(StatisticsDict['FragmentedOrfs']) + "\n"
-            "Pseudogenes (total):\t" + str(StatisticsDict['PseudogenesTotal']) + "\n"
+            "Pseudogenes (total):\t" + str(StatisticsDict['PseudogenesTotal'] + StatisticsDict["dnds"]) + "\n"
             "Pseudogenes (too short):\t" + str(StatisticsDict['PseudogenesShort']) + "\n"
             "Pseudogenes (fragmented):\t" + str(StatisticsDict['PseudogenesFragmented']) + "\n"
             "Pseudogenes (no predicted ORF):\t" + str(StatisticsDict['PseudogenesIntergenic']) + "\n"
-            "Functional genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']) + "\n\n"
+            "Pseudogenes (high dN/dS):\t" + str(StatisticsDict["dnds"]) + "\n"
+            "Functional genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort'] - StatisticsDict["dnds"]) + "\n\n"
 
             "####### Output Key #######\n"
             "Initial ORFs joined:\t\tThe number of input open reading frames "
             "that have been merged and flagged as a fragmented pseudogene.\n"
             "Pseudogenes (too short):\tORFs smaller than the \"shared_hits\" cutoff.\n"
             "Pseudogenes (fragmented):\tPseudogenes composed of merging 2 or more input ORFs.\n"
-            "Functional genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)]\n"
+            "Pseudogenes (high dN/dS):\tIncipient pseudogenes that look intact, but have an elevated dN/dS value compared to a reference gene.\n"
+            "Functional genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)] - [Pseudogenes (high dN/dS)]\n"
         )
 
 
@@ -995,6 +1002,28 @@ def main():
                 else:
                     header = i[1:]
                     # header = header.split(" ")[0]
+                    seq = ''
+            else:
+                seq += i
+        Dict[header] = seq
+        return Dict
+
+    def fastaReader2(fasta_file):
+        count = 0
+        seq = ''
+        header = ''
+        Dict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        for i in fasta_file:
+            i = i.rstrip()
+            if re.match(r'^>', i):
+                if len(seq) > 0:
+                    Dict[header] = seq
+                    header = i[1:]
+                    header = header.split(" ")[0]
+                    seq = ''
+                else:
+                    header = i[1:]
+                    header = header.split(" ")[0]
                     seq = ''
             else:
                 seq += i
@@ -1074,38 +1103,6 @@ def main():
 
     pseudogenes = []
     functional_genes = []
-
-    for contig_index, contig in enumerate(all_regions_by_contig):
-        print('\033[1m'+'%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
-                                                                                 contig_index+1,
-                                                                                 len(all_regions_by_contig))),
-        sys.stdout.flush()
-
-        pseudos_on_contig = annotate_pseudos(args=args, contig=contig)  # Returns 'Contig' data type
-        pseudogenes.extend(pseudos_on_contig.regions)  # List of regions
-
-        try:
-            functional_genes_on_contig = get_functional_genes(contig=orfs_by_contig[contig_index],
-                                                              pseudos=pseudos_on_contig.regions)
-            functional_genes.extend(functional_genes_on_contig.regions)
-        except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
-            continue
-
-        print('\t\t\tNumber of ORFs on this contig: %s\n'
-              '\t\t\tNumber of pseudogenes flagged: %s' % (
-                  len([region for region in contig.regions if region.region_type == RegionType.ORF]),
-                  len(pseudos_on_contig.regions))),
-        sys.stdout.flush()
-
-    # Write all output files
-    write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
-    write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
-    write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
-    # TODO: Activate this feature once you finish writing it
-    # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
-    #                           contigs=functional_genes)
-    # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
-    write_summary_file(args=args, file_dict=file_dict)
 
     # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
     funcDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
@@ -1219,6 +1216,7 @@ def main():
         else:
             out.write(i.rstrip() + "\n")
 
+    StatisticsDict["dnds"] = len(newPseudosDict2.keys())
     for i in newPseudosDict2.keys():
         out.write(newPseudosDict2[i] + "\n")
 
@@ -1251,6 +1249,8 @@ def main():
     faa = fastaReader(faa)
     ffn = open(file_dict['cds_filename'])
     ffn = fastaReader(ffn)
+    ffn2 = open(file_dict['cds_filename'])
+    ffn2 = fastaReader2(ffn2)
 
     out = open(file_dict['functional_faa'], "w")
     for i in faa.keys():
@@ -1267,6 +1267,54 @@ def main():
             out.write(">" + i + "\n")
             out.write(ffn[i] + "\n")
     out.close()
+
+    pseudos = open(file_dict['pseudos_fasta'])
+    newPseudoSeqs = file_dict['pseudos_fasta'] + "-new.fasta"
+    out = open(newPseudoSeqs, "w")
+    for i in pseudos:
+        out.write(i.rstrip() + "\n")
+
+    for i in newPseudosDict2.keys():
+        ls = (newPseudosDict2[i].split("\t"))
+        contig = ls[0].split("|")[2]
+        header = contig + " " + ls[3] + "-" + ls[4] + " " + ls[6]
+        seq = (ffn2[i])
+        out.write(">" + header + "\n")
+        out.write(seq + "\n")
+
+    os.system("mv %s %s" % (newPseudoSeqs, file_dict['pseudos_fasta']))
+
+    for contig_index, contig in enumerate(all_regions_by_contig):
+        print('\033[1m'+'%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
+                                                                                 contig_index+1,
+                                                                                 len(all_regions_by_contig))),
+        sys.stdout.flush()
+
+        pseudos_on_contig = annotate_pseudos(args=args, contig=contig)  # Returns 'Contig' data type
+        pseudogenes.extend(pseudos_on_contig.regions)  # List of regions
+
+        try:
+            functional_genes_on_contig = get_functional_genes(contig=orfs_by_contig[contig_index],
+                                                              pseudos=pseudos_on_contig.regions)
+            functional_genes.extend(functional_genes_on_contig.regions)
+        except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
+            continue
+
+        print('\t\t\tNumber of ORFs on this contig: %s\n'
+              '\t\t\tNumber of pseudogenes flagged: %s' % (
+                  len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+                  len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
+        sys.stdout.flush()
+
+    # Write all output files
+    write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
+    write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
+    write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
+    # TODO: Activate this feature once you finish writing it
+    # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
+    #                           contigs=functional_genes)
+    # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+    write_summary_file(args=args, file_dict=file_dict)
 
 
 if __name__ == '__main__':
