@@ -1045,7 +1045,7 @@ def main():
     if args.ref:  # #########################################################################################
         get_CDSs(gbk=args.ref, out_fasta=file_dict['ref_cds_filename'])
         get_proteome(gbk=args.ref, out_faa=file_dict['ref_proteome_filename'])
-        dnds.full(skip=True, ref=args.ref, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
+        dnds.full(skip=args.skip, ref=args.ref, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
                   referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],  # NEED TO COLLECT ORFS IN AMINO ACID AND NUCLEIC ACID FORMATS FROM PROVIDEDREFERENCE GENOME
                   c=ctl, dnds=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
 
@@ -1115,7 +1115,6 @@ def main():
             ls = i.rstrip().split("\t")
             locus = (lastItem(ls[8].split(";")))
             locus = locus.split("=")[1]
-            print(locus)
             funcDict[locus]["list"] = ls
             funcDict[locus]["locus"] = locus
         else:
