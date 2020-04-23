@@ -153,7 +153,8 @@ StatisticsDict = {
                     'PseudogenesShort': 0,
                     'PseudogenesFragmented': 0,
                     'PseudogenesIntergenic': 0,
-                    'OutputFiles': []
+                    'OutputFiles': [],
+                    'dnds': 0
                   }
 
 
@@ -1104,190 +1105,10 @@ def main():
     pseudogenes = []
     functional_genes = []
 
-    # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
-    funcDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    func = open(file_dict['functional_gff'])  # reading original functional gff outfile to dictionary
-    for i in func:
-        if not re.match(r'#', i):
-            ls = i.rstrip().split("\t")
-            locus = (lastItem(ls[8].split(";")))
-            locus = locus.split("=")[1]
-            funcDict[locus]["list"] = ls
-            funcDict[locus]["locus"] = locus
-        else:
-            pass
-
-    pseudoDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    pseudo = open(file_dict['pseudos_gff'])  # reading original pseudos gff outfile to dictionary
-    for i in pseudo:
-        if not re.match(r'#', i):
-            ls = i.rstrip().split("\t")
-            locus = (lastItem(ls[8].split(";")))
-            locus = locus.split("=")[1]
-            for j in locus.split(","):
-                pseudoDict[j]["list"] = ls
-                pseudoDict[j]["locus"] = locus
-        else:
-            pass
-
-    # processing dnds output
-    newPseudosDict = defaultdict(list)
-    dndsfile = open(file_dict['dnds_out'] + "/dnds-summary.csv")
-    for i in dndsfile:
-        ls = i.rstrip().split(",")
-        locus = ls[0]
-        if ls[2] != "dN":
-            dn = float(ls[2])
-            ds = float(ls[3])
-            DNDS = float(ls[4])
-            ref = ls[1]
-            if ds < float(args.max_ds) and ds > float(args.min_ds):
-                if DNDS > float(args.max_dnds):
-                    if locus in funcDict.keys():
-                        gffList = (funcDict[locus]["list"])
-                        originalLocus = (funcDict[locus]["locus"])
-                        commentsList = (gffList[8].split(";"))
-                        comment = "Note=pseudogene candidate. Reason: dN/dS value between this gene and reference (" + ref + ") is " + str(
-                            round(DNDS, 3)) + "."
-                        newCommentsList = ([comment, commentsList[1], commentsList[2], commentsList[3]])
-                        newCommentsLine = ";".join(newCommentsList)
-                        gffLine = (("\t".join(gffList)))
-                        newgffLine = (allButTheLast(gffLine, "\t") + "\t" + newCommentsLine + "\t" + str(DNDS))
-
-                        newPseudosDict[originalLocus].append(newgffLine)
-                    elif locus in pseudoDict.keys():
-
-                        gffList = (pseudoDict[locus]["list"])
-                        originalLocus = (pseudoDict[locus]["locus"])
-                        commentsList = (gffList[8].split(";"))
-                        newComment = (commentsList[
-                                          0] + " Another Reason: dN/dS value between this gene and reference (" + ref + ") is " + str(round(DNDS, 3)) + ".")
-                        newCommentsList = [newComment, commentsList[1], commentsList[2], commentsList[3]]
-                        newCommentsLine = ";".join(newCommentsList)
-                        gffLine = (("\t".join(gffList)))
-                        newgffLine = (allButTheLast(gffLine, "\t") + "\t" + newCommentsLine + "\t" + str(DNDS))
-
-                        newPseudosDict[originalLocus].append(newgffLine)
-
-    newPseudosDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    for i in newPseudosDict.keys():
-        dndsList = []
-        for j in newPseudosDict[i]:
-            dndsList.append(float(j.split("\t")[9]))
-        ls = j.split("\t")
-        DNDS = (statistics.mean(dndsList))
-        commentsList = (ls[8].split(";"))
-        comment = (commentsList[0])
-        newComment = (comment.split(") is ")[0] + ") is " + str(round(DNDS, 3)))
-        newCommentsList = [newComment, commentsList[1], commentsList[2], commentsList[3]]
-        newCommentsLine = ";".join(newCommentsList)
-        newgffLine = ls[0] + "\t" + ls[1] + "\t" + ls[2] + "\t" + ls[3] + "\t" + ls[4] + "\t" + ls[5] + "\t" + ls[6] + "\t" + ls[7] + "\t" + newCommentsLine
-        newPseudosDict2[i] = newgffLine
-
-    # re-writing functional GFF output file
-    func = open(file_dict['functional_gff'])
-    newFunctionalOut = file_dict['functional_gff'].split(".")[0] + "-new.gff"
-    out = open(newFunctionalOut, "w")
-    for i in func:
-        if not re.match(r'#', i):
-            ls = i.rstrip().split("\t")
-            locus = (lastItem(ls[8].split(";")))
-            locus = locus.split("=")[1]
-            if locus not in newPseudosDict2.keys():
-                out.write(i.rstrip() + "\n")
-        else:
-            out.write(i.rstrip() + "\n")
-    out.close()
-
-    # re-writing pseudos GFF output file
-    pseudo = open(file_dict['pseudos_gff'])
-    newPseudoOut = file_dict['pseudos_gff'].split(".")[0] + "-new.gff"
-    out = open(newPseudoOut, "w")
-    for i in pseudo:
-        if not re.match(r'#', i):
-            ls = i.rstrip().split("\t")
-            locus = (lastItem(ls[8].split(";")))
-            locus = locus.split("=")[1]
-            if locus in newPseudosDict2.keys():
-                out.write(newPseudosDict2[locus] + "\n")
-                newPseudosDict2.pop(locus, None)
-            else:
-                out.write(i.rstrip() + "\n")
-        else:
-            out.write(i.rstrip() + "\n")
-
-    StatisticsDict["dnds"] = len(newPseudosDict2.keys())
-    for i in newPseudosDict2.keys():
-        out.write(newPseudosDict2[i] + "\n")
-
-    out.close()
-
-    os.system("mv %s %s" % (newPseudoOut, file_dict['pseudos_gff']))
-    os.system("mv %s %s" % (newFunctionalOut, file_dict['functional_gff']))
-
-    # resorting the new GFF output file
-    sortDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    pseudo = open(file_dict['pseudos_gff'])
-    out = open(newPseudoOut, "w")
-    for i in pseudo:
-        if not re.match(r'#', i):
-            ls = i.rstrip().split("\t")
-            start = int(ls[3])
-            sortDict[start] = i.rstrip()
-        else:
-            out.write(i.rstrip() + "\n")
-
-    for i in sorted(sortDict.keys()):
-        out.write(sortDict[i] + "\n")
-
-    out.close()
-
-    os.system("mv %s %s" % (newPseudoOut, file_dict['pseudos_gff']))
-
-    # write intact genes to FASTA files
-    faa = open(file_dict['proteome_filename'])
-    faa = fastaReader(faa)
-    ffn = open(file_dict['cds_filename'])
-    ffn = fastaReader(ffn)
-    ffn2 = open(file_dict['cds_filename'])
-    ffn2 = fastaReader2(ffn2)
-
-    out = open(file_dict['functional_faa'], "w")
-    for i in faa.keys():
-        locus = i.split(" ")[0]
-        if locus in funcDict.keys():
-            out.write(">" + i + "\n")
-            out.write(faa[i] + "\n")
-    out.close()
-
-    out = open(file_dict['functional_ffn'], "w")
-    for i in ffn.keys():
-        locus = i.split(" ")[0]
-        if locus in funcDict.keys() and locus not in newPseudosDict2.keys():
-            out.write(">" + i + "\n")
-            out.write(ffn[i] + "\n")
-    out.close()
-
-    pseudos = open(file_dict['pseudos_fasta'])
-    newPseudoSeqs = file_dict['pseudos_fasta'] + "-new.fasta"
-    out = open(newPseudoSeqs, "w")
-    for i in pseudos:
-        out.write(i.rstrip() + "\n")
-
-    for i in newPseudosDict2.keys():
-        ls = (newPseudosDict2[i].split("\t"))
-        contig = ls[0].split("|")[2]
-        header = contig + " " + ls[3] + "-" + ls[4] + " " + ls[6]
-        seq = (ffn2[i])
-        out.write(">" + header + "\n")
-        out.write(seq + "\n")
-
-    os.system("mv %s %s" % (newPseudoSeqs, file_dict['pseudos_fasta']))
-
     for contig_index, contig in enumerate(all_regions_by_contig):
-        print('\033[1m'+'%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
-                                                                                 contig_index+1,
-                                                                                 len(all_regions_by_contig))),
+        print('\033[1m' + '%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
+                                                                                   contig_index + 1,
+                                                                                   len(all_regions_by_contig))),
         sys.stdout.flush()
 
         pseudos_on_contig = annotate_pseudos(args=args, contig=contig)  # Returns 'Contig' data type
@@ -1300,21 +1121,222 @@ def main():
         except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
             continue
 
-        print('\t\t\tNumber of ORFs on this contig: %s\n'
-              '\t\t\tNumber of pseudogenes flagged: %s' % (
-                  len([region for region in contig.regions if region.region_type == RegionType.ORF]),
-                  len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
         sys.stdout.flush()
 
-    # Write all output files
-    write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
-    write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
-    write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
-    # TODO: Activate this feature once you finish writing it
-    # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
-    #                           contigs=functional_genes)
-    # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
-    write_summary_file(args=args, file_dict=file_dict)
+        # Write all output files
+        write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
+        write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
+        write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
+        # TODO: Activate this feature once you finish writing it
+        # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
+        #                           contigs=functional_genes)
+        # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+
+
+    # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
+    newPseudosDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+    if args.ref:
+        funcDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        func = open(file_dict['functional_gff'])  # reading original functional gff outfile to dictionary
+        for i in func:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                locus = (lastItem(ls[8].split(";")))
+                locus = locus.split("=")[1]
+                funcDict[locus]["list"] = ls
+                funcDict[locus]["locus"] = locus
+            else:
+                pass
+
+        pseudoDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        pseudo = open(file_dict['pseudos_gff'])  # reading original pseudos gff outfile to dictionary
+        for i in pseudo:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                locus = (lastItem(ls[8].split(";")))
+                locus = locus.split("=")[1]
+                for j in locus.split(","):
+                    pseudoDict[j]["list"] = ls
+                    pseudoDict[j]["locus"] = locus
+            else:
+                pass
+
+        # processing dnds output
+        newPseudosDict = defaultdict(list)
+        dndsfile = open(file_dict['dnds_out'] + "/dnds-summary.csv")
+        for i in dndsfile:
+            ls = i.rstrip().split(",")
+            locus = ls[0]
+            if ls[2] != "dN":
+                dn = float(ls[2])
+                ds = float(ls[3])
+                DNDS = float(ls[4])
+                ref = ls[1]
+                if ds < float(args.max_ds) and ds > float(args.min_ds):
+                    if DNDS > float(args.max_dnds):
+                        if locus in funcDict.keys():
+                            gffList = (funcDict[locus]["list"])
+                            originalLocus = (funcDict[locus]["locus"])
+                            commentsList = (gffList[8].split(";"))
+                            comment = "Note=pseudogene candidate. Reason: dN/dS value between this gene and reference (" + ref + ") is " + str(
+                                round(DNDS, 3)) + "."
+                            newCommentsList = ([comment, commentsList[1], commentsList[2], commentsList[3]])
+                            newCommentsLine = ";".join(newCommentsList)
+                            gffLine = (("\t".join(gffList)))
+                            newgffLine = (allButTheLast(gffLine, "\t") + "\t" + newCommentsLine + "\t" + str(DNDS))
+
+                            newPseudosDict[originalLocus].append(newgffLine)
+                        elif locus in pseudoDict.keys():
+
+                            gffList = (pseudoDict[locus]["list"])
+                            originalLocus = (pseudoDict[locus]["locus"])
+                            commentsList = (gffList[8].split(";"))
+                            newComment = (commentsList[
+                                              0] + " Another Reason: dN/dS value between this gene and reference (" + ref + ") is " + str(round(DNDS, 3)) + ".")
+                            newCommentsList = [newComment, commentsList[1], commentsList[2], commentsList[3]]
+                            newCommentsLine = ";".join(newCommentsList)
+                            gffLine = (("\t".join(gffList)))
+                            newgffLine = (allButTheLast(gffLine, "\t") + "\t" + newCommentsLine + "\t" + str(DNDS))
+
+                            newPseudosDict[originalLocus].append(newgffLine)
+
+        newPseudosDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        for i in newPseudosDict.keys():
+            dndsList = []
+            for j in newPseudosDict[i]:
+                dndsList.append(float(j.split("\t")[9]))
+            ls = j.split("\t")
+            DNDS = (statistics.mean(dndsList))
+            commentsList = (ls[8].split(";"))
+            comment = (commentsList[0])
+            newComment = (comment.split(") is ")[0] + ") is " + str(round(DNDS, 3)))
+            newCommentsList = [newComment, commentsList[1], commentsList[2], commentsList[3]]
+            newCommentsLine = ";".join(newCommentsList)
+            newgffLine = ls[0] + "\t" + ls[1] + "\t" + ls[2] + "\t" + ls[3] + "\t" + ls[4] + "\t" + ls[5] + "\t" + ls[6] + "\t" + ls[7] + "\t" + newCommentsLine
+            newPseudosDict2[i] = newgffLine
+
+        # re-writing functional GFF output file
+        func = open(file_dict['functional_gff'])
+        newFunctionalOut = file_dict['functional_gff'].split(".")[0] + "-new.gff"
+        out = open(newFunctionalOut, "w")
+        for i in func:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                locus = (lastItem(ls[8].split(";")))
+                locus = locus.split("=")[1]
+                if locus not in newPseudosDict2.keys():
+                    out.write(i.rstrip() + "\n")
+            else:
+                out.write(i.rstrip() + "\n")
+        out.close()
+
+        # re-writing pseudos GFF output file
+        pseudo = open(file_dict['pseudos_gff'])
+        newPseudoOut = file_dict['pseudos_gff'].split(".")[0] + "-new.gff"
+        out = open(newPseudoOut, "w")
+        for i in pseudo:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                locus = (lastItem(ls[8].split(";")))
+                locus = locus.split("=")[1]
+                if locus in newPseudosDict2.keys():
+                    out.write(newPseudosDict2[locus] + "\n")
+                    newPseudosDict2.pop(locus, None)
+                else:
+                    out.write(i.rstrip() + "\n")
+            else:
+                out.write(i.rstrip() + "\n")
+
+        StatisticsDict["dnds"] = len(newPseudosDict2.keys())
+        for i in newPseudosDict2.keys():
+            out.write(newPseudosDict2[i] + "\n")
+
+        out.close()
+
+        os.system("mv %s %s" % (newPseudoOut, file_dict['pseudos_gff']))
+        os.system("mv %s %s" % (newFunctionalOut, file_dict['functional_gff']))
+
+        # resorting the new GFF output file
+        sortDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        pseudo = open(file_dict['pseudos_gff'])
+        out = open(newPseudoOut, "w")
+        for i in pseudo:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                start = int(ls[3])
+                sortDict[start] = i.rstrip()
+            else:
+                out.write(i.rstrip() + "\n")
+
+        for i in sorted(sortDict.keys()):
+            out.write(sortDict[i] + "\n")
+
+        out.close()
+
+        os.system("mv %s %s" % (newPseudoOut, file_dict['pseudos_gff']))
+
+        # write intact genes to FASTA files
+        faa = open(file_dict['proteome_filename'])
+        faa = fastaReader(faa)
+        ffn = open(file_dict['cds_filename'])
+        ffn = fastaReader(ffn)
+        ffn2 = open(file_dict['cds_filename'])
+        ffn2 = fastaReader2(ffn2)
+
+        out = open(file_dict['functional_faa'], "w")
+        for i in faa.keys():
+            locus = i.split(" ")[0]
+            if locus in funcDict.keys():
+                out.write(">" + i + "\n")
+                out.write(faa[i] + "\n")
+        out.close()
+
+        out = open(file_dict['functional_ffn'], "w")
+        for i in ffn.keys():
+            locus = i.split(" ")[0]
+            if locus in funcDict.keys() and locus not in newPseudosDict2.keys():
+                out.write(">" + i + "\n")
+                out.write(ffn[i] + "\n")
+        out.close()
+
+        pseudos = open(file_dict['pseudos_fasta'])
+        newPseudoSeqs = file_dict['pseudos_fasta'] + "-new.fasta"
+        out = open(newPseudoSeqs, "w")
+        for i in pseudos:
+            out.write(i.rstrip() + "\n")
+
+        for i in newPseudosDict2.keys():
+            ls = (newPseudosDict2[i].split("\t"))
+            contig = ls[0].split("|")[2]
+            header = contig + " " + ls[3] + "-" + ls[4] + " " + ls[6]
+            seq = (ffn2[i])
+            out.write(">" + header + "\n")
+            out.write(seq + "\n")
+
+        os.system("mv %s %s" % (newPseudoSeqs, file_dict['pseudos_fasta']))
+
+        for contig_index, contig in enumerate(all_regions_by_contig):
+
+            print('\t\t\tNumber of ORFs on this contig: %s\n'
+                  '\t\t\tNumber of pseudogenes flagged: %s' % (
+                      len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+                      len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
+            sys.stdout.flush()
+
+        # write the log file
+        write_summary_file(args=args, file_dict=file_dict)
+
+    else:
+        for contig_index, contig in enumerate(all_regions_by_contig):
+
+            print('\t\t\tNumber of ORFs on this contig: %s\n'
+                  '\t\t\tNumber of pseudogenes flagged: %s' % (
+                      len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+                      len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
+            sys.stdout.flush()
+
+        # write the log file
+        write_summary_file(args=args, file_dict=file_dict)
 
 
 if __name__ == '__main__':
