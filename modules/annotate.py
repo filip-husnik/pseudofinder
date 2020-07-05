@@ -7,10 +7,12 @@ import os
 from enum import Enum
 from typing import NamedTuple, List
 from time import localtime, strftime
+import statistics
 
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
+from collections import defaultdict
 
 # This try block was added to stop a circular import error that occurs when this module is called from reannotate.py
 try:
@@ -74,6 +76,21 @@ class RegionInfo_WIP:  # TODO: This is the start of changing data types into cla
         avg_hit_length = sum(hit_lengths) / len(hit_lengths)
         return self.nucleotide_length() / avg_hit_length
 
+    def lastItem(ls):
+        x = ''
+        for i in ls:
+            if i != "":
+                x = i
+        return x
+
+    def allButTheLast(iterable, delim):
+        x = ''
+        length = len(iterable.split(delim))
+        for i in range(0, length - 1):
+            x += iterable.split(delim)[i]
+            x += delim
+        return x[0:len(x) - 1]
+
     def pseudogene_reasoning(self):
         """
         Cases:
@@ -136,7 +153,8 @@ StatisticsDict = {
                     'PseudogenesShort': 0,
                     'PseudogenesFragmented': 0,
                     'PseudogenesIntergenic': 0,
-                    'OutputFiles': []
+                    'OutputFiles': [],
+                    'dnds': 0
                   }
 
 
@@ -198,6 +216,11 @@ def get_args():
                           help='minimum dS value for dN/dS calculation (default = 0.001)')
     optional.add_argument('--diamond', default=False, action='store_true',
                           help="Use DIAMOND BLAST as the search engine. If not specified,\n standard BLAST will be used.")
+    optional.add_argument('--skip', default=False, action='store_true',
+                          help="If you provided a reference genome for dN/dS analysis, already ran pseudo-finder, and \n"
+                               "would just like to re-run with one one of the flags for --max_ds, --max_dnds, or --min_ds altered. \n"
+                               "This flag allows you to skip the time-consuming steps (which you don't need if you alreayd \n"
+                               "have the codeml output) and use the previously-created output.")
 
     # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
     # We only care about the known arguments, so we take [0].
@@ -890,12 +913,14 @@ def write_summary_file(args, file_dict: dict) -> None:
             "#######    Files   #######\n"
             "Genome:\t" + args.genome + "\n"
             "Database:\t" + args.database + "\n"
+            "Reference Genome:\t" + args.ref + "\n"
             "BlastP:\t" + file_dict['blastp_filename'] + "\n"
             "BlastX:\t" + file_dict['blastx_filename'] + "\n"
             "Pseudogenes (GFF):\t" + file_dict['pseudos_gff'] + "\n"
             "Pseudogenes (Fasta):\t" + file_dict['pseudos_fasta'] + "\n"
             "Functional genes (GFF):\t" + file_dict['functional_gff'] + "\n"
-            "Functional genes (Fasta):\t" + file_dict['functional_faa'] + "\n"
+            "Functional genes (protein seq):\t" + file_dict['functional_faa'] + "\n"
+            "Functional genes (nucleotide seq):\t" + file_dict['functional_ffn'] + "\n"
             "Chromosome map:\t" + file_dict['chromosome_map'] + "\n\n"
 
             "#######  Settings  #######\n"
@@ -904,7 +929,10 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Intergenic_length:\t" + str(args.intergenic_length) + "\n"
             "Intergenic_threshold:\t" + str(args.intergenic_threshold) + "\n"
             "Length_pseudo:\t" + str(args.length_pseudo) + "\n"
-            "Shared_hits:\t" + str(args.shared_hits) + "\n\n"
+            "Shared_hits:\t" + str(args.shared_hits) + "\n"
+            "max_dnds:\t" + str(args.max_dnds) + "\n"
+            "max_ds:\t" + str(args.max_ds) + "\n"
+            "min_ds:\t" + str(args.min_ds) + "\n\n"
                 
             "####### Statistics #######\n"
             "#Input:\n"
@@ -912,18 +940,20 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Number of contigs:\t" + str(StatisticsDict['NumberOfContigs']) + "\n"
             "#Output:\n"
             "Inital ORFs joined:\t" + str(StatisticsDict['FragmentedOrfs']) + "\n"
-            "Pseudogenes (total):\t" + str(StatisticsDict['PseudogenesTotal']) + "\n"
+            "Pseudogenes (total):\t" + str(StatisticsDict['PseudogenesTotal'] + StatisticsDict["dnds"]) + "\n"
             "Pseudogenes (too short):\t" + str(StatisticsDict['PseudogenesShort']) + "\n"
             "Pseudogenes (fragmented):\t" + str(StatisticsDict['PseudogenesFragmented']) + "\n"
             "Pseudogenes (no predicted ORF):\t" + str(StatisticsDict['PseudogenesIntergenic']) + "\n"
-            "Functional genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort']) + "\n\n"
+            "Pseudogenes (high dN/dS):\t" + str(StatisticsDict["dnds"]) + "\n"
+            "Functional genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort'] - StatisticsDict["dnds"]) + "\n\n"
 
             "####### Output Key #######\n"
             "Initial ORFs joined:\t\tThe number of input open reading frames "
             "that have been merged and flagged as a fragmented pseudogene.\n"
             "Pseudogenes (too short):\tORFs smaller than the \"shared_hits\" cutoff.\n"
             "Pseudogenes (fragmented):\tPseudogenes composed of merging 2 or more input ORFs.\n"
-            "Functional genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)]\n"
+            "Pseudogenes (high dN/dS):\tIncipient pseudogenes that look intact, but have an elevated dN/dS value compared to a reference gene.\n"
+            "Functional genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)] - [Pseudogenes (high dN/dS)]\n"
         )
 
 
@@ -941,13 +971,66 @@ def reset_statistics_dict():
 
 
 def main():
-    # Declare variables used throughout the rest of the program
-    args = get_args()
+    ######################################################################
+    def lastItem(ls):
+        x = ''
+        for i in ls:
+            if i != "":
+                x = i
+        return x
 
-    if args.diamond:
-        search_engine = "diamond"
-    else:
-        search_engine = "blast"
+    def allButTheLast(iterable, delim):
+        x = ''
+        length = len(iterable.split(delim))
+        for i in range(0, length - 1):
+            x += iterable.split(delim)[i]
+            x += delim
+        return x[0:len(x) - 1]
+
+    def fastaReader(fasta_file):
+        count = 0
+        seq = ''
+        header = ''
+        Dict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        for i in fasta_file:
+            i = i.rstrip()
+            if re.match(r'^>', i):
+                if len(seq) > 0:
+                    Dict[header] = seq
+                    header = i[1:]
+                    # header = header.split(" ")[0]
+                    seq = ''
+                else:
+                    header = i[1:]
+                    # header = header.split(" ")[0]
+                    seq = ''
+            else:
+                seq += i
+        Dict[header] = seq
+        return Dict
+
+    def fastaReader2(fasta_file):
+        count = 0
+        seq = ''
+        header = ''
+        Dict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        for i in fasta_file:
+            i = i.rstrip()
+            if re.match(r'^>', i):
+                if len(seq) > 0:
+                    Dict[header] = seq
+                    header = i[1:]
+                    header = header.split(" ")[0]
+                    seq = ''
+                else:
+                    header = i[1:]
+                    header = header.split(" ")[0]
+                    seq = ''
+            else:
+                seq += i
+        Dict[header] = seq
+        return Dict
+    #################################################################
 
     os.system("echo ${ctl} > ctl.txt")
     file = open("ctl.txt")
@@ -956,7 +1039,15 @@ def main():
         ctl = (i.rstrip())
         ctl = ctl[1:len(ctl) - 1]
     os.system("rm ctl.txt")
-    print(ctl)
+
+    args = get_args()
+
+    if args.diamond:
+        search_engine = "diamond"
+    else:
+        search_engine = "blast"
+
+    # Declare variables used throughout the rest of the program
     base_outfile_name = args.outprefix + "_"
     file_dict = {
         'cds_filename': base_outfile_name + "cds.fasta",
@@ -970,8 +1061,9 @@ def main():
         'pseudos_fasta': base_outfile_name + "pseudos.fasta",
         'functional_gff': base_outfile_name + "functional.gff",
         'functional_faa': base_outfile_name + "functional.faa",
+        'functional_ffn': base_outfile_name + "functional.ffn",
         'chromosome_map': base_outfile_name + "map.pdf",
-        'dnds_out': base_outfile_name + ".csv",  # #######################################################
+        'dnds_out': base_outfile_name + "dnds",  # #######################################################
         'log': base_outfile_name + "log.txt"
     }
 
@@ -983,7 +1075,7 @@ def main():
     if args.ref:  # #########################################################################################
         get_CDSs(gbk=args.ref, out_fasta=file_dict['ref_cds_filename'])
         get_proteome(gbk=args.ref, out_faa=file_dict['ref_proteome_filename'])
-        dnds.full(skip=False, ref=args.ref, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
+        dnds.full(skip=args.skip, ref=args.ref, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
                   referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],  # NEED TO COLLECT ORFS IN AMINO ACID AND NUCLEIC ACID FORMATS FROM PROVIDEDREFERENCE GENOME
                   c=ctl, dnds=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
 
@@ -1014,9 +1106,9 @@ def main():
     functional_genes = []
 
     for contig_index, contig in enumerate(all_regions_by_contig):
-        print('\033[1m'+'%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
-                                                                                 contig_index+1,
-                                                                                 len(all_regions_by_contig))),
+        print('\033[1m' + '%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
+                                                                                   contig_index + 1,
+                                                                                   len(all_regions_by_contig))),
         sys.stdout.flush()
 
         pseudos_on_contig = annotate_pseudos(args=args, contig=contig)  # Returns 'Contig' data type
@@ -1029,21 +1121,232 @@ def main():
         except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
             continue
 
-        print('\t\t\tNumber of ORFs on this contig: %s\n'
-              '\t\t\tNumber of pseudogenes flagged: %s' % (
-                  len([region for region in contig.regions if region.region_type == RegionType.ORF]),
-                  len(pseudos_on_contig.regions))),
         sys.stdout.flush()
 
-    # Write all output files
-    write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
-    write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
-    write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
-    # TODO: Activate this feature once you finish writing it
-    # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
-    #                           contigs=functional_genes)
-    # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
-    write_summary_file(args=args, file_dict=file_dict)
+        # Write all output files
+        write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
+        write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
+        write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
+        # TODO: Activate this feature once you finish writing it
+        # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
+        #                           contigs=functional_genes)
+        # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+
+
+    # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
+    newPseudosDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+    if args.ref:
+        funcDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        func = open(file_dict['functional_gff'])  # reading original functional gff outfile to dictionary
+        for i in func:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                locus = (lastItem(ls[8].split(";")))
+                locus = locus.split("=")[1]
+                funcDict[locus]["list"] = ls
+                funcDict[locus]["locus"] = locus
+            else:
+                pass
+
+        pseudoDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        pseudo = open(file_dict['pseudos_gff'])  # reading original pseudos gff outfile to dictionary
+        for i in pseudo:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                locus = (lastItem(ls[8].split(";")))
+                locus = locus.split("=")[1]
+                for j in locus.split(","):
+                    pseudoDict[j]["list"] = ls
+                    pseudoDict[j]["locus"] = locus
+            else:
+                pass
+
+        # processing dnds output
+        newPseudosDict = defaultdict(list)
+        dndsfile = open(file_dict['dnds_out'] + "/dnds-summary.csv")
+        for i in dndsfile:
+            ls = i.rstrip().split(",")
+            locus = ls[0]
+            if ls[2] != "dN":
+                dn = float(ls[2])
+                ds = float(ls[3])
+                DNDS = float(ls[4])
+                ref = ls[1]
+                if ds < float(args.max_ds) and ds > float(args.min_ds):
+                    if DNDS > float(args.max_dnds):
+                        if locus in funcDict.keys():
+                            gffList = (funcDict[locus]["list"])
+                            originalLocus = (funcDict[locus]["locus"])
+                            commentsList = (gffList[8].split(";"))
+                            comment = "Note=pseudogene candidate. Reason: dN/dS value between this gene and reference (" + ref + ") is " + str(
+                                round(DNDS, 3)) + "."
+                            newCommentsList = ([comment, commentsList[1], commentsList[2], commentsList[3]])
+                            newCommentsLine = ";".join(newCommentsList)
+                            gffLine = (("\t".join(gffList)))
+                            newgffLine = (allButTheLast(gffLine, "\t") + "\t" + newCommentsLine + "\t" + str(DNDS))
+
+                            newPseudosDict[originalLocus].append(newgffLine)
+                        elif locus in pseudoDict.keys():
+
+                            gffList = (pseudoDict[locus]["list"])
+                            originalLocus = (pseudoDict[locus]["locus"])
+                            commentsList = (gffList[8].split(";"))
+                            newComment = (commentsList[
+                                              0] + " Another Reason: dN/dS value between this gene and reference (" + ref + ") is " + str(round(DNDS, 3)) + ".")
+                            newCommentsList = [newComment, commentsList[1], commentsList[2], commentsList[3]]
+                            newCommentsLine = ";".join(newCommentsList)
+                            gffLine = (("\t".join(gffList)))
+                            newgffLine = (allButTheLast(gffLine, "\t") + "\t" + newCommentsLine + "\t" + str(DNDS))
+
+                            newPseudosDict[originalLocus].append(newgffLine)
+
+        newPseudosDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        for i in newPseudosDict.keys():
+            dndsList = []
+            for j in newPseudosDict[i]:
+                dndsList.append(float(j.split("\t")[9]))
+            ls = j.split("\t")
+            DNDS = (statistics.mean(dndsList))
+            commentsList = (ls[8].split(";"))
+            comment = (commentsList[0])
+            newComment = (comment.split(") is ")[0] + ") is " + str(round(DNDS, 3)))
+            newCommentsList = [newComment, commentsList[1], commentsList[2], commentsList[3]]
+            newCommentsLine = ";".join(newCommentsList)
+            newgffLine = ls[0] + "\t" + ls[1] + "\t" + ls[2] + "\t" + ls[3] + "\t" + ls[4] + "\t" + ls[5] + "\t" + ls[6] + "\t" + ls[7] + "\t" + newCommentsLine
+            newPseudosDict2[i] = newgffLine
+
+        # re-writing functional GFF output file
+        func = open(file_dict['functional_gff'])
+        newFunctionalOut = file_dict['functional_gff'].split(".")[0] + "-new.gff"
+        out = open(newFunctionalOut, "w")
+        for i in func:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                locus = (lastItem(ls[8].split(";")))
+                locus = locus.split("=")[1]
+                if locus not in newPseudosDict2.keys():
+                    out.write(i.rstrip() + "\n")
+            else:
+                out.write(i.rstrip() + "\n")
+        out.close()
+
+        # re-writing pseudos GFF output file
+        pseudo = open(file_dict['pseudos_gff'])
+        newPseudoOut = file_dict['pseudos_gff'].split(".")[0] + "-new.gff"
+        out = open(newPseudoOut, "w")
+        for i in pseudo:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                locus = (lastItem(ls[8].split(";")))
+                locus = locus.split("=")[1]
+                if locus in newPseudosDict2.keys():
+                    out.write(newPseudosDict2[locus] + "\n")
+                    newPseudosDict2.pop(locus, None)
+                else:
+                    out.write(i.rstrip() + "\n")
+            else:
+                out.write(i.rstrip() + "\n")
+
+        StatisticsDict["dnds"] = len(newPseudosDict2.keys())
+        for i in newPseudosDict2.keys():
+            out.write(newPseudosDict2[i] + "\n")
+
+        out.close()
+
+        os.system("mv %s %s" % (newPseudoOut, file_dict['pseudos_gff']))
+        os.system("mv %s %s" % (newFunctionalOut, file_dict['functional_gff']))
+
+        # resorting the new GFF output file
+        sortDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        pseudo = open(file_dict['pseudos_gff'])
+        out = open(newPseudoOut, "w")
+        for i in pseudo:
+            if not re.match(r'#', i):
+                ls = i.rstrip().split("\t")
+                start = int(ls[3])
+                sortDict[start] = i.rstrip()
+            else:
+                out.write(i.rstrip() + "\n")
+
+        for i in sorted(sortDict.keys()):
+            out.write(sortDict[i] + "\n")
+
+        out.close()
+
+        os.system("mv %s %s" % (newPseudoOut, file_dict['pseudos_gff']))
+
+        # write intact genes to FASTA files
+        faa = open(file_dict['proteome_filename'])
+        faa = fastaReader(faa)
+        ffn = open(file_dict['cds_filename'])
+        ffn = fastaReader(ffn)
+        ffn2 = open(file_dict['cds_filename'])
+        ffn2 = fastaReader2(ffn2)
+
+        out = open(file_dict['functional_faa'], "w")
+        for i in faa.keys():
+            locus = i.split(" ")[0]
+            if locus in funcDict.keys():
+                out.write(">" + i + "\n")
+                out.write(faa[i] + "\n")
+        out.close()
+
+        out = open(file_dict['functional_ffn'], "w")
+        for i in ffn.keys():
+            locus = i.split(" ")[0]
+            if locus in funcDict.keys() and locus not in newPseudosDict2.keys():
+                out.write(">" + i + "\n")
+                out.write(ffn[i] + "\n")
+        out.close()
+
+        pseudos = open(file_dict['pseudos_fasta'])
+        newPseudoSeqs = file_dict['pseudos_fasta'] + "-new.fasta"
+        out = open(newPseudoSeqs, "w")
+        for i in pseudos:
+            out.write(i.rstrip() + "\n")
+
+        for i in newPseudosDict2.keys():
+            ls = (newPseudosDict2[i].split("\t"))
+            contig = ls[0].split("|")[2]
+            header = contig + " " + ls[3] + "-" + ls[4] + " " + ls[6]
+            seq = (ffn2[i])
+            out.write(">" + header + "\n")
+            out.write(seq + "\n")
+
+        os.system("mv %s %s" % (newPseudoSeqs, file_dict['pseudos_fasta']))
+
+        for contig_index, contig in enumerate(all_regions_by_contig):
+
+            print('\t\t\tNumber of ORFs on this contig: %s\n'
+                  '\t\t\tNumber of pseudogenes flagged: %s' % (
+                      len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+                      len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
+            sys.stdout.flush()
+
+        # write the log file
+        write_summary_file(args=args, file_dict=file_dict)
+
+    else:
+        for contig_index, contig in enumerate(all_regions_by_contig):
+
+            print('\t\t\tNumber of ORFs on this contig: %s\n'
+                  '\t\t\tNumber of pseudogenes flagged: %s' % (
+                      len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+                      len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
+            sys.stdout.flush()
+
+        # write the log file
+        write_summary_file(args=args, file_dict=file_dict)
+
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
+
+
