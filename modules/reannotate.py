@@ -24,33 +24,6 @@ def parse_log(logfile: str):
     return log_dict
 
 
-def fix_args(command_line_args, logged_args):
-    """This function is required to merge arguments given from the command line with arguments parsed
-    from the provided log file. """
-
-    args = command_line_args
-    # If optional parameters are not declared, use the information from the log file to file them in.
-    if args.distance is None:
-        args.distance = logged_args['distance']
-
-    if args.length_pseudo is None:
-        args.length_pseudo = logged_args['length_pseudo']
-
-    if args.shared_hits is None:
-        args.shared_hits = logged_args['shared_hits']
-
-    if args.intergenic_threshold is None:
-        args.intergenic_threshold = logged_args['intergenic_threshold']
-
-    args.hitcap = logged_args['hitcap']
-    args.database = logged_args['database']
-    args.intergenic_length = logged_args['intergenic_length']
-    args.log_outprefix = logged_args['log_outprefix']
-    args.reference = logged_args['reference']
-
-    return args
-
-
 def reannotate(args):
 
     file_dict = common.file_dict(args)
@@ -107,7 +80,7 @@ def main():
     # Declare variables used throughout the rest of the program
     command_line_args = common.get_args('reannotate')
     logged_args = parse_log(command_line_args.logfile)
-    args = fix_args(command_line_args, logged_args)
+    args = common.reconcile_args(command_line_args, logged_args)
 
     # Do the reannotation
     reannotate(args)
