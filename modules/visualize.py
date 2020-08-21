@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
-from . import reannotate
+from . import reannotate, common
 
 import sys
 import os
-import argparse
 import re
 import shutil
-import subprocess
 from time import localtime, strftime
 from contextlib import contextmanager
 
@@ -20,60 +18,6 @@ from plotly.graph_objs import Surface, Layout, Scene, Figure
 def current_time() -> str:
     """Returns the current time when this function was executed."""
     return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
-
-
-def get_args():
-    parser = argparse.ArgumentParser(
-        usage='\033[1m'+"[pseudofinder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -log LOGFILE] or "
-                        "[pseudofinder.py visualize --help] for more options."+'\033[0m')
-
-    # Always required
-    always_required = parser.add_argument_group('\033[1m' + 'Required arguments' + '\033[0m')
-
-    always_required.add_argument('-g', '--genome',
-                                 help='Please provide your genome file in the genbank format.',
-                                 required=True)
-    always_required.add_argument('-op', '--outprefix',
-                                 help='Specify an output prefix. A folder will also be created with this name.',
-                                 required=True)
-    always_required.add_argument('-p', '--blastp', required=True,
-                                 help='Specify an input blastp file.')
-    always_required.add_argument('-x', '--blastx', required=True,
-                                 help='Specify an input blastx file.')
-    always_required.add_argument('-log', '--logfile', required=True,
-                                 help='Provide the log file from the run that generated the blast files.')
-
-    # Optional
-    optional = parser.add_argument_group('\033[1m' + 'Optional parameters' + '\033[0m')
-
-    optional.add_argument('-r', '--resolution',
-                          default=20,
-                          type=int,
-                          help='Specifies the resolution of your 3D plot. '
-                               'Lowering the resolution will increase the speed of this process.'
-                               '\'-r 100\' means the program will generate a 100x100 data matrix. '
-                               'Default is %(default)s.')
-    optional.add_argument('-k', '--keep_files',
-                          default=False,
-                          type=bool,
-                          help='Specifies whether to keep all output files. \'-k False\' will remove'
-                               ' all files except for the graph and data matrix after running. Default is %(default)s.')
-    optional.add_argument('-t', '--title',
-                          default=None,
-                          type=str,
-                          help='Specifies a title for your plot. Default is None.')
-    optional.add_argument('-it', '--intergenic_threshold', default=None, type=float,
-                          help='Number of BlastX hits needed to annotate an intergenic region as a pseudogene.\n'
-                               'Calculated as a percentage of maximum number of allowed hits (--hitcap).\n'
-                               'Default is %(default)s.')
-    optional.add_argument('-d', '--distance', default=None, type=int,
-                          help='Maximum distance between two regions to consider joining them. Default is %(default)s.')
-
-    # "parse_known_args" will create a tuple of known arguments in the first position and unknown in the second.
-    # We only care about the known arguments, so we take [0].
-    args = parser.parse_known_args()[0]
-
-    return args
 
 
 @contextmanager
@@ -96,7 +40,8 @@ def settings_loop(args):
     # Preparing arguments for reannotate.py
     command_line_args = args
     logged_args = reannotate.parse_log(args.logfile)
-    reannotate.fix_args(command_line_args, logged_args)
+    args = common.reconcile_args(command_line_args, logged_args)
+
     basename = args.outprefix
 
     for length_pseudo in numpy.arange(0.0, 1.01, interval):
@@ -129,12 +74,14 @@ def parse_summary_files(args):
                 data = []
                 # regex to find 'length_pseudo', 'shared_hits', 'num_pseudos'
                 for line in lines:
+                    line = line.replace('\n', '')
+                    sep = '\t'
                     if re.match('Length_pseudo', line):
-                        data.append(float(line.split(sep='\t')[1]))
+                        data.append(float(line.split(sep=sep)[1]))
                     elif re.match('Shared_hits', line):
-                        data.append(float(line.split(sep='\t')[1]))
+                        data.append(float(line.split(sep=sep)[1]))
                     elif re.match('Pseudogenes \(total\)', line):
-                        data.append(float(line.split(sep='\t')[1]))
+                        data.append(float(line.split(sep=sep)[1]))
             outfile.write('\t'.join(map(str, data))+"\n")
     outfile.close()
 
@@ -166,7 +113,7 @@ def make_plot(args):
 
 
 def main():
-    args = get_args()
+    args = common.get_args('visualize')
     args.length_pseudo = None
     args.shared_hits = None
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse
+from . import common
 import re
 import sys
 import os
@@ -160,73 +160,8 @@ StatisticsDict = {
 
 # Functions
 def current_time() -> str:
-    """Returns the current time. When this function was executed."""
+    """Returns the current time when this function was executed."""
     return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
-
-
-def get_args():
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
-                                     usage='\033[1m'+"[pseudofinder.py annotate -g GENOME -db DATABASE -op OUTPREFIX] or "
-                                           "[pseudofinder.py annotate --help] for more options."+'\033[0m')
-
-    # Always required
-    always_required = parser.add_argument_group('\033[1m' + 'Required arguments' + '\033[0m')
-    always_required.add_argument('-g', '--genome', help='Please provide your genome file in the genbank format.', required=True)
-    always_required.add_argument('-db', '--database', help='Please provide name (if $BLASTB is set on your system) or '
-                                                           'absolute path of your blast database.')
-    always_required.add_argument('-op', '--outprefix',  help='Specify an output prefix.', required=True)
-
-    # Optional arguments
-    optional = parser.add_argument_group('\033[1m' + 'Adjustable parameters' + '\033[0m')
-
-    optional.add_argument('-t', '--threads', default=4,
-                          help='Please provide total number of threads to use for blast, default is 4.')
-    optional.add_argument('-i', '--intergenic_length', default=30, type=int,
-                          help='Please provide length of intergenic regions to check, default is 30 bp.')
-    optional.add_argument('-l', '--length_pseudo', default=0.65, type=float,
-                          help='Please provide percentage of length for pseudo candidates, default is 0.60 (60%%). '
-                               '\nExample: \"-l 0.50\" will consider genes that are less than 50%% of the average '
-                               'length of similar genes.')
-    optional.add_argument('-s', '--shared_hits', default=0.50, type=float,
-                          help='Percentage of blast hits that must be shared in order to join two nearby regions,'
-                               ' default is 0.30 (30%%). \nExample: \"-s 0.50\" will merge nearby regions if '
-                               'they shared 50%% of their blast hits.')
-    optional.add_argument('-e', '--evalue', default='1e-4',
-                          help='Please provide e-value for blast searches. Default is 1e-4.', )
-    optional.add_argument('-d', '--distance', default=1000, type=int,
-                          help='Maximum distance between two regions to consider joining them. Default is %(default)s.')
-    optional.add_argument('-hc', '--hitcap', default=15, type=int,
-                          help='Maximum number of allowed hits for BLAST. Default is %(default)s.\n')
-    optional.add_argument('-ce', '--contig_ends', default=False, action='store_true',
-                          help='Forces the program to include intergenic regions at contig ends. If not specified,\n the '
-                               'program will ignore any sequence before the first ORF and after the last ORF on a contig.')
-    optional.add_argument('-it', '--intergenic_threshold', default=0.30, type=float,
-                          help='Number of BlastX hits needed to annotate an intergenic region as a pseudogene.\n'
-                               'Calculated as a percentage of maximum number of allowed hits (--hitcap).\n'
-                               'Default is %(default)s.')
-    parser.add_argument('-ref', type=str,
-                          help='Please provide a reference genome if you would like for the program to carry out\n'
-                               'maximum-likelihood phylogenentic analysis using PAML, and calculate dN/dS values for each \n'
-                               'identified ORF in your query genome.')
-    optional.add_argument('-dnds', '--max_dnds', default=0.30, type=float,
-                          help='maximum dN/dS value for gene too be considered \'intact\' (default = 0.3)')
-    optional.add_argument('-M', '--max_ds', default=3.00, type=float,
-                          help='maximum dS value for dN/dS calculation (default = 3)')
-    optional.add_argument('-m', '--min_ds', default=0.001, type=float,
-                          help='minimum dS value for dN/dS calculation (default = 0.001)')
-    optional.add_argument('--diamond', default=False, action='store_true',
-                          help="Use DIAMOND BLAST as the search engine. If not specified,\n standard BLAST will be used.")
-    optional.add_argument('--skip', default=False, action='store_true',
-                          help="If you provided a reference genome for dN/dS analysis, already ran pseudo-finder, and \n"
-                               "would just like to re-run with one one of the flags for --max_ds, --max_dnds, or --min_ds altered. \n"
-                               "This flag allows you to skip the time-consuming steps (which you don't need if you alreayd \n"
-                               "have the codeml output) and use the previously-created output.")
-
-    # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
-    # We only care about the known arguments, so we take [0].
-    args = parser.parse_known_args()[0]
-
-    return args
 
 
 def get_CDSs(gbk: str, out_fasta: str) -> None:
@@ -246,25 +181,6 @@ def get_CDSs(gbk: str, out_fasta: str) -> None:
     print('%s\tCDS extracted from:\t\t\t%s\n'
           '\t\t\tWritten to file:\t\t\t%s.' % (current_time(), gbk, out_fasta,)),
     sys.stdout.flush()
-
-
-# NOT IN USE BUT FULLY FUNCTIONAL #
-# def get_CDSs_2(genbank: str) -> dict:
-#     """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to a dict.
-#         Keys are the fasta headers
-#         Values are the nucleotide sequences"""
-#
-#     cds_dict = {}
-#     with open(genbank, "r") as input_handle:
-#         for seq_record in SeqIO.parse(input_handle, "genbank"):
-#             for seq_feature in seq_record.features:
-#                 if seq_feature.type == "CDS":
-#                     assert len(seq_feature.qualifiers['translation']) == 1
-#                     key = "%s %s %s" % (seq_feature.qualifiers['locus_tag'][0], seq_record.name, seq_feature.location)
-#                     seq = str(seq_feature.extract(seq_record.seq))
-#                     cds_dict[key] = seq
-#
-#     return cds_dict
 
 
 def get_proteome(gbk: str, out_faa: str) -> None:
@@ -899,6 +815,7 @@ def write_pseudos_to_fasta(args, pseudofinder_regions: List[RegionInfo], outfile
     SeqIO.write(fasta_list, open(outfile, "w"), "fasta")
 
 
+# TODO: When annotate is run by itself, this returns the expected file. when the test command is run, this ends up as an emtpy file. find where it is being overwritten
 def write_summary_file(args, file_dict: dict) -> None:
     """Writes a summary file of statistics from the pseudo_finder run."""
 
@@ -906,14 +823,14 @@ def write_summary_file(args, file_dict: dict) -> None:
     sys.stdout.flush()
 
     with open(file_dict['log'], 'w') as logfile:
+
         logfile.write(
             "####### Summary from annotate/reannotate #######\n\n"
             "Date/time:\t" + current_time() + "\n\n"
-
             "#######    Files   #######\n"
             "Genome:\t" + args.genome + "\n"
             "Database:\t" + args.database + "\n"
-            "Reference Genome:\t" + args.ref + "\n"
+            "Reference Genome:\t" + str(args.reference) + "\n"
             "BlastP:\t" + file_dict['blastp_filename'] + "\n"
             "BlastX:\t" + file_dict['blastx_filename'] + "\n"
             "Pseudogenes (GFF):\t" + file_dict['pseudos_gff'] + "\n"
@@ -933,7 +850,7 @@ def write_summary_file(args, file_dict: dict) -> None:
             "max_dnds:\t" + str(args.max_dnds) + "\n"
             "max_ds:\t" + str(args.max_ds) + "\n"
             "min_ds:\t" + str(args.min_ds) + "\n\n"
-                
+
             "####### Statistics #######\n"
             "#Input:\n"
             "Initial ORFs:\t" + str(StatisticsDict['ProteomeOrfs']) + "\n"
@@ -969,115 +886,91 @@ def reset_statistics_dict():
     StatisticsDict['PseudogenesIntergenic'] = 0
     StatisticsDict['PseudogenesFragmented'] = 0
 
+#### TODO: Restructuring Arkadiy's code ####
+def lastItem(ls):
+    x = ''
+    for i in ls:
+        if i != "":
+            x = i
+    return x
+
+
+def allButTheLast(iterable, delim):
+    x = ''
+    length = len(iterable.split(delim))
+    for i in range(0, length - 1):
+        x += iterable.split(delim)[i]
+        x += delim
+    return x[0:len(x) - 1]
+
+
+def fastaReader(fasta_file):
+    count = 0
+    seq = ''
+    header = ''
+    Dict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+    for i in fasta_file:
+        i = i.rstrip()
+        if re.match(r'^>', i):
+            if len(seq) > 0:
+                Dict[header] = seq
+                header = i[1:]
+                # header = header.split(" ")[0]
+                seq = ''
+            else:
+                header = i[1:]
+                # header = header.split(" ")[0]
+                seq = ''
+        else:
+            seq += i
+    Dict[header] = seq
+    return Dict
+
+
+def fastaReader2(fasta_file):
+    count = 0
+    seq = ''
+    header = ''
+    Dict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+    for i in fasta_file:
+        i = i.rstrip()
+        if re.match(r'^>', i):
+            if len(seq) > 0:
+                Dict[header] = seq
+                header = i[1:]
+                header = header.split(" ")[0]
+                seq = ''
+            else:
+                header = i[1:]
+                header = header.split(" ")[0]
+                seq = ''
+        else:
+            seq += i
+    Dict[header] = seq
+    return Dict
+
 
 def main():
-    ######################################################################
-    def lastItem(ls):
-        x = ''
-        for i in ls:
-            if i != "":
-                x = i
-        return x
-
-    def allButTheLast(iterable, delim):
-        x = ''
-        length = len(iterable.split(delim))
-        for i in range(0, length - 1):
-            x += iterable.split(delim)[i]
-            x += delim
-        return x[0:len(x) - 1]
-
-    def fastaReader(fasta_file):
-        count = 0
-        seq = ''
-        header = ''
-        Dict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-        for i in fasta_file:
-            i = i.rstrip()
-            if re.match(r'^>', i):
-                if len(seq) > 0:
-                    Dict[header] = seq
-                    header = i[1:]
-                    # header = header.split(" ")[0]
-                    seq = ''
-                else:
-                    header = i[1:]
-                    # header = header.split(" ")[0]
-                    seq = ''
-            else:
-                seq += i
-        Dict[header] = seq
-        return Dict
-
-    def fastaReader2(fasta_file):
-        count = 0
-        seq = ''
-        header = ''
-        Dict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-        for i in fasta_file:
-            i = i.rstrip()
-            if re.match(r'^>', i):
-                if len(seq) > 0:
-                    Dict[header] = seq
-                    header = i[1:]
-                    header = header.split(" ")[0]
-                    seq = ''
-                else:
-                    header = i[1:]
-                    header = header.split(" ")[0]
-                    seq = ''
-            else:
-                seq += i
-        Dict[header] = seq
-        return Dict
-    #################################################################
-
-    os.system("echo ${ctl} > ctl.txt")
-    file = open("ctl.txt")
-    for i in file:
-        print("i: %s" % i)
-        ctl = (i.rstrip())
-        ctl = ctl[1:len(ctl) - 1]
-    os.system("rm ctl.txt")
-
-    args = get_args()
+    args = common.get_args('annotate')
 
     if args.diamond:
         search_engine = "diamond"
     else:
         search_engine = "blast"
-
-    # Declare variables used throughout the rest of the program
-    base_outfile_name = args.outprefix + "_"
-    file_dict = {
-        'cds_filename': base_outfile_name + "cds.fasta",
-        'ref_cds_filename': base_outfile_name + "ref_cds.fasta",
-        'proteome_filename': base_outfile_name + "proteome.faa",
-        'ref_proteome_filename': base_outfile_name + "ref_proteome.faa",
-        'intergenic_filename': base_outfile_name + "intergenic.fasta",
-        'blastp_filename': base_outfile_name + "proteome.faa" + ".blastP_output.tsv",
-        'blastx_filename': base_outfile_name + "intergenic.fasta" + ".blastX_output.tsv",
-        'pseudos_gff': base_outfile_name + "pseudos.gff",
-        'pseudos_fasta': base_outfile_name + "pseudos.fasta",
-        'functional_gff': base_outfile_name + "functional.gff",
-        'functional_faa': base_outfile_name + "functional.faa",
-        'functional_ffn': base_outfile_name + "functional.ffn",
-        'chromosome_map': base_outfile_name + "map.pdf",
-        'dnds_out': base_outfile_name + "dnds",  # #######################################################
-        'log': base_outfile_name + "log.txt"
-    }
+    # Declare filenames used throughout the rest of the program
+    file_dict = common.file_dict(args)
 
     # Collect sequences
     get_CDSs(gbk=args.genome, out_fasta=file_dict['cds_filename'])
     get_proteome(gbk=args.genome, out_faa=file_dict['proteome_filename'])
     get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
 
-    if args.ref:  # #########################################################################################
-        get_CDSs(gbk=args.ref, out_fasta=file_dict['ref_cds_filename'])
-        get_proteome(gbk=args.ref, out_faa=file_dict['ref_proteome_filename'])
-        dnds.full(skip=args.skip, ref=args.ref, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
+    if args.reference:  # #########################################################################################
+        get_CDSs(gbk=args.reference, out_fasta=file_dict['ref_cds_filename'])
+        get_proteome(gbk=args.reference, out_faa=file_dict['ref_proteome_filename'])
+        dnds.full(skip=args.skip, ref=args.reference, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
                   referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],  # NEED TO COLLECT ORFS IN AMINO ACID AND NUCLEIC ACID FORMATS FROM PROVIDEDREFERENCE GENOME
-                  c=ctl, dnds=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
+                  c=file_dict['ctl'], dnds=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
 
     if args.diamond:  # run diamond
         manage_diamond_db(args)
@@ -1130,12 +1023,12 @@ def main():
         # TODO: Activate this feature once you finish writing it
         # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
         #                           contigs=functional_genes)
-        # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+        genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
 
 
     # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
     newPseudosDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    if args.ref:
+    if args.reference:
         funcDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
         func = open(file_dict['functional_gff'])  # reading original functional gff outfile to dictionary
         for i in func:
@@ -1324,6 +1217,7 @@ def main():
             sys.stdout.flush()
 
         # write the log file
+        print("made it 1")
         write_summary_file(args=args, file_dict=file_dict)
 
     else:

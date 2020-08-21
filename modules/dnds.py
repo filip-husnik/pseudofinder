@@ -678,7 +678,9 @@ def main():
 def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str, referencePepOrfs: str, c: str, out: str, search: str, dnds: float, M: int, m: int, threads: int):
     cwd = os.getcwd()
 
-    if skip == False:
+    if skip:
+        pass
+    else:
         os.system("echo ${ctl} > ctl.txt")
         file = open("ctl.txt")
         for i in file:

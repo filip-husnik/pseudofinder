@@ -1,44 +1,11 @@
 #!/usr/bin/env python3
 
-import argparse
+from . import common
 import re
-from time import localtime, strftime
-
 from reportlab.lib import colors
 from Bio.Graphics import GenomeDiagram
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
-
-
-def current_time() -> str:
-    """Returns the current time when this function was executed."""
-    return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
-
-
-# Deprecated function. If you want to use this you'll have to update the arguments
-def get_args():
-    parser = argparse.ArgumentParser(
-        usage='\033[1m'+"[pseudofinder.py map -g GENOME -gff GFF -op OUTPREFIX] or "
-                        "[pseudofinder.py map --help] for more options."+'\033[0m')
-
-    # Always required
-    always_required = parser.add_argument_group('\033[1m' + 'Required arguments' + '\033[0m')
-
-    always_required.add_argument('-g', '--genome',
-                                 help='Provide your genome file in genbank format.',
-                                 required=True)
-    always_required.add_argument('-gff', '--gff',
-                                 help='Provide your pseudogene calls in GFF format.',
-                                 required=True)
-    always_required.add_argument('-op', '--outprefix',
-                                 help='Specify an output prefix.',
-                                 required=True)
-
-    # "parse_known_args" will create a tuple of known arguments in the first position and unknown in the second.
-    # We only care about the known arguments, so we take [0].
-    args = parser.parse_known_args()[0]
-
-    return args
 
 
 def read_gbk(genome: str) -> SeqIO.SeqRecord:
@@ -127,11 +94,10 @@ def make_diagram(genome_record: SeqIO.SeqRecord, pseudo_record: SeqIO.SeqRecord,
     diagram.draw(format="circular", circular=True,
                  start=0, end=len(genome_record), circle_core=0.8)
     diagram.write(filename=outfile, output="PDF")
-    # print("%s\tFigure plotted: %s.pdf" % (current_time(), outprefix))
 
 
 def main():
-    args = get_args()
+    args = common.get_args('genome_map')
     base_record = read_gbk(args.genome)
     pseudos_record = read_gff(args.gff)
     make_diagram(base_record, pseudos_record, args.outprefix)
