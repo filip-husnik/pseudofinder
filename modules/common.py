@@ -31,7 +31,6 @@ def unpack_arg(arg_group, arg: dict):
 
 def get_args(module='None', **kwargs):
     names_only = kwargs.get('names_only', False)
-
     genome = {
         'short': '-g',
         'long': '--genome',
@@ -129,7 +128,7 @@ def get_args(module='None', **kwargs):
         'type': float
     }
     reference = {
-        'short': '-r',
+        'short': '-ref',
         'long': '--reference',
         'help': 'Please provide a reference genome if you would like for the program to carry out\n'
                 'maximum-likelihood phylogenentic analysis using PAML, and calculate dN/dS values for each \n'
@@ -236,6 +235,72 @@ def get_args(module='None', **kwargs):
         'default': None,
         'type': str
     }
+    ###############################################################################
+    search_engine = {
+        'short': '-s',
+        'long': '--search_engine',
+        'help': 'search engine to use (blast/diamond). Default = blast.',
+        'required': False,
+        'default': "blast",
+        'type': str
+    }
+    outdir = {
+        'short': '-out',
+        'long': '--outdir',
+        'help': 'name output directory.',
+        'required': False,
+        'default': "dnds_out",
+        'type': str
+    }
+    control_file = {
+        'short': '-ctl',
+        'long': '--control_file',
+        'help': 'template control file for codeml.',
+        'required': False,
+        'default': None,
+        'type': str
+    }
+    ref_contigs = {
+        'short': '-r',
+        'long': '--ref_contigs',
+        'help': 'Reference contigs (provide this if you do not have ORFs for the reference genome).',
+        'required': False,
+        'default': None,
+        'type': str
+    }
+    ref_prots = {
+        'short': '-ra',
+        'long': '--ref_prots',
+        'help': 'Reference ORFs in amino acid format.',
+        'required': True,
+        'default': None,
+        'type': str
+    }
+    ref_genes = {
+        'short': '-rn',
+        'long': '--ref_genes',
+        'help': 'Reference ORFs in nucleic acid format.',
+        'required': True,
+        'default': None,
+        'type': str
+    }
+    prots = {
+        'short': '-a',
+        'long': '--prots',
+        'help': 'ORFs in amino acid format.',
+        'required': True,
+        'default': None,
+        'type': str
+    }
+    genes = {
+        'short': '-n',
+        'long': '--genes',
+        'help': 'ORFs in nucleic acid format.',
+        'required': True,
+        'default': None,
+        'type': str
+    }
+
     if names_only:
         to_remove = ['module', 'kwargs', 'names_only', 'to_remove']
         names = list(locals().keys())
@@ -252,12 +317,12 @@ def get_args(module='None', **kwargs):
     elif module == 'reannotate':
         usage = '[pseudofinder.py reannotate -g GENOME -p BLASTP -x BLASTX -hc HITCAP -op OUTPREFIX]'
         required_args = [genome, blastp, blastx, logfile, outprefix]
-        optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, reference, max_dnds, max_ds, min_ds]
+        optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, reference]
 
     elif module == 'dnds':
-        usage = ''
-        required_args = []
-        optional_args = []
+        usage = 'pseudofinder.py dnds -a PROTEIN_SEQS -n GENE_SEQS -ra REFERENCE_PROTEINS -rn REFERENCE_GENES -out OUTPUT_DIR'
+        required_args = [prots, genes, ref_prots, ref_genes]
+        optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs]
 
     elif module == 'genome_map':
         usage = '[pseudofinder.py map -g GENOME -gff GFF -op OUTPREFIX]'

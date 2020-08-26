@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from . import common, annotate, genome_map
+from . import common, annotate, genome_map, dnds
 
 import sys
 import re
@@ -16,7 +16,8 @@ def parse_log(logfile: str):
                 if re.match(arg, line, re.IGNORECASE):
                     item = str(line.split(sep=sep)[1])
                     try:
-                        log_dict[arg] = ast.literal_eval(item)
+                        # log_dict[arg] = ast.literal_eval(item)
+                        log_dict[arg] = (item)
                     except SyntaxError:
                         log_dict[arg] = item
 
@@ -25,7 +26,6 @@ def parse_log(logfile: str):
 
 
 def reannotate(args):
-
     file_dict = common.file_dict(args)
     log_file_dict = common.file_dict(args, outprefix=args.log_outprefix)
 
@@ -43,9 +43,9 @@ def reannotate(args):
     functional_genes = []
 
     for contig_index, contig in enumerate(all_regions_by_contig):
-        print('\033[1m'+'%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (annotate.current_time(),
-                                                                                 contig_index+1,
-                                                                                 len(all_regions_by_contig))),
+        print('\033[1m' + '%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (annotate.current_time(),
+                                                                                   contig_index + 1,
+                                                                                   len(all_regions_by_contig))),
         sys.stdout.flush()
 
         pseudos_on_contig = annotate.annotate_pseudos(args=args, contig=contig)  # Returns 'Contig' data type
@@ -53,16 +53,30 @@ def reannotate(args):
 
         try:
             functional_genes_on_contig = annotate.get_functional_genes(contig=orfs_by_contig[contig_index],
-                                                                       pseudos=pseudos_on_contig.regions)
+                                                              pseudos=pseudos_on_contig.regions)
             functional_genes.extend(functional_genes_on_contig.regions)
         except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
             continue
 
-        print('\t\t\tNumber of ORFs on this contig: %s\n'
-              '\t\t\tNumber of pseudogenes flagged: %s' % (
-                  len([region for region in contig.regions if region.region_type == annotate.RegionType.ORF]),
-                  len(pseudos_on_contig.regions))),
         sys.stdout.flush()
+
+    if args.reference:
+        dnds.full(skip=True, ref=args.reference, nucOrfs=file_dict['cds_filename'],
+                  pepORFs=file_dict['proteome_filename'],
+                  referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],
+                  c=file_dict['ctl'], dndsLimit=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=1,
+                  search="blast", out=file_dict['dnds_out'])
+    else:
+        for contig_index, contig in enumerate(all_regions_by_contig):
+
+            print('\t\t\tNumber of ORFs on this contig: %s\n'
+                  '\t\t\tNumber of pseudogenes flagged: %s' % (
+                      len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+                      len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
+            sys.stdout.flush()
+
+        # write the log file
+            annotate.write_summary_file(args=args, file_dict=file_dict)
 
     # Write all output files
     annotate.write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
@@ -71,7 +85,15 @@ def reannotate(args):
     # TODO: Activate this feature once you finish writing it
     # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
     #                           contigs=functional_genes)
-    genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+    # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+
+    if args.reference:
+        annotate.integrate_dnds(func_gff=file_dict['functional_gff'], pseudo_gff=file_dict['pseudos_gff'],
+                       dnds_out=file_dict['dnds_out'] + "/dnds-summary.csv", func_faa=file_dict['functional_faa'],
+                       func_ffn=file_dict['functional_faa'], cds=file_dict['cds_filename'],
+                       proteome=file_dict['proteome_filename'], pseudo_fasta=file_dict['pseudos_fasta'],
+                                max_ds=args.max_ds, min_ds=args.min_ds, max_dnds=args.max_dnds)
+
     annotate.write_summary_file(args=args, file_dict=file_dict)
     annotate.reset_statistics_dict()
 
