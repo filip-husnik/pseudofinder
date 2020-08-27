@@ -729,7 +729,7 @@ def write_genes_to_gff(args, lopg: List[RegionInfo], gff: str) -> None:
         gff_output_handle.write("##gff-version 3\n#!annotation-date\t%s\n" % (current_time()))  # first line
         for i, seq_record in enumerate(SeqIO.parse(args.genome, "genbank")):  # writes one line for each contig
             entry_elements = ["##sequence-region",                # Necessary to comply with GFF3 formatting
-                              "gnl|Prokka|%s" % seq_record.id,    # contig seqid
+                              "gnl|Prokka|%s" % seq_record.name,    # contig seqid
                               1,                                  # contig start
                               len(seq_record)]
 
@@ -1222,7 +1222,7 @@ def main():
         # TODO: Activate this feature once you finish writing it
         # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
         #                           contigs=functional_genes)
-        # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+        genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
 
 
     # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
