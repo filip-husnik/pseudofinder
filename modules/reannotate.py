@@ -65,7 +65,7 @@ def reannotate(args):
 
         sys.stdout.flush()
 
-    if args.reference:
+    if args.dnds_out:
         dnds.full(skip=True,
                   ref=args.reference,
                   nucOrfs=file_dict['cds_filename'],
@@ -84,8 +84,8 @@ def reannotate(args):
 
             print('\t\t\tNumber of ORFs on this contig: %s\n'
                   '\t\t\tNumber of pseudogenes flagged: %s' % (
-                      len([region for region in contig.regions if region.region_type == RegionType.ORF]),
-                      len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
+                      len([region for region in contig.regions if region.region_type == annotate.RegionType.ORF]),
+                      len(pseudos_on_contig.regions) + 0)),
             sys.stdout.flush()
 
         # write the log file
@@ -100,7 +100,7 @@ def reannotate(args):
     #                           contigs=functional_genes)
     # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
 
-    if args.reference:
+    if args.dnds_out:
         annotate.integrate_dnds(func_gff=file_dict['functional_gff'], pseudo_gff=file_dict['pseudos_gff'],
                        dnds_out=file_dict['dnds_out'] + "/dnds-summary.csv", func_faa=file_dict['functional_faa'],
                        func_ffn=file_dict['functional_faa'], cds=file_dict['cds_filename'],

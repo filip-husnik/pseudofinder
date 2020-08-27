@@ -134,6 +134,7 @@ def get_args(module='None', **kwargs):
                 'maximum-likelihood phylogenentic analysis using PAML, and calculate dN/dS values for each \n'
                 'identified ORF in your query genome.',
         'required': False,
+        'default': "NA",
         'type': str
     }
     max_dnds = {
@@ -300,6 +301,14 @@ def get_args(module='None', **kwargs):
         'default': None,
         'type': str
     }
+    dnds_out = {
+        'short': '-do',
+        'long': '--dnds_out',
+        'help': 'dnds output from previous run. Provide this if you previosly ran annotate with the -ref flag',
+        'required': False,
+        'default': None,
+        'type': str
+    }
 
     if names_only:
         to_remove = ['module', 'kwargs', 'names_only', 'to_remove']
@@ -317,7 +326,7 @@ def get_args(module='None', **kwargs):
     elif module == 'reannotate':
         usage = '[pseudofinder.py reannotate -g GENOME -p BLASTP -x BLASTX -hc HITCAP -op OUTPREFIX]'
         required_args = [genome, blastp, blastx, logfile, outprefix]
-        optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, reference]
+        optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, dnds_out]
 
     elif module == 'dnds':
         usage = 'pseudofinder.py dnds -a PROTEIN_SEQS -n GENE_SEQS -ra REFERENCE_PROTEINS -rn REFERENCE_GENES -out OUTPUT_DIR'
