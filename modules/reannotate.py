@@ -3,7 +3,6 @@ from . import common, annotate, genome_map, dnds
 
 import sys
 import re
-import ast
 
 
 def parse_log(logfile: str):
@@ -16,8 +15,8 @@ def parse_log(logfile: str):
                 if re.match(arg, line, re.IGNORECASE):
                     item = str(line.split(sep=sep)[1])
                     try:
-                        # log_dict[arg] = ast.literal_eval(item)
-                        log_dict[arg] = (item)
+                        log_dict[arg] = common.literal_eval(item)
+                        #log_dict[arg] = (item)
                     except SyntaxError:
                         log_dict[arg] = item
 
@@ -30,8 +29,14 @@ def reannotate(args):
     log_file_dict = common.file_dict(args, outprefix=args.log_outprefix)
 
     # Collect everything from the blast files
-    orfs = annotate.parse_blast(fasta_file=log_file_dict['proteome_filename'], blast_file=log_file_dict['blastp_filename'], blast_format='blastp')
-    intergenic_regions = annotate.parse_blast(fasta_file=log_file_dict['intergenic_filename'], blast_file=log_file_dict['blastx_filename'], blast_format='blastx')
+    orfs = annotate.parse_blast(fasta_file=log_file_dict['proteome_filename'],
+                                blast_file=log_file_dict['blastp_filename'],
+                                blast_format='blastp')
+
+    intergenic_regions = annotate.parse_blast(fasta_file=log_file_dict['intergenic_filename'],
+                                              blast_file=log_file_dict['blastx_filename'],
+                                              blast_format='blastx')
+
     all_regions = orfs + intergenic_regions
 
     # Sorted list of contigs containing only orfs, no intergenic regions
@@ -61,11 +66,19 @@ def reannotate(args):
         sys.stdout.flush()
 
     if args.reference:
-        dnds.full(skip=True, ref=args.reference, nucOrfs=file_dict['cds_filename'],
+        dnds.full(skip=True,
+                  ref=args.reference,
+                  nucOrfs=file_dict['cds_filename'],
                   pepORFs=file_dict['proteome_filename'],
-                  referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],
-                  c=file_dict['ctl'], dndsLimit=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=1,
-                  search="blast", out=file_dict['dnds_out'])
+                  referenceNucOrfs=file_dict['ref_cds_filename'],
+                  referencePepOrfs=file_dict['ref_proteome_filename'],
+                  c=file_dict['ctl'],
+                  dndsLimit=args.max_dnds,
+                  M=args.max_ds,
+                  m=args.min_ds,
+                  threads=1,
+                  search="blast",
+                  out=file_dict['dnds_out'])
     else:
         for contig_index, contig in enumerate(all_regions_by_contig):
 

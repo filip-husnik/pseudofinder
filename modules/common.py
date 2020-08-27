@@ -400,3 +400,55 @@ def file_dict(args, **kwargs):
         'ctl': os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
     }
     return file_dict
+
+
+def is_int(x: str):
+    try:
+        a = float(x)
+        b = int(x)
+    except ValueError:
+        return False
+    else:
+        return a == b
+
+
+def is_float(x: str):
+    try:
+        float(x)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
+def literal_eval(x: str):
+    """
+    My version of ast.literal_eval() since that function is more complicated than it needs to be for our use case.
+
+    Basically just takes a string and tries to evaluate it to the correct data type in the following hierarchy:
+        Bool
+        Int
+        Float
+        Str
+
+    """
+    if x == 'True':
+        return True
+    elif x == 'False':
+        return False
+    elif is_int(x):
+        return int(x)
+    elif is_float(x):
+        return float(x)
+    else:
+        return x
+#
+# print("TRUE TESTS")
+# print(literal_eval('True') == True)
+# print(literal_eval('False') == False)
+# print(literal_eval('0.50') == 0.50)
+# print(literal_eval('3') == 3)
+#
+# print("FALSE TESTS")
+# print(literal_eval('4.57') == 0.50)
+# print(literal_eval('Truer') == True)
