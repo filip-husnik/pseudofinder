@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+import re
 from time import localtime, strftime
 
 
@@ -22,11 +23,67 @@ def print_with_time(x):
     sys.stdout.flush()
 
 
+def is_int(x: str):
+    try:
+        a = float(x)
+        b = int(x)
+    except ValueError:
+        return False
+    else:
+        return a == b
+
+
+def is_float(x: str):
+    try:
+        float(x)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
+def literal_eval(x: str):
+    """
+    My version of ast.literal_eval() since that function is more complicated than it needs to be for our use case.
+
+    Basically just takes a string and tries to evaluate it to the correct data type in the following hierarchy:
+        Nonetype
+        Bool
+        Int
+        Float
+        Str
+    """
+
+    if x == 'None':
+        return None
+    elif x == 'True':
+        return True
+    elif x == 'False':
+        return False
+    elif is_int(x):
+        return int(x)
+    elif is_float(x):
+        return float(x)
+    else:
+        return x
+
+
 def unpack_arg(arg_group, arg: dict):
     name = (arg['short'], arg['long'])
     del arg['short']
     del arg['long']
     arg_group.add_argument(*name, **arg)
+
+
+def arg_string(arg):
+    """returns a string for usage message, ie for genome returns -g GENOME."""
+    return arg['short'] + ' ' + arg['long'][2:].upper()
+
+
+def usage_message(module, required_args: list):
+    message = '[pseudofinder.py ' + module + ' ' + ' '.join([arg_string(x) for x in required_args]) + ']'
+    message = message + " or [pseudofinder.py %s --help] for more options." % module
+    return message
 
 
 def get_args(module='None', **kwargs):
@@ -35,7 +92,7 @@ def get_args(module='None', **kwargs):
         'short': '-g',
         'long': '--genome',
         'help': 'Please provide your genome file in the genbank format.',
-        'required': True
+        'required': False if module == 'test' else True
     }
     database = {
         'short': '-db',
@@ -134,7 +191,7 @@ def get_args(module='None', **kwargs):
                 'maximum-likelihood phylogenentic analysis using PAML, and calculate dN/dS values for each \n'
                 'identified ORF in your query genome.',
         'required': False,
-        'default': "NA",
+        'default': None,
         'type': str
     }
     max_dnds = {
@@ -236,7 +293,6 @@ def get_args(module='None', **kwargs):
         'default': None,
         'type': str
     }
-    ###############################################################################
     search_engine = {
         'short': '-s',
         'long': '--search_engine',
@@ -304,7 +360,7 @@ def get_args(module='None', **kwargs):
     dnds_out = {
         'short': '-do',
         'long': '--dnds_out',
-        'help': 'dnds output from previous run. Provide this if you previosly ran annotate with the -ref flag',
+        'help': 'dnds output from previous run. Provide this if you previously ran annotate with the -ref flag',
         'required': False,
         'default': None,
         'type': str
@@ -318,42 +374,36 @@ def get_args(module='None', **kwargs):
         return names
 
     if module == 'annotate':
-        usage = '[pseudofinder.py annotate -g GENOME -db DATABASE -op OUTPREFIX]'
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, distance, hitcap,
                          contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip]
 
     elif module == 'reannotate':
-        usage = '[pseudofinder.py reannotate -g GENOME -p BLASTP -x BLASTX -hc HITCAP -op OUTPREFIX]'
         required_args = [genome, blastp, blastx, logfile, outprefix]
         optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, dnds_out]
 
     elif module == 'dnds':
-        usage = 'pseudofinder.py dnds -a PROTEIN_SEQS -n GENE_SEQS -ra REFERENCE_PROTEINS -rn REFERENCE_GENES -out OUTPUT_DIR'
         required_args = [prots, genes, ref_prots, ref_genes]
         optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs]
 
     elif module == 'genome_map':
-        usage = '[pseudofinder.py map -g GENOME -gff GFF -op OUTPREFIX]'
         required_args = [genome, gff, outprefix]
         optional_args = []
 
     elif module == 'visualize':
-        usage = '[pseudofinder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -log LOGFILE]'
-        required_args = [genome, outprefix, blastp, blastx, logfile]
+        required_args = [genome, blastp, blastx, logfile, outprefix]
         optional_args = [distance, intergenic_threshold, resolution, keep_files, title]
 
     elif module == 'test':
-        usage = '[pseudofinder.py test -db DATABASE]'
         required_args = [database]
-        optional_args = [threads]
+        optional_args = [genome, diamond, threads]
 
     else:
         print("Module not found. Please check your get_args() function call.")
         exit()
 
-    usage = usage + " or [pseudofinder.py %s --help] for more options." % module
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, usage=bold(usage))
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
+                                     usage=bold(usage_message(module, required_args)))
     always_required = parser.add_argument_group('Required arguments')
     optional = parser.add_argument_group('Adjustable parameters')
 
@@ -369,11 +419,32 @@ def get_args(module='None', **kwargs):
     return args
 
 
-def reconcile_args(command_line_args, logged_args):
+def parse_log(logfile: str):
+    log_dict = {}
+    with open(logfile, 'r') as log:
+        for line in log.readlines():
+            line = line.replace('\n', '')
+            sep = '\t'
+            for arg in get_args(names_only=True):
+                if re.match(arg, line, re.IGNORECASE):
+                    item = str(line.split(sep=sep)[1])
+                    try:
+                        log_dict[arg] = literal_eval(item)
+                    except SyntaxError:
+                        log_dict[arg] = item
 
-    args = command_line_args  # create a namespace with command line args taking priority
-    # if argument does not exist or is None, it will be replaced by whatever is found in the log
-    for k, v in logged_args.items():
+    log_dict['log_outprefix'] = log_dict['blastp'].replace('_proteome.faa.blastP_output.tsv', '')
+    return log_dict
+
+
+def reconcile_args(priority_args, secondary_args):
+    """
+    Combines two instances of argparse namespace into one.
+    First set of args takes priority
+    Second set of args will be considered if the attribute is None or does not exist in the first set
+    """
+    args = priority_args
+    for k, v in secondary_args.items():
         try:
             if getattr(args, k) is None:
                 setattr(args, k, v)
@@ -411,53 +482,5 @@ def file_dict(args, **kwargs):
     return file_dict
 
 
-def is_int(x: str):
-    try:
-        a = float(x)
-        b = int(x)
-    except ValueError:
-        return False
-    else:
-        return a == b
 
 
-def is_float(x: str):
-    try:
-        float(x)
-    except ValueError:
-        return False
-    else:
-        return True
-
-
-def literal_eval(x: str):
-    """
-    My version of ast.literal_eval() since that function is more complicated than it needs to be for our use case.
-
-    Basically just takes a string and tries to evaluate it to the correct data type in the following hierarchy:
-        Bool
-        Int
-        Float
-        Str
-
-    """
-    if x == 'True':
-        return True
-    elif x == 'False':
-        return False
-    elif is_int(x):
-        return int(x)
-    elif is_float(x):
-        return float(x)
-    else:
-        return x
-#
-# print("TRUE TESTS")
-# print(literal_eval('True') == True)
-# print(literal_eval('False') == False)
-# print(literal_eval('0.50') == 0.50)
-# print(literal_eval('3') == 3)
-#
-# print("FALSE TESTS")
-# print(literal_eval('4.57') == 0.50)
-# print(literal_eval('Truer') == True)

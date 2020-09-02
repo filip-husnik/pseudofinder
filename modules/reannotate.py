@@ -1,28 +1,6 @@
 #!/usr/bin/env python3
 from . import common, annotate, genome_map, dnds
 
-import sys
-import re
-
-
-def parse_log(logfile: str):
-    log_dict = {}
-    with open(logfile, 'r') as log:
-        for line in log.readlines():
-            line = line.replace('\n', '')
-            sep = '\t'
-            for arg in common.get_args(names_only=True):
-                if re.match(arg, line, re.IGNORECASE):
-                    item = str(line.split(sep=sep)[1])
-                    try:
-                        log_dict[arg] = common.literal_eval(item)
-                        #log_dict[arg] = (item)
-                    except SyntaxError:
-                        log_dict[arg] = item
-
-    log_dict['log_outprefix'] = log_dict['blastp'].replace('_proteome.faa.blastP_output.tsv', '')
-    return log_dict
-
 
 def reannotate(args):
     file_dict = common.file_dict(args)
@@ -48,11 +26,7 @@ def reannotate(args):
     functional_genes = []
 
     for contig_index, contig in enumerate(all_regions_by_contig):
-        print('\033[1m' + '%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (annotate.current_time(),
-                                                                                   contig_index + 1,
-                                                                                   len(all_regions_by_contig))),
-        sys.stdout.flush()
-
+        common.print_with_time('Checking contig %s / %s for pseudogenes.' % (contig_index + 1, len(all_regions_by_contig)))
         pseudos_on_contig = annotate.annotate_pseudos(args=args, contig=contig)  # Returns 'Contig' data type
         pseudogenes.extend(pseudos_on_contig.regions)  # List of regions
 
@@ -62,8 +36,6 @@ def reannotate(args):
             functional_genes.extend(functional_genes_on_contig.regions)
         except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
             continue
-
-        sys.stdout.flush()
 
     if args.dnds_out:
         dnds.full(skip=True,
@@ -79,16 +51,14 @@ def reannotate(args):
                   threads=1,
                   search="blast",
                   out=file_dict['dnds_out'])
+
     else:
         for contig_index, contig in enumerate(all_regions_by_contig):
+            common.print_with_time('\tNumber of ORFs on this contig: %s\n'
+                                   '\t\t\t\tNumber of pseudogenes flagged: %s'
+                                   % (len([region for region in contig.regions if region.region_type == annotate.RegionType.ORF]),
+                                      len(pseudos_on_contig.regions)))
 
-            print('\t\t\tNumber of ORFs on this contig: %s\n'
-                  '\t\t\tNumber of pseudogenes flagged: %s' % (
-                      len([region for region in contig.regions if region.region_type == annotate.RegionType.ORF]),
-                      len(pseudos_on_contig.regions) + 0)),
-            sys.stdout.flush()
-
-        # write the log file
             annotate.write_summary_file(args=args, file_dict=file_dict)
 
     # Write all output files
@@ -98,7 +68,7 @@ def reannotate(args):
     # TODO: Activate this feature once you finish writing it
     # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
     #                           contigs=functional_genes)
-    # genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+    genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
 
     if args.dnds_out:
         annotate.integrate_dnds(func_gff=file_dict['functional_gff'], pseudo_gff=file_dict['pseudos_gff'],
@@ -112,12 +82,9 @@ def reannotate(args):
 
 
 def main():
-    # Declare variables used throughout the rest of the program
     command_line_args = common.get_args('reannotate')
-    logged_args = parse_log(command_line_args.logfile)
+    logged_args = common.parse_log(command_line_args.logfile)
     args = common.reconcile_args(command_line_args, logged_args)
-
-    # Do the reannotation
     reannotate(args)
 
 

@@ -6,12 +6,7 @@ from os.path import dirname
 import re
 import subprocess
 from collections import OrderedDict
-from time import localtime, strftime
-
-
-def current_time() -> str:
-    """Returns the current time when this function was executed."""
-    return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
+from time import strftime
 
 
 def manage_folders(path: str):
@@ -61,12 +56,18 @@ def main():
     path_to_test_data = path_to_master + "/test/"
     path_to_pseudofinder = path_to_master + "/pseudofinder.py"
     folder_name = manage_folders(path_to_test_data)
-    genome_name = "candidatus_tremblaya_princeps_PCIT.gbf"
-    genome_full_path = path_to_test_data + genome_name
     output_prefix = folder_name + "/test"
     blastp_file = output_prefix + "_proteome.faa.blastP_output.tsv"
     blastx_file = output_prefix + "_intergenic.fasta.blastX_output.tsv"
     log_file = output_prefix + "_log.txt"
+
+    if args.genome is None:
+        args.genome = path_to_test_data + "candidatus_tremblaya_princeps_PCIT.gbf"
+        print_with_time('No genome specified, will use default test genome: %s' % args.genome)
+    if args.diamond:
+        diamond_param = ' --diamond'
+    else:
+        diamond_param = ''
 
     ctl_full_path = path_to_master + "/codeml-2.ctl"
     ref_pep = path_to_test_data + "Mycobacterium_tuberculosis_H37Rv-subset.faa"
@@ -77,12 +78,12 @@ def main():
 
     # A dictionary to store the names and shell commands for each section of pseudofinder
     command_dict = OrderedDict()
-    command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s -t %s --diamond" % (
-        path_to_pseudofinder, genome_full_path, args.database, output_prefix, args.threads)
+    command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s -t %s%s" % (
+        path_to_pseudofinder, args.genome, args.database, output_prefix, args.threads, diamond_param)
     command_dict['Reannotate'] = "python3 %s reannotate -g %s -p %s -x %s -log %s -op %s" % (
-        path_to_pseudofinder, genome_full_path, blastp_file, blastx_file, log_file, output_prefix)
+        path_to_pseudofinder, args.genome, blastp_file, blastx_file, log_file, output_prefix)
     command_dict['Visualize'] = "python3 %s visualize -g %s -op %s -p %s -x %s -log %s" % (
-        path_to_pseudofinder, genome_full_path, output_prefix, blastp_file, blastx_file, log_file)
+        path_to_pseudofinder, args.genome, output_prefix, blastp_file, blastx_file, log_file)
 
     # command_dict['dnds'] = "python3 %s dnds -ra %s -rn %s -a %s -n %s -ctl %s -out %s" % (
     #     path_to_pseudofinder, ref_pep, ref_nuc, pep, nuc, ctl_full_path, dndsOutput)
@@ -90,7 +91,6 @@ def main():
     for command in command_dict:
         test_command(command_name=command, full_command=command_dict[command])
 
-    # os.system("rm -r " + dndsOutput) # TODO: remove?
 
 if __name__ == '__main__':
     main()

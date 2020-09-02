@@ -49,82 +49,6 @@ RegionType = Enum('RegionType', ['ORF',
                                  'fragmentedpseudo',
                                  'intergenicpseudo'])
 
-
-class RegionInfo_WIP:  # TODO: This is the start of changing data types into classes. Perhaps long term project, not urgent
-    def __init__(self):
-        self.contig = None
-        self.genbank_locus_tag = None
-        self.genbank_locus_tag_list = []
-        self.pseudo_locus_tag = None
-        self.start = None
-        self.end = None
-        self.strand = None
-        self.hits = []
-        self.source = None
-        self.note = None
-        self.region_type = None
-
-    def __str__(self):
-        return False #stub
-
-    def nucleotide_length(self):
-        #TODO: Make sure this is uniform across blastp/blastx and all that
-        return self.end - self.start
-
-    def ratio_gene_length_to_avg_hit_length(self):
-        hit_lengths = [hit.nucleotide_length for hit in self.hits]
-        avg_hit_length = sum(hit_lengths) / len(hit_lengths)
-        return self.nucleotide_length() / avg_hit_length
-
-    def lastItem(ls):
-        x = ''
-        for i in ls:
-            if i != "":
-                x = i
-        return x
-
-    def allButTheLast(iterable, delim):
-        x = ''
-        length = len(iterable.split(delim))
-        for i in range(0, length - 1):
-            x += iterable.split(delim)[i]
-            x += delim
-        return x[0:len(x) - 1]
-
-    def pseudogene_reasoning(self):
-        """
-        Cases:
-            1. Reason: Predicted fragmentation of a single gene.
-            2. Reason: ORF is %s%% of the average length of hits to this gene.
-            3. Reason: Intergenic region with %s blast hits.
-        """
-        if self.region_type == RegionType.fragmentedpseudo:
-            return "Reason: Predicted fragmentation of a single gene."
-        elif self.region_type == RegionType.shortpseudo:
-            return "Reason: ORF is %s%% of the average length of hits to this gene." % self.ratio_gene_length_to_avg_hit_length()
-        elif self.region_type == RegionType.intergenicpseudo:
-            return "Reason: Intergenic region with %s blast hits." % len(self.hits)
-
-    def write_gff_note(self):
-        note = "Note=pseudogene candidate. %s" % self.pseudogene_reasoning()
-        colour = "colour=229 204 255"
-        locus_tag = "locus_tag=%s" % self.pseudo_locus_tag
-        genbank_locus_tags = "gbk_locus_tags=%s" % ",".join(self.genbank_locus_tag_list)
-        return ";".join([note, colour, locus_tag, genbank_locus_tags])
-
-    def gff_entry(self):  # gff-version 3 compliant entry
-        seqid = "gnl|Prokka|%s" % self.contig
-        source = "pseudofinder"
-        type = "gene"
-        start = self.start
-        end = self.end
-        score = "."
-        strand = self.strand
-        phase = "."
-        attributes = self.write_gff_note()
-
-        return "\t".join([seqid, source, type, start, end, score, strand, phase, attributes])
-
 RegionInfo = NamedTuple('RegionInfo', [('contig', str),
                                        ('query', str),
                                        ('genbank_locus_tags', list),
@@ -165,7 +89,8 @@ def current_time() -> str:
 
 
 def get_CDSs(gbk: str, out_fasta: str) -> None:
-    """Parse genbank input file for coding sequences (CDSs) and write the nucleotide sequences to the output file with coordinates."""
+    """Parse genbank input file for coding sequences (CDSs) and write the
+    nucleotide sequences to the output file with coordinates."""
 
     with open(gbk, "r") as input_handle:
         with open(out_fasta, "w") as output_handle:
@@ -816,7 +741,6 @@ def write_pseudos_to_fasta(args, pseudofinder_regions: List[RegionInfo], outfile
     SeqIO.write(fasta_list, open(outfile, "w"), "fasta")
 
 
-# TODO: When annotate is run by itself, this returns the expected file. when the test command is run, this ends up as an emtpy file. find where it is being overwritten
 def write_summary_file(args, file_dict: dict) -> None:
     """Writes a summary file of statistics from the pseudo_finder run."""
 
@@ -1134,19 +1058,7 @@ def integrate_dnds(func_gff: str, pseudo_gff: str, dnds_out: str, func_faa: str,
         out.write(seq + "\n")
 
     os.system("mv %s %s" % (newPseudoSeqs, pseudo_fasta))
-
-    # for contig_index, contig in enumerate(all_regions_by_contig):
-    #     print('\t\t\tNumber of ORFs on this contig: %s\n'
-    #           '\t\t\tNumber of pseudogenes flagged: %s' % (
-    #               len([region for region in contig.regions if region.region_type == RegionType.ORF]),
-    #               len(pseudos_on_contig.regions) + len(newPseudosDict2.keys()))),
-    #     sys.stdout.flush()
-
     return len(newPseudosDict2.keys())
-
-    # write the log file
-    # print("made it 1")
-    # write_summary_file(args=args, file_dict=file_dict)
 
 
 def main():
@@ -1165,6 +1077,8 @@ def main():
     get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
 
     if args.reference:  # #########################################################################################
+        print(args.reference)
+        exit()
         get_CDSs(gbk=args.reference, out_fasta=file_dict['ref_cds_filename'])
         get_proteome(gbk=args.reference, out_faa=file_dict['ref_proteome_filename'])
         dnds.full(skip=False, ref=args.reference, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME

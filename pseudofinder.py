@@ -7,11 +7,7 @@ from modules import annotate, reannotate, visualize, pseudofinder_test, dnds  # 
 pseudofinder.py: A script to find pseudogene candidates in annotated genbank files.
 Tested mostly on .gbk files annotated by Prokka with the --compliant flag.
 
-Installation requirements:
-    *python3
-    *3rd party libraries: biopython, plotly, pandas, numpy, reportlab
-    *libraries from the Python standard library: see annotate.py, visualize.py and genome_map.py
-
+Installation requirements: Please see github repo for detailed explanation of requirements.
  """
 __author__ = "Mitch Syberg-Olsen & Filip Husnik"
 __version__ = "0.11"

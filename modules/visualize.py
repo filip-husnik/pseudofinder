@@ -6,18 +6,12 @@ import sys
 import os
 import re
 import shutil
-from time import localtime, strftime
 from contextlib import contextmanager
 
 import pandas as pd
 import numpy
 from plotly.offline import plot
 from plotly.graph_objs import Surface, Layout, Scene, Figure
-
-
-def current_time() -> str:
-    """Returns the current time when this function was executed."""
-    return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
 
 
 @contextmanager
@@ -39,13 +33,12 @@ def settings_loop(args):
 
     # Preparing arguments for reannotate.py
     command_line_args = args
-    logged_args = reannotate.parse_log(args.logfile)
+    logged_args = common.parse_log(args.logfile)
     args = common.reconcile_args(command_line_args, logged_args)
-
     basename = args.outprefix
 
     for length_pseudo in numpy.arange(0.0, 1.01, interval):
-        print("%s\tCollecting data: %d%% completed" % (current_time(), round(length_pseudo*100, 2)), end='\r')
+        print("%s\tCollecting data: %d%% completed" % (common.current_time(), round(length_pseudo*100, 2)), end='\r')
 
         for shared_hits in numpy.arange(0.0, 1.01, interval):
             args.length_pseudo = length_pseudo
@@ -109,14 +102,14 @@ def make_plot(args):
 
     fig = Figure(data=data, layout=layout)
     plot(fig, filename=args.outprefix+".html", auto_open=False)
-    print("%s\tFigure plotted: %s.html" % (current_time(), args.outprefix))
+    common.print_with_time("Figure plotted: %s.html" % args.outprefix)
 
 
 def main():
     args = common.get_args('visualize')
     args.length_pseudo = None
     args.shared_hits = None
-
+    args.dnds_out = None
     # Reset the folder specified to contain the outputs
     if os.path.exists(args.outprefix):
         shutil.rmtree(args.outprefix)

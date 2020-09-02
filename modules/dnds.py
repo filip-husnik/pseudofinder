@@ -3,8 +3,6 @@ from collections import defaultdict
 from . import common
 import re
 import os
-import textwrap
-import argparse
 import numpy as np
 import sys
 
@@ -386,66 +384,9 @@ def delim(line):
 
 def main():
     args = common.get_args('dnds')
-    unknown = parser.parse_known_args()
-
-    # parser = argparse.ArgumentParser(
-    #     prog="dnds.py",
-    #     formatter_class=argparse.RawDescriptionHelpFormatter,
-    #     description=textwrap.dedent('''
-    #     ************************************************************************
-    #
-    #     Developed by Arkadiy Garber and John McCutcheon
-    #     University of Montana, Biological Sciences
-    #     Please send comments and inquiries to arkadiy.garber@mso.umt.edu
-    #
-    #     ************************************************************************
-    #     '''))
-    #
-    # parser.add_argument('-n', type=str, help="ORFs in nucleic acid format", default="NA")
-    # parser.add_argument('-a', type=str, help="ORFs in amino acid format", default="NA")
-    # parser.add_argument('-rn', type=str, help="Reference ORFs in nucleic acid format", default="NA")
-    # parser.add_argument('-ra', type=str, help="Reference ORFs in amino acid format", default="NA")
-    # parser.add_argument('-r', type=str, help="Reference contigs (provide this if you do not have ORFs for the reference genome)",
-    #                     default="NA")
-    #
-    # # parser.add_argument('-ctl', type=str, help="template control file for codeml", default="NA")
-    #
-    # parser.add_argument('-out', type=str, help="name output directory", default="dnds_out")
-    #
-    # parser.add_argument('-dnds', type=float, help="maximum dN/dS value for gene too be considered \'intact\' (default = 0.3)",
-    #                     default=0.3)
-    # parser.add_argument('-M', type=float, help="maximum dS value for dN/dS calculation (default = 3)", default=3)
-    # parser.add_argument('-m', type=float, help="minimum dS value for dN/dS calculation (default = 0.001)", default=0.001)
-    # parser.add_argument('-t', type=int, help="number of threads to use for BLAST or DIAMOND", default=1)
-    # parser.add_argument('-s', type=str, help="search engine to use (blast/diamond). Default = blast", default="blast")
-    # parser.add_argument('--skip', type=str, help="skip all time-consuming analyses, and use previously-created output. "
-    #                                              "You can use this flag if you want to tweak some of the paramters, "
-    #                                              "but avoid all the time-consuming steps (e.g. BLAST, codeml). "
-    #                                              "Do not invoke if this module crashed during a previous run", const=True, nargs="?")
-    #
-    #
-    # args, unknown = parser.parse_known_args()
-
-
-    cwd = os.getcwd()
 
     if not args.skip:
-        os.system("echo ${ctl} > ctl.txt")
-        file = open("ctl.txt")
-        for i in file:
-            ctl = (i.rstrip())
-            ctl = ctl[0:len(ctl)]
-        os.system("rm ctl.txt")
-
-        # if not re.findall(r'codeml', ctl):
-        #     if args.ctl == "NA":
-        #         print("\nCannot locate the necessary \ncodeml control file. Please double check that "
-        #               "installation\n with the \'setup.sh\' script worked without any errors. If issues \npersist, please "
-        #               "report an issue on GitHub\n")
-        #         raise SystemExit
-        #     else:
-        #         ctl = args.ctl
-
+        ctl = os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
         faa = args.a
         fna = args.n
 
