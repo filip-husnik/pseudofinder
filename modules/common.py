@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from argparse import Namespace
 import os
 import sys
 import re
@@ -420,7 +421,10 @@ def get_args(module='None', **kwargs):
 
 
 def parse_log(logfile: str):
-    log_dict = {}
+    """
+    Returns a namespace of all args found in a logfile.
+    """
+    log_args = Namespace()
     with open(logfile, 'r') as log:
         for line in log.readlines():
             line = line.replace('\n', '')
@@ -428,13 +432,9 @@ def parse_log(logfile: str):
             for arg in get_args(names_only=True):
                 if re.match(arg, line, re.IGNORECASE):
                     item = str(line.split(sep=sep)[1])
-                    try:
-                        log_dict[arg] = literal_eval(item)
-                    except SyntaxError:
-                        log_dict[arg] = item
-
-    log_dict['log_outprefix'] = log_dict['blastp'].replace('_proteome.faa.blastP_output.tsv', '')
-    return log_dict
+                    setattr(log_args, arg, item)
+    setattr(log_args, 'log_outprefix', log_args.blastp.replace('_proteome.faa.blastP_output.tsv', ''))
+    return log_args
 
 
 def reconcile_args(priority_args, secondary_args):
@@ -444,13 +444,23 @@ def reconcile_args(priority_args, secondary_args):
     Second set of args will be considered if the attribute is None or does not exist in the first set
     """
     args = priority_args
-    for k, v in secondary_args.items():
+    for k, v in vars(secondary_args).items():
         try:
             if getattr(args, k) is None:
                 setattr(args, k, v)
         except AttributeError:
             setattr(args, k, v)
     return args
+
+
+def convert_args_to_str(args):
+    """
+    Converts every attribute in the args namespace to a string for easy printing.
+    """
+    str_args = Namespace()
+    for k, v in vars(args).items():
+        setattr(str_args, k, str(v))
+    return str_args
 
 
 def file_dict(args, **kwargs):
@@ -480,7 +490,4 @@ def file_dict(args, **kwargs):
         'ctl': os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
     }
     return file_dict
-
-
-
 

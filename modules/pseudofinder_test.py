@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .common import get_args, bold, print_with_time
+from .common import get_args, bold, print_with_time, is_int
 import os
 from os.path import dirname
 import re
@@ -9,30 +9,41 @@ from collections import OrderedDict
 from time import strftime
 
 
+def retrieve_num_from_str(str):
+    l = []
+    for i, v in enumerate(str):
+        if is_int(v):
+            l.append(v)
+    try:
+        return int("".join(l))
+    except ValueError:
+        return None
+
+
 def manage_folders(path: str):
     """Creates a folder to store test results and returns the name."""
-
-    folder_name = path+strftime("%Y%m%d"+"_results")
+    time = strftime("%Y%m%d")
+    folder_str = time + "_results_"
+    folder_num = 1
 
     try:  # simplest solution
-        os.makedirs(folder_name)
+        os.makedirs(path + folder_str + str(folder_num))
 
     except FileExistsError:  # unless the folder already exists.
         current_folders = os.listdir(path)
-        results_folders = [folder for folder in current_folders if re.match(strftime("%Y%m%d"), folder)]
-        folder_numbers = [int(folder[-1]) for folder in results_folders if re.match("[0-9]", folder[-1])]
+        results_folders = [folder for folder in current_folders if re.match(time, folder)]
+        folder_numbers = [int(x.replace(folder_str, '')) for x in results_folders]
 
         if not folder_numbers:  # If no numbered folders exist yet, start with "folder_name_1"
-            folder_name = folder_name + "_1"
-            os.makedirs(folder_name)
+            os.makedirs(path + folder_str + str(folder_num))
 
         else:  # increment the number by 1, ie. "folder_name_2"
             biggest_folder_number = sorted(folder_numbers, key=int, reverse=True)[0]
-            new_number = biggest_folder_number + 1
-            folder_name = folder_name + "_" + str(new_number)
-            os.makedirs(folder_name)
+            folder_num = biggest_folder_number + 1
 
-    return folder_name
+            os.makedirs(path + folder_str + str(folder_num))
+
+    return path + folder_str + str(folder_num)
 
 
 def test_command(command_name: str, full_command: str):

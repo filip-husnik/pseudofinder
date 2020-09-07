@@ -747,15 +747,18 @@ def write_summary_file(args, file_dict: dict) -> None:
     print('%s\tWriting summary of run:\t%s' % (current_time(), file_dict['log'])),
     sys.stdout.flush()
 
+    printable_args = common.convert_args_to_str(args)
+    printable_stats = {k: str(v) for k, v in StatisticsDict.items()}
+
     with open(file_dict['log'], 'w') as logfile:
 
         logfile.write(
             "####### Summary from annotate/reannotate #######\n\n"
             "Date/time:\t" + current_time() + "\n\n"
             "#######    Files   #######\n"
-            "Genome:\t" + args.genome + "\n"
-            "Database:\t" + args.database + "\n"
-            "Reference Genome:\t" + str(args.reference) + "\n"
+            "Genome:\t" + printable_args.genome + "\n"
+            "Database:\t" + printable_args.database + "\n"
+            "Reference Genome:\t" + printable_args.reference + "\n"
             "BlastP:\t" + file_dict['blastp_filename'] + "\n"
             "BlastX:\t" + file_dict['blastx_filename'] + "\n"
             "Pseudogenes (GFF):\t" + file_dict['pseudos_gff'] + "\n"
@@ -766,27 +769,27 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Chromosome map:\t" + file_dict['chromosome_map'] + "\n\n"
 
             "#######  Settings  #######\n"
-            "Distance:\t" + str(args.distance) + "\n"
-            "hitcap:\t" + str(args.hitcap) + "\n"
-            "Intergenic_length:\t" + str(args.intergenic_length) + "\n"
-            "Intergenic_threshold:\t" + str(args.intergenic_threshold) + "\n"
-            "Length_pseudo:\t" + str(args.length_pseudo) + "\n"
-            "Shared_hits:\t" + str(args.shared_hits) + "\n"
-            "max_dnds:\t" + str(args.max_dnds) + "\n"
-            "max_ds:\t" + str(args.max_ds) + "\n"
-            "min_ds:\t" + str(args.min_ds) + "\n\n"
+            "Distance:\t" + printable_args.distance + "\n"
+            "hitcap:\t" + printable_args.hitcap + "\n"
+            "Intergenic_length:\t" + printable_args.intergenic_length + "\n"
+            "Intergenic_threshold:\t" + printable_args.intergenic_threshold + "\n"
+            "Length_pseudo:\t" + printable_args.length_pseudo + "\n"
+            "Shared_hits:\t" + printable_args.shared_hits + "\n"
+            "max_dnds:\t" + printable_args.max_dnds + "\n"
+            "max_ds:\t" + printable_args.max_ds + "\n"
+            "min_ds:\t" + printable_args.min_ds + "\n\n"
 
             "####### Statistics #######\n"
             "#Input:\n"
-            "Initial ORFs:\t" + str(StatisticsDict['ProteomeOrfs']) + "\n"
-            "Number of contigs:\t" + str(StatisticsDict['NumberOfContigs']) + "\n"
+            "Initial ORFs:\t" + printable_stats['ProteomeOrfs'] + "\n"
+            "Number of contigs:\t" + printable_stats['NumberOfContigs'] + "\n"
             "#Output:\n"
-            "Inital ORFs joined:\t" + str(StatisticsDict['FragmentedOrfs']) + "\n"
+            "Inital ORFs joined:\t" + printable_stats['FragmentedOrfs'] + "\n"
             "Pseudogenes (total):\t" + str(StatisticsDict['PseudogenesTotal'] + StatisticsDict["dnds"]) + "\n"
-            "Pseudogenes (too short):\t" + str(StatisticsDict['PseudogenesShort']) + "\n"
-            "Pseudogenes (fragmented):\t" + str(StatisticsDict['PseudogenesFragmented']) + "\n"
-            "Pseudogenes (no predicted ORF):\t" + str(StatisticsDict['PseudogenesIntergenic']) + "\n"
-            "Pseudogenes (high dN/dS):\t" + str(StatisticsDict["dnds"]) + "\n"
+            "Pseudogenes (too short):\t" + printable_stats['PseudogenesShort'] + "\n"
+            "Pseudogenes (fragmented):\t" + printable_stats['PseudogenesFragmented'] + "\n"
+            "Pseudogenes (no predicted ORF):\t" + printable_stats['PseudogenesIntergenic'] + "\n"
+            "Pseudogenes (high dN/dS):\t" + printable_stats["dnds"] + "\n"
             "Functional genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort'] - StatisticsDict["dnds"]) + "\n\n"
 
             "####### Output Key #######\n"
@@ -811,7 +814,7 @@ def reset_statistics_dict():
     StatisticsDict['PseudogenesIntergenic'] = 0
     StatisticsDict['PseudogenesFragmented'] = 0
 
-#### TODO: Restructuring Arkadiy's code ####
+
 def lastItem(ls):
     x = ''
     for i in ls:
