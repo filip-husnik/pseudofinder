@@ -33,15 +33,9 @@ def manage_folders(path: str):
         current_folders = os.listdir(path)
         results_folders = [folder for folder in current_folders if re.match(time, folder)]
         folder_numbers = [int(x.replace(folder_str, '')) for x in results_folders]
-
-        if not folder_numbers:  # If no numbered folders exist yet, start with "folder_name_1"
-            os.makedirs(path + folder_str + str(folder_num))
-
-        else:  # increment the number by 1, ie. "folder_name_2"
-            biggest_folder_number = sorted(folder_numbers, key=int, reverse=True)[0]
-            folder_num = biggest_folder_number + 1
-
-            os.makedirs(path + folder_str + str(folder_num))
+        biggest_folder_number = sorted(folder_numbers, key=int, reverse=True)[0]
+        folder_num = biggest_folder_number + 1
+        os.makedirs(path + folder_str + str(folder_num))
 
     return path + folder_str + str(folder_num)
 
