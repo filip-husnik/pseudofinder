@@ -1,23 +1,12 @@
 #!/usr/bin/env python3
 
-from .common import get_args, bold, print_with_time, is_int
+from .common import get_args, bold, print_with_time
 import os
 from os.path import dirname
 import re
 import subprocess
 from collections import OrderedDict
 from time import strftime
-
-
-def retrieve_num_from_str(str):
-    l = []
-    for i, v in enumerate(str):
-        if is_int(v):
-            l.append(v)
-    try:
-        return int("".join(l))
-    except ValueError:
-        return None
 
 
 def manage_folders(path: str):
