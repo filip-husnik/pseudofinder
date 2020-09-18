@@ -1081,7 +1081,6 @@ def main():
 
     if args.reference:  # #########################################################################################
         print(args.reference)
-        exit()
         get_CDSs(gbk=args.reference, out_fasta=file_dict['ref_cds_filename'])
         get_proteome(gbk=args.reference, out_faa=file_dict['ref_proteome_filename'])
         dnds.full(skip=False, ref=args.reference, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
