@@ -6,7 +6,7 @@ import os
 import sys
 import re
 from time import localtime, strftime
-
+from contextlib import contextmanager
 
 def bold(x):
     start_bold = '\033[1m'
@@ -67,6 +67,22 @@ def literal_eval(x: str):
         return float(x)
     else:
         return x
+
+
+@contextmanager
+def suppress_output_to_console():
+    """Prevents writing to stdout. Use in the following way:
+
+    with suppress_output_to_console():
+        action_to_perform()
+    """
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
 
 
 def unpack_arg(arg_group, arg: dict):

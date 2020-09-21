@@ -45,7 +45,7 @@ def settings_loop(args):
             args.shared_hits = shared_hits
             args.outprefix = "%s/L%s_S%s" % (basename, length_pseudo, shared_hits)
 
-            with suppress_output_to_console():  # Prevents writing to stdout
+            with common.suppress_output_to_console():  # Prevents writing to stdout
                 reannotate.reannotate(args)
 
     args.outprefix = basename  # Have to put this back to its original value
