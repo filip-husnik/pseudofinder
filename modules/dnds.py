@@ -658,17 +658,18 @@ def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str
                 print(
                     "Did not find reference datasets. Please provide these using the \'-ra\' and \'rn\', or \'r\' flag")
 
-        print("Starting pipeline...")
+        print("Starting dN/dS analysis pipeline...")
 
         os.system("mkdir -p " + out)
         os.system("mkdir -p " + out + "/dnds-analysis")
 
         if search == "blast":
             print("Running BLAST")
-            os.system("makeblastdb -dbtype prot -in %s -out %s" % (refFaa, refFaa))
+
+            os.system("makeblastdb -dbtype prot -in %s -out %s > /dev/null 2>&1" % (refFaa, refFaa))
             # os.system("rm makeblastdb.out")
             os.system("blastp -query %s -db %s "
-                      "-outfmt 6 -out %s/pseudogene.blast -evalue 1E-6 -num_threads %s -max_target_seqs 1" % (
+                      "-outfmt 6 -out %s/pseudogene.blast -evalue 1E-6 -num_threads %s -max_target_seqs 1  > /dev/null 2>&1" % (
                           faa, refFaa, out, threads))
 
             os.system("rm %s.psq" % refFaa)
@@ -719,16 +720,16 @@ def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str
                 outAA.close()
 
         # ALIGNING PROTEIN SEQUENCES AND CREATING A CODON ALIGNMENT
-        print("aligning files...")
+        print("Aligning files...")
         DIR = out + "/dnds-analysis"
         os.system("for i in %s/*faa; do"
-                  " muscle -in $i -out $i.aligned.fa;"
+                  " muscle -in $i -out $i.aligned.fa > /dev/null 2>&1;"
                   # " rm muscle.out;"
                   " pal2nal.pl $i.aligned.fa $i.fna -output fasta > $i.codonalign.fa;"
                   " done" % DIR)
 
         # BUILDING CONTROL FILES
-        print("preparing for codeml analysis")
+        print("Preparing for codeml analysis")
         DIR = out + "/dnds-analysis"
         codealign = os.listdir(DIR)
         count = 0
@@ -770,7 +771,8 @@ def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str
                 perc = (count / total) * 100
                 sys.stdout.write("running codeml: %d%%   \r" % (perc))
                 sys.stdout.flush()
-                os.system("codeml %s/dnds-analysis/%s" % (out, file))
+
+                os.system("codeml %s/dnds-analysis/%s > /dev/null 2>&1" % (out, file))
                 # os.system("rm codeml.out")
 
     # PARSING CODEML OUTPUT
@@ -778,7 +780,7 @@ def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str
     cwd = os.getcwd()
     DIR = out + "/dnds-analysis"
 
-    print("summarizing codeml output")
+    print("Summarizing codeml output")
     codealign = os.listdir(DIR)
     dndsDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     for i in codealign:
