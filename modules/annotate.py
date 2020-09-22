@@ -211,6 +211,16 @@ def manage_diamond_db(args):
         os.system('diamond makedb --in %s --db %s.dmnd' % (args.database, args.database))
 
 
+def manage_blast_db(args):
+    try:
+        open(args.database + ".psq")
+        open(args.database + ".phr")
+        open(args.database + ".pin")
+        print("Found BLAST database! " + args.database)
+    except FileNotFoundError:
+        os.system('makeblastdb -dbtype prot -in %s -out %s' % (args.database, args.database))
+
+
 def run_diamond(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
     if search_type == 'blastp' or search_type == 'blastx':
         diamond_cline = ('diamond %s --quiet --query %s --out %s --threads %s --max-target-seqs %s --evalue %s --db %s '
@@ -1079,7 +1089,6 @@ def main():
     get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
 
     if args.reference:  # #########################################################################################
-        print(args.reference)
         get_CDSs(gbk=args.reference, out_fasta=file_dict['ref_cds_filename'])
         get_proteome(gbk=args.reference, out_faa=file_dict['ref_proteome_filename'])
         dnds.full(skip=False, ref=args.reference, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
@@ -1094,6 +1103,7 @@ def main():
                     out_tsv=file_dict['blastx_filename'])
 
     else:  # run vanilla blast
+        manage_blast_db(args)
         run_blast(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
                   out_tsv=file_dict['blastp_filename'])
         run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
