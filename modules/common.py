@@ -7,6 +7,7 @@ import sys
 import re
 from time import localtime, strftime
 from contextlib import contextmanager
+from Bio import SeqIO
 
 def bold(x):
     start_bold = '\033[1m'
@@ -101,6 +102,35 @@ def usage_message(module, required_args: list):
     message = '[pseudofinder.py ' + module + ' ' + ' '.join([arg_string(x) for x in required_args]) + ']'
     message = message + " or [pseudofinder.py %s --help] for more options." % module
     return message
+
+
+def verify_gbk(gbk):
+    """
+    Ensures genbank files is Genbank/ENA/DDJB compliant.
+    """
+    compliant = False
+    for contig in SeqIO.parse(gbk, "genbank"):
+        for feature in contig.features:
+            if feature.type == "gene":
+                compliant = True
+                break
+
+    if compliant:
+        return True
+    else:
+        raise RuntimeError('pseudofinder has detected your GENOME file is not Genbank compliant. '
+                           'If generated with Prokka, please ensure the \'--compliant\' flag is used.')
+
+
+def verify_args(args):
+    """
+    Ensures that the arguments provided are of the correct format beyond data type.
+    At this moment, only checks to make sure that genbank files are Genbank/ENA/DDJB compliant.
+    """
+    try:
+        verify_gbk(args.genome)
+    except AttributeError:
+        pass
 
 
 def get_args(module='None', **kwargs):
@@ -433,6 +463,7 @@ def get_args(module='None', **kwargs):
     # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
     # We only care about the known arguments, so we take [0].
     args = parser.parse_known_args()[0]
+    verify_args(args)
     return args
 
 

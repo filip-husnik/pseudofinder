@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from sys import argv, stderr
-from modules import annotate, reannotate, visualize, pseudofinder_test, dnds  # all pseudofinder modules
+from modules import *
 
 """
 pseudofinder.py: A script to find pseudogene candidates in annotated genbank files.

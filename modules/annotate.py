@@ -1066,7 +1066,6 @@ def integrate_dnds(func_gff: str, pseudo_gff: str, dnds_out: str, func_faa: str,
 
 def main():
     args = common.get_args('annotate')
-
     if args.diamond:
         search_engine = "diamond"
     else:

@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+__package__ = 'modules'
+import sys
+import common
+import os
+
 
 class RegionInfo_WIP:  # TODO: This is the start of changing data types into classes. Perhaps long term project, not urgent
     def __init__(self):
@@ -73,3 +79,9 @@ class RegionInfo_WIP:  # TODO: This is the start of changing data types into cla
         attributes = self.write_gff_note()
 
         return "\t".join([seqid, source, type, start, end, score, strand, phase, attributes])
+
+
+with common.suppress_output_to_console():
+    print('hello 1')
+    os.system("echo hello 2")
+

@@ -45,7 +45,7 @@ def test_command(command_name: str, full_command: str):
 def main():
     # Inputs for all the test commands
     args = get_args('test')
-
+    exit()
     path_to_master = dirname(dirname((__file__)))
     path_to_test_data = path_to_master + "/test/"
     path_to_pseudofinder = path_to_master + "/pseudofinder.py"
