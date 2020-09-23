@@ -50,6 +50,13 @@ Installation requirements:
 - Databases: NCBI-NR (non-redundant) protein database (or similar such as SwissProt) formatted for blastP/blastX searches.
 - An annotated prokaryotic genome in genbank (.gbf/.gbk) format.
 
+### Easy Installation (Conda required)
+```
+git clone https://github.com/filip-husnik/pseudo-finder.git
+bash setup.sh
+```
+
+
 ### Installation
 
 A step by step series of commands to install all system dependencies:
