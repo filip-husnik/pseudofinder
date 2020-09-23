@@ -51,9 +51,13 @@ Installation requirements:
 - An annotated prokaryotic genome in genbank (.gbf/.gbk) format.
 
 ### Easy Installation (Conda required)
+This will pseudo-finder into your $PATH and take care of all dependencies
 ```
 git clone https://github.com/filip-husnik/pseudo-finder.git
+
 bash setup.sh
+
+source activate pseudofinder
 ```
 
 
@@ -185,6 +189,22 @@ Adjustable parameters:
                         Number of BlastX hits needed to annotate an intergenic region as a pseudogene.
                         Calculated as a percentage of maximum number of allowed hits (--hitcap).
                         Default is 0.3.
+  -ref REFERENCE, --reference REFERENCE
+                        Please provide a reference genome if you would like for the program to carry out
+                        maximum-likelihood phylogenentic analysis using PAML, and calculate dN/dS values for each 
+                        identified ORF in your query genome.
+  -dnds MAX_DNDS, --max_dnds MAX_DNDS
+                        maximum dN/dS value for gene too be considered 'intact'. Default is 0.3.
+  -M MAX_DS, --max_ds MAX_DS
+                        maximum dS value for dN/dS calculation. Default is 3.0.
+  -m MIN_DS, --min_ds MIN_DS
+                        minimum dS value for dN/dS calculation. Default is 0.001.
+  -di, --diamond        Use DIAMOND BLAST as the search engine. If not specified,
+                         standard BLAST will be used.
+  -sk, --skip           If you provided a reference genome for dN/dS analysis, already ran pseudo-finder, and 
+                        would just like to re-run with one one of the flags for --max_ds, --max_dnds, or --min_ds altered. 
+                        This flag allows you to skip the time-consuming steps (which you don't need if you already 
+                        have the codeml output) and use the previously-created output.
 ```
 
 <b>Output of Annotate:</b>
@@ -203,6 +223,14 @@ Every run will produce the following files:
 | \[prefix]_blastP_output.tsv | Tab-delimited output of BLASTP run on proteome. |
 | \[prefix]_pseudos.gff | Candidate pseudogenes in GFF3 format. |
 | \[prefix]_pseudos.fasta | Candidate pseudogenes in fasta format. |
+
+### dN/dS
+The <b>dnds</b> command will compare a genome against another closely-related genome. After homologous genes are identified, this module runs PAML on aligned genes to generate codon alignments and calculate per-gene dN/dS values. These dN/dS values can be used to infer neutral selection and potential cryptic pseudogenes. This module can be invoked withing the <b>Annotate</b> command by providing a closely-related reference genome using the -ref flag.
+
+Usage:
+```
+pseudofinder.py dnds -a GENOME_PROTS -n GENOME_GENES -ra REFERENCE-PROTS -rn REFERENCE_GENES
+``` 
 
 
 ### Reannotate
@@ -223,7 +251,6 @@ It is run by providing the blast files from the <b>annotate</b> command:
 ```
 pseudofinder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -log LOGFILE
 ```
-
 
 ### Test
 
@@ -286,15 +313,11 @@ There are several additional features we'll try to include in the script in the 
 
 3. Check if the ORFs called as pseudogenes do not represent individual protein domains that can exists and evolve independently of the rest of the original multi-domain protein chain (PFAM?)
 
-4. Include an optional analysis of cryptic pseudogenes based on dN/dS ratios (PAML?...) when there are closely related genomes available.
+4. Fine tune pseudogene finding for mobile elements such as transposases.
 
-5. Include DIAMOND blastX and blastP as much faster alternatives to NCBI BlastX and BlastP.
+5. Visualize results by a scatter plot of all genes/pseudogenes (dN/dS, GC content, expression, length ratio, ...).
 
-6. Fine tune pseudogene finding for mobile elements such as transposases.
-
-7. Visualize results by a scatter plot of all genes/pseudogenes (dN/dS, GC content, expression, length ratio, ...).
-
-8. Sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastP hits by blastX.
+6. Sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastP hits by blastX.
 
 Please suggest any additional features here: [https://github.com/filip-husnik/pseudo-finder/issues].
 
