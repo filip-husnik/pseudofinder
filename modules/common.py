@@ -412,6 +412,15 @@ def get_args(module='None', **kwargs):
         'default': None,
         'type': str
     }
+    skip_makedb = {
+        'short': '-skpdb',
+        'long': '--skip_makedb',
+        'help': 'if a dmnd or blast db already exists for the provided database, '
+                'please include this flag to skip this step',
+        'required': False,
+        'default': False,
+        'action': 'store_true'
+    }
 
     if names_only:
         to_remove = ['module', 'kwargs', 'names_only', 'to_remove']
@@ -423,7 +432,7 @@ def get_args(module='None', **kwargs):
     if module == 'annotate':
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, distance, hitcap,
-                         contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip]
+                         contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip, skip_makedb]
 
     elif module == 'reannotate':
         required_args = [genome, blastp, blastx, logfile, outprefix]

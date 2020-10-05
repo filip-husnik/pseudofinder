@@ -204,21 +204,21 @@ def run_blast(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
 
 
 def manage_diamond_db(args):
-    try:
-        open(args.database + ".dmnd")
-        print("Found DMND database! " + args.database + ".dmnd")
-    except FileNotFoundError:
-        os.system('diamond makedb --in %s --db %s.dmnd' % (args.database, args.database))
+    # try:
+    #     open(args.database + ".dmnd")
+    #     print("Found DMND database! " + args.database + ".dmnd")
+    # except FileNotFoundError:
+    os.system('diamond makedb --in %s --db %s.dmnd > /dev/null 2>&1' % (args.database, args.database))
 
 
 def manage_blast_db(args):
-    try:
-        open(args.database + ".psq")
-        open(args.database + ".phr")
-        open(args.database + ".pin")
-        print("Found BLAST database! " + args.database)
-    except FileNotFoundError:
-        os.system('makeblastdb -dbtype prot -in %s -out %s' % (args.database, args.database))
+    # try:
+    #     open(args.database + ".psq")
+    #     open(args.database + ".phr")
+    #     open(args.database + ".pin")
+    #     print("Found BLAST database! " + args.database)
+    # except FileNotFoundError:
+    os.system('makeblastdb -dbtype prot -in %s -out %s > /dev/null 2>&1' % (args.database, args.database))
 
 
 def run_diamond(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
@@ -1096,14 +1096,17 @@ def main():
                   c=file_dict['ctl'], dndsLimit=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
 
     if args.diamond:  # run diamond
-        manage_diamond_db(args)
+        if not args.skip_makedb:
+            manage_diamond_db(args)
+
         run_diamond(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
                     out_tsv=file_dict['blastp_filename'])
         run_diamond(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
                     out_tsv=file_dict['blastx_filename'])
 
     else:  # run vanilla blast
-        manage_blast_db(args)
+        if not args.skip_makedb:
+            manage_blast_db(args)
         run_blast(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
                   out_tsv=file_dict['blastp_filename'])
         run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
