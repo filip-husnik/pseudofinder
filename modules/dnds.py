@@ -396,7 +396,7 @@ def main():
         else:
             if args.r != "NA":
 
-                os.system("prodigal -i %s -a %s-proteins.faa -d %s-proteins.fna" % (args.r, args.r, args.r))
+                os.system("prodigal -i %s -a %s-proteins.faa -d %s-proteins.fna > /dev/null 2>&1" % (args.r, args.r, args.r))
 
                 refFna = args.r + "-proteins.fna"
                 refFaa = args.r + "-proteins.faa"
@@ -412,10 +412,10 @@ def main():
 
         if args.s == "blast":
             print("Running BLAST")
-            os.system("makeblastdb -dbtype prot -in %s -out %s" % (refFaa, refFaa))
+            os.system("makeblastdb -dbtype prot -in %s -out %s > /dev/null 2>&1" % (refFaa, refFaa))
             # os.system("rm makeblastdb.out")
             os.system("blastp -query %s -db %s "
-                      "-outfmt 6 -out %s/pseudogene.blast -evalue 1E-6 -num_threads %s -max_target_seqs 1" % (
+                      "-outfmt 6 -out %s/pseudogene.blast -evalue 1E-6 -num_threads %s -max_target_seqs 1 > /dev/null 2>&1" % (
                           faa, refFaa, args.out, args.t))
 
             os.system("rm %s.psq" % refFaa)
@@ -425,10 +425,10 @@ def main():
         elif args.s == "diamond":
             print("Running DIAMOND")
             os.system(
-                "diamond makedb --in %s -d %s" % (refFaa, refFaa))
+                "diamond makedb --in %s -d %s > /dev/null 2>&1" % (refFaa, refFaa))
 
             os.system("diamond blastp --db %s.dmnd --query %s --outfmt 6 --out %s/pseudogene.blast "
-                      "--max-target-seqs 1 --evalue 1E-6 --threads %d" % (refFaa, faa, args.out, args.t))
+                      "--max-target-seqs 1 --evalue 1E-6 --threads %d > /dev/null 2>&1" % (refFaa, faa, args.out, args.t))
 
 
         ####################################################################################################################
@@ -471,7 +471,7 @@ def main():
         print("aligning files...")
         DIR = args.out + "/dnds-analysis"
         os.system("for i in %s/*faa; do"
-                  " muscle -in $i -out $i.aligned.fa;"
+                  " muscle -in $i -out $i.aligned.fa > /dev/null 2>&1;"
                   # " rm muscle.out;"
                   " pal2nal.pl $i.aligned.fa $i.fna -output fasta > $i.codonalign.fa;"
                   " done" % DIR)
@@ -520,7 +520,7 @@ def main():
                 perc = (count / total) * 100
                 sys.stdout.write("running codeml: %d%%   \r" % (perc))
                 sys.stdout.flush()
-                os.system("codeml %s/dnds-analysis/%s" % (args.out, file))
+                os.system("codeml %s/dnds-analysis/%s > /dev/null 2>&1" % (args.out, file))
                 print("codeml %s/dnds-analysis/%s" % (args.out, file))
                 print("\n\n")
                 # os.system("rm codeml.out")
@@ -682,7 +682,7 @@ def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str
                 "diamond makedb --in %s -d %s" % (refFaa, refFaa))
 
             os.system("diamond blastp --db %s.dmnd --query %s --outfmt 6 --out %s/pseudogene.blast "
-                      "--max-target-seqs 1 --evalue 1E-6 --threads %s" % (refFaa, faa, out, threads))
+                      "--max-target-seqs 1 --evalue 1E-6 --threads %s > /dev/null 2>&1" % (refFaa, faa, out, threads))
 
         ####################################################################################################################
         faaDict = open(faa)
