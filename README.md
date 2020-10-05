@@ -324,8 +324,8 @@ Please suggest any additional features here: [https://github.com/filip-husnik/ps
 
 ## Citing Pseudofinder
 
-Pseudofinder is developed by Mitch Syberg-Olsen & Filip Husnik at the Keeling Lab, University of British Columbia, Vancouver, Canada.
+Pseudofinder is developed by Mitch Syberg-Olsen & Filip Husnik at the Keeling Lab, University of British Columbia, Vancouver, Canada, in collaboration with Arkadiy Garber and John McCutcheon at Arizona State University, Tempe, Arizona, USA.
 
-This project still a work in progress, so there is no official publication. If it was useful for your work, you can cite it as: M. Syberg-Olsen & F. Husnik 2018: Pseudofinder, GitHub repository: https://github.com/filip-husnik/pseudo-finder/.
+This project still a work in progress, so there is no official publication. If it was useful for your work, you can cite it as: M. Syberg-Olsen, A. Garber, J. McCutcheon, & F. Husnik 2018: Pseudofinder, GitHub repository: https://github.com/filip-husnik/pseudo-finder/.
 
 Please also cite various dependencies used by Pseudofinder.
