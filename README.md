@@ -162,8 +162,8 @@ Every run will produce the following files:
 
 | File | Description |
 | --- | --- |
-| \[prefix]_functional.gff | Functional genes in GFF3 format. |
-| \[prefix]_functional.faa | Functional genes in fasta format. |
+| \[prefix]_intact.gff | Intact genes in GFF3 format. |
+| \[prefix]_intact.faa | Intact genes in fasta format. |
 | \[prefix]_intergenic.fasta | Intergenic regions in fasta format. |
 | \[prefix]_blastX_output.tsv | Tab-delimited output of BLASTX run on intergenic regions. |
 | \[prefix]_log.txt | Summary of all inputs, outputs, parameters and results. |
