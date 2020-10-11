@@ -156,57 +156,6 @@ Providing input files:
 python3 pseudofinder.py annotate --genome GENOME.GBF --outprefix PREFIX --database /PATH/TO/NR/nr --threads 16 
 ```
 
-All command line arguments:
-```
-Required arguments:
-  -g GENOME, --genome GENOME
-                        Please provide your genome file in the genbank format.
-  -db DATABASE, --database DATABASE
-                        Please provide name (if $BLASTB is set on your system) or absolute path of your blast database.
-  -op OUTPREFIX, --outprefix OUTPREFIX
-                        Specify an output prefix.
-
-Adjustable parameters:
-  -t THREADS, --threads THREADS
-                        Please provide total number of threads to use for blast, default is 4.
-  -i INTERGENIC_LENGTH, --intergenic_length INTERGENIC_LENGTH
-                        Please provide length of intergenic regions to check, default is 30 bp.
-  -l LENGTH_PSEUDO, --length_pseudo LENGTH_PSEUDO
-                        Please provide percentage of length for pseudo candidates, default is 0.60 (60%). 
-                        Example: "-l 0.50" will consider genes that are less than 50% of the average length of similar genes.
-  -s SHARED_HITS, --shared_hits SHARED_HITS
-                        Percentage of blast hits that must be shared in order to join two nearby regions, default is 0.30 (30%). 
-                        Example: "-s 0.50" will merge nearby regions if they shared 50% of their blast hits.
-  -e EVALUE, --evalue EVALUE
-                        Please provide e-value for blast searches. Default is 1e-4.
-  -d DISTANCE, --distance DISTANCE
-                        Maximum distance between two regions to consider joining them. Default is 1000.
-  -hc HITCAP, --hitcap HITCAP
-                        Maximum number of allowed hits for BLAST. Default is 15.
-  -ce, --contig_ends    Forces the program to include intergenic regions at contig ends. If not specified,
-                         the program will ignore any sequence before the first ORF and after the last ORF on a contig.
-  -it INTERGENIC_THRESHOLD, --intergenic_threshold INTERGENIC_THRESHOLD
-                        Number of BlastX hits needed to annotate an intergenic region as a pseudogene.
-                        Calculated as a percentage of maximum number of allowed hits (--hitcap).
-                        Default is 0.3.
-  -ref REFERENCE, --reference REFERENCE
-                        Please provide a reference genome if you would like for the program to carry out
-                        maximum-likelihood phylogenentic analysis using PAML, and calculate dN/dS values for each 
-                        identified ORF in your query genome.
-  -dnds MAX_DNDS, --max_dnds MAX_DNDS
-                        maximum dN/dS value for gene too be considered 'intact'. Default is 0.3.
-  -M MAX_DS, --max_ds MAX_DS
-                        maximum dS value for dN/dS calculation. Default is 3.0.
-  -m MIN_DS, --min_ds MIN_DS
-                        minimum dS value for dN/dS calculation. Default is 0.001.
-  -di, --diamond        Use DIAMOND BLAST as the search engine. If not specified,
-                         standard BLAST will be used.
-  -sk, --skip           If you provided a reference genome for dN/dS analysis, already ran pseudo-finder, and 
-                        would just like to re-run with one one of the flags for --max_ds, --max_dnds, or --min_ds altered. 
-                        This flag allows you to skip the time-consuming steps (which you don't need if you already 
-                        have the codeml output) and use the previously-created output.
-```
-
 <b>Output of Annotate:</b>
 
 Every run will produce the following files:
