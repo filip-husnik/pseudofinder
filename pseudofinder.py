@@ -14,7 +14,7 @@ __version__ = "0.11"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
-errorMessage = "Options: pseudofinder.py [ annotate | reannotate | visualize | dnds | test | help ]\n"
+errorMessage = "Options: " + common.bold("pseudofinder.py [ annotate | reannotate | visualize | dnds | test | help ]\n")
 
 try:
     argv[1]

@@ -23,7 +23,7 @@ def reannotate(args):
     all_regions_by_contig = annotate.sort_contigs(loc=annotate.split_regions_into_contigs(lori=all_regions))
 
     pseudogenes = []
-    functional_genes = []
+    intact_genes = []
 
     for contig_index, contig in enumerate(all_regions_by_contig):
         common.print_with_time('Checking contig %s / %s for pseudogenes.' % (contig_index + 1, len(all_regions_by_contig)))
@@ -31,9 +31,9 @@ def reannotate(args):
         pseudogenes.extend(pseudos_on_contig.regions)  # List of regions
 
         try:
-            functional_genes_on_contig = annotate.get_functional_genes(contig=orfs_by_contig[contig_index],
+            intact_genes_on_contig = annotate.get_intact_genes(contig=orfs_by_contig[contig_index],
                                                               pseudos=pseudos_on_contig.regions)
-            functional_genes.extend(functional_genes_on_contig.regions)
+            intact_genes.extend(intact_genes_on_contig.regions)
         except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
             continue
 
@@ -63,17 +63,17 @@ def reannotate(args):
 
     # Write all output files
     annotate.write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
-    annotate.write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
+    annotate.write_genes_to_gff(args, lopg=intact_genes, gff=file_dict['intact_gff'])
     annotate.write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
     # TODO: Activate this feature once you finish writing it
-    # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
-    #                           contigs=functional_genes)
+    # write_intact_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['intact_faa'],
+    #                           contigs=intact_genes)
     genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
 
     if args.dnds_out:
-        annotate.integrate_dnds(func_gff=file_dict['functional_gff'], pseudo_gff=file_dict['pseudos_gff'],
-                       dnds_out=file_dict['dnds_out'] + "/dnds-summary.csv", func_faa=file_dict['functional_faa'],
-                       func_ffn=file_dict['functional_faa'], cds=file_dict['cds_filename'],
+        annotate.integrate_dnds(func_gff=file_dict['intact_gff'], pseudo_gff=file_dict['pseudos_gff'],
+                       dnds_out=file_dict['dnds_out'] + "/dnds-summary.csv", func_faa=file_dict['intact_faa'],
+                       func_ffn=file_dict['intact_faa'], cds=file_dict['cds_filename'],
                        proteome=file_dict['proteome_filename'], pseudo_fasta=file_dict['pseudos_fasta'],
                                 max_ds=args.max_ds, min_ds=args.min_ds, max_dnds=args.max_dnds)
 

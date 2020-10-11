@@ -688,31 +688,31 @@ def write_genes_to_gff(args, lopg: List[RegionInfo], gff: str) -> None:
             gff_output_handle.write('\t'.join(map(str, entry_elements))+'\n')
 
 
-def get_functional_genes(contig: Contig, pseudos: List[RegionInfo]) -> Contig:
+def get_intact_genes(contig: Contig, pseudos: List[RegionInfo]) -> Contig:
     """"Inspects a contig for genes that have not been annotated as pseudogenes, and returns them."""
 
     # All regions on a contig, sorted by start position
     region_list = sorted(contig.regions, key=lambda r: r.start)
     # Begin with all regions on the contig
-    functional_list = sorted(contig.regions, key=lambda r: r.start)
+    intact_list = sorted(contig.regions, key=lambda r: r.start)
 
     # Iterate through regions on the contig
     for region in region_list:
         for pseudo in pseudos:
             # This will be true if the region is nested within a pseudogene
             if region.start >= pseudo.start and region.end <= pseudo.end:
-                functional_list.remove(region)  # Remove that region from the final list
+                intact_list.remove(region)  # Remove that region from the final list
                 break  # this will speed up the function by ending the 'for pseudo' loop if a match is successful
             else:
                 pass
 
-    functional_genes = Contig(regions=functional_list, name=contig.name, number=contig.number)
+    intact_genes = Contig(regions=intact_list, name=contig.name, number=contig.number)
 
-    return functional_genes
+    return intact_genes
 
 
 #TODO: FINISH THIS BOY
-def write_functional_to_fasta(infile: str, outfile: str, contigs: List[Contig]) -> None:
+def write_intact_to_fasta(infile: str, outfile: str, contigs: List[Contig]) -> None:
     """Parses a multifasta file for regions and returns them in a list."""
     #
     # parsed = SeqIO.parse(infile, 'fasta')
@@ -773,9 +773,9 @@ def write_summary_file(args, file_dict: dict) -> None:
             "BlastX:\t" + file_dict['blastx_filename'] + "\n"
             "Pseudogenes (GFF):\t" + file_dict['pseudos_gff'] + "\n"
             "Pseudogenes (Fasta):\t" + file_dict['pseudos_fasta'] + "\n"
-            "Functional genes (GFF):\t" + file_dict['functional_gff'] + "\n"
-            "Functional genes (protein seq):\t" + file_dict['functional_faa'] + "\n"
-            "Functional genes (nucleotide seq):\t" + file_dict['functional_ffn'] + "\n"
+            "Intact genes (GFF):\t" + file_dict['intact_gff'] + "\n"
+            "Intact genes (protein seq):\t" + file_dict['intact_faa'] + "\n"
+            "Intact genes (nucleotide seq):\t" + file_dict['intact_ffn'] + "\n"
             "Chromosome map:\t" + file_dict['chromosome_map'] + "\n\n"
 
             "#######  Settings  #######\n"
@@ -800,7 +800,7 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Pseudogenes (fragmented):\t" + printable_stats['PseudogenesFragmented'] + "\n"
             "Pseudogenes (no predicted ORF):\t" + printable_stats['PseudogenesIntergenic'] + "\n"
             "Pseudogenes (high dN/dS):\t" + printable_stats["dnds"] + "\n"
-            "Functional genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort'] - StatisticsDict["dnds"]) + "\n\n"
+            "Intact genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort'] - StatisticsDict["dnds"]) + "\n\n"
 
             "####### Output Key #######\n"
             "Initial ORFs joined:\t\tThe number of input open reading frames "
@@ -808,7 +808,7 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Pseudogenes (too short):\tORFs smaller than the \"shared_hits\" cutoff.\n"
             "Pseudogenes (fragmented):\tPseudogenes composed of merging 2 or more input ORFs.\n"
             "Pseudogenes (high dN/dS):\tIncipient pseudogenes that look intact, but have an elevated dN/dS value compared to a reference gene.\n"
-            "Functional genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)] - [Pseudogenes (high dN/dS)]\n"
+            "Intact genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)] - [Pseudogenes (high dN/dS)]\n"
         )
 
 
@@ -892,7 +892,7 @@ def integrate_dnds(func_gff: str, pseudo_gff: str, dnds_out: str, func_faa: str,
                    cds: str, pseudo_fasta: str, max_ds: float, min_ds: float, max_dnds: float):
     # args = common.get_args('dnds')
     funcDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    func = open(func_gff)  # reading original functional gff outfile to dictionary
+    func = open(func_gff)  # reading original Intact gff outfile to dictionary
     for i in func:
         if not re.match(r'#', i):
             ls = i.rstrip().split("\t")
@@ -972,7 +972,7 @@ def integrate_dnds(func_gff: str, pseudo_gff: str, dnds_out: str, func_faa: str,
             6] + "\t" + ls[7] + "\t" + newCommentsLine
         newPseudosDict2[i] = newgffLine
 
-    # re-writing functional GFF output file
+    # re-writing Intact GFF output file
     func = open(func_gff)
     newFunctionalOut = func_gff.split(".")[0] + "-new.gff"
     out = open(newFunctionalOut, "w")
@@ -1123,7 +1123,7 @@ def main():
     all_regions_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=all_regions))
 
     pseudogenes = []
-    functional_genes = []
+    intact_genes = []
 
     for contig_index, contig in enumerate(all_regions_by_contig):
         print('\033[1m' + '%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
@@ -1135,9 +1135,9 @@ def main():
         pseudogenes.extend(pseudos_on_contig.regions)  # List of regions
 
         try:
-            functional_genes_on_contig = get_functional_genes(contig=orfs_by_contig[contig_index],
+            intact_genes_on_contig = get_intact_genes(contig=orfs_by_contig[contig_index],
                                                               pseudos=pseudos_on_contig.regions)
-            functional_genes.extend(functional_genes_on_contig.regions)
+            intact_genes.extend(intact_genes_on_contig.regions)
         except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
             continue
 
@@ -1145,19 +1145,19 @@ def main():
 
         # Write all output files
         write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
-        write_genes_to_gff(args, lopg=functional_genes, gff=file_dict['functional_gff'])
+        write_genes_to_gff(args, lopg=intact_genes, gff=file_dict['intact_gff'])
         write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
         # TODO: Activate this feature once you finish writing it
-        # write_functional_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['functional_faa'],
-        #                           contigs=functional_genes)
+        # write_intact_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['intact_faa'],
+        #                           contigs=intact_genes)
         genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
 
 
     # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
     if args.reference:
-        newPseudos = integrate_dnds(func_gff=file_dict['functional_gff'], pseudo_gff=file_dict['pseudos_gff'],
-                       dnds_out=file_dict['dnds_out'] + "/dnds-summary.csv", func_faa=file_dict['functional_faa'],
-                       func_ffn=file_dict['functional_faa'], cds=file_dict['cds_filename'],
+        newPseudos = integrate_dnds(func_gff=file_dict['intact_gff'], pseudo_gff=file_dict['pseudos_gff'],
+                       dnds_out=file_dict['dnds_out'] + "/dnds-summary.csv", func_faa=file_dict['intact_faa'],
+                       func_ffn=file_dict['intact_faa'], cds=file_dict['cds_filename'],
                        proteome=file_dict['proteome_filename'], pseudo_fasta=file_dict['pseudos_fasta'],
                        max_ds=args.max_ds, min_ds=args.min_ds, max_dnds=args.max_dnds)
 
