@@ -214,6 +214,7 @@ python3 pseudofinder.py test --database /PATH/TO/NR/nr
 The workflow will begin immediately and write the results to a timestamped folder found in ```/pseudo-finder/test/```.
 
 
+
 ## Binder for BVCN Pseudo-Finder lesson
 
 Initially forked from [here](https://github.com/binder-examples/conda). Thank you to the awesome [binder](https://mybinder.org/) team!
@@ -238,6 +239,7 @@ Run the Annotate module
 Run the Annotate module, along with the DNDS module
 
     pseudofinder.py annotate -g test_data/Mycobacterium_leprae_TN.gbff -db test_data/combined_mycobacteria.faa -op testAnnotate --diamond -ref test_data/Mycobacterium_tuberculosis_H37Rv.gbff
+
 
 
 ## Versions and changes
