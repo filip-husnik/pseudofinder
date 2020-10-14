@@ -215,7 +215,7 @@ The workflow will begin immediately and write the results to a timestamped folde
 
 
 
-## Binder for BVCN Pseudo-Finder lesson
+## Tutorial (Binder)
 
 Initially forked from [here](https://github.com/binder-examples/conda). Thank you to the awesome [binder](https://mybinder.org/) team!
 
