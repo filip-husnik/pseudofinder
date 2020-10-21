@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-from . import reannotate, common
+from . import reannotate, common, annotate
 
 import sys
 import os
 import re
 import shutil
 from contextlib import contextmanager
+from copy import deepcopy, copy
 
 import pandas as pd
 import numpy
@@ -33,20 +34,25 @@ def settings_loop(args):
 
     # Preparing arguments for reannotate.py
     command_line_args = args
-    logged_args = common.parse_log(args.logfile)
+    logged_args = common.parse_log_args(args.logfile)
     args = common.reconcile_args(command_line_args, logged_args)
     basename = args.outprefix
+    log_file_dict = common.file_dict(args, outprefix=args.log_outprefix)
 
-    for length_pseudo in numpy.arange(0.0, 1.01, interval):
+    genome = reannotate.prepare_data_for_analysis(args, None, log_file_dict)
+
+    for length_pseudo in numpy.arange(0.01, 1.01, interval):
         print("%s\tCollecting data: %d%% completed" % (common.current_time(), round(length_pseudo*100, 2)), end='\r')
 
-        for shared_hits in numpy.arange(0.0, 1.01, interval):
+        for shared_hits in numpy.arange(0.01, 1.01, interval):
             args.length_pseudo = length_pseudo
             args.shared_hits = shared_hits
             args.outprefix = "%s/L%s_S%s" % (basename, length_pseudo, shared_hits)
-
+            file_dict = common.file_dict(args)
+            genome_copy = deepcopy(genome)
             with common.suppress_output_to_console():  # Prevents writing to stdout
-                reannotate.reannotate(args)
+                reannotate.reannotate(args, genome_copy, file_dict, visualize=True)
+                annotate.reset_statistics_dict()
 
     args.outprefix = basename  # Have to put this back to its original value
     print('')  # Necessary because the previous print was rolling back on itself
@@ -85,23 +91,25 @@ def make_plot(args):
                            names=['length_pseudo', 'shared_hits', 'vals'], header=0)
     matrix = raw_data.pivot(index='length_pseudo', columns='shared_hits', values='vals')
 
-    data = [Surface(x=matrix.columns,
-                    y=matrix.index,
-                    z=matrix.values)]
+    with common.suppress_output_to_console():
+        data = [Surface(x=matrix.columns,
+                        y=matrix.index,
+                        z=matrix.values)]
 
-    layout = Layout(
-        scene=Scene(
-            xaxis=dict(title='shared_hits',
-                       autorange=True),
-            yaxis=dict(title='length_pseudo',
-                       autorange=True),
-            zaxis=dict(title=args.title,
-                       autorange=True)
+        layout = Layout(
+            scene=Scene(
+                xaxis=dict(title='shared_hits',
+                           autorange=True),
+                yaxis=dict(title='length_pseudo',
+                           autorange=True),
+                zaxis=dict(title=args.title,
+                           autorange=True)
+            )
         )
-    )
 
-    fig = Figure(data=data, layout=layout)
-    plot(fig, filename=args.outprefix+".html", auto_open=False)
+        fig = Figure(data=data, layout=layout)
+        plot(fig, filename=args.outprefix+".html", auto_open=False)
+
     common.print_with_time("Figure plotted: %s.html" % args.outprefix)
 
 

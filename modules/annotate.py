@@ -4,13 +4,15 @@ from . import common
 import re
 import sys
 import os
+from copy import deepcopy, copy
 from enum import Enum
-from typing import NamedTuple, List
+from typing import NamedTuple, List, OrderedDict
 from time import localtime, strftime
 import statistics
 
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
 from Bio.SeqRecord import SeqRecord
+from Bio.SeqFeature import SeqFeature, FeatureLocation
 from Bio import SeqIO
 from collections import defaultdict
 
@@ -28,10 +30,11 @@ except ImportError:
 
 # Data definitions
 # An individual blast hit to a region.
-BlastHit = NamedTuple('BlastHit', [('query', str),
+BlastHit = NamedTuple('BlastHit', [('blast_type', str),
+                                   ('query', str),
                                    ('subject_accession', str),
                                    ('percent_ident', float),
-                                   ('nucleotide_length', int),
+                                   ('length', int), #reported in aa for blastp and nt for blastx. see blasthit_length()
                                    ('mismatch', int),
                                    ('gapopen', int),
                                    ('q_start', int),
@@ -42,12 +45,24 @@ BlastHit = NamedTuple('BlastHit', [('query', str),
                                    ('bitscore', float),
                                    ('stitle', str)])
 
+dnds_data = NamedTuple('dnds_data', [('locus_tag', str),
+                           ('reference_tag', str),
+                           ('dn', float),
+                           ('ds', float),
+                           ('dnds', float)])
+
 # All possible types of regions
 RegionType = Enum('RegionType', ['ORF',
                                  'intergenic',
                                  'shortpseudo',
                                  'fragmentedpseudo',
                                  'intergenicpseudo'])
+
+PseudoType = Enum('PseudoType', ['short',
+                                 'fragmented',
+                                 'intergenic',
+                                 'consumed',
+                                 'dnds'])
 
 RegionInfo = NamedTuple('RegionInfo', [('contig', str),
                                        ('query', str),
@@ -78,7 +93,8 @@ StatisticsDict = {
                     'PseudogenesFragmented': 0,
                     'PseudogenesIntergenic': 0,
                     'OutputFiles': [],
-                    'dnds': 0
+                    'dnds': 0,
+                    'IntactORFs': 0
                   }
 
 
@@ -86,6 +102,189 @@ StatisticsDict = {
 def current_time() -> str:
     """Returns the current time when this function was executed."""
     return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
+
+
+def add_intergenic_to_seqrecord(args, seqrecord):
+    """
+    Parses a seqrecord for intergenic space and adds each intergenic region as a feature on the record.
+    """
+    gene_list = []  # List of coding regions extracted from genbank file.
+
+    for feature in seqrecord.features:
+        if feature.type == 'gene':
+            start_position = feature.location.start
+            end_position = feature.location.end
+            gene_list.append((start_position, end_position))
+
+    if args.contig_ends is True:    # Forces the program to consider space between the start and the first gene and same for the end of the contig
+        gene_list.insert(index=0, object=(0,0))
+        contig_end = len(seqrecord.seq)
+        gene_list.append((contig_end, contig_end))
+
+    for i, gene in enumerate(gene_list):
+        last_end = gene_list[i - 1][1]
+        this_start = gene_list[i][0]
+
+        if this_start - last_end >= args.intergenic_length:
+            intergenic_region = SeqFeature(location=FeatureLocation(last_end, this_start),
+                                           type='intergenic',
+                                           strand=0)
+
+            seqrecord.features.append(intergenic_region)
+
+
+def add_qualifiers_to_features(args, seqrecord):
+    """
+    Adds additional qualifiers to each feature contained in the seqrecord, necessary for further analysis in the pipeline.
+    """
+    intergenic_counter = 1
+    for seq_feature in seqrecord.features:
+        if seq_feature.type != 'source':
+            seq_feature.qualifiers['nucleotide_seq'] = seq_feature.extract(seqrecord.seq)
+            seq_feature.qualifiers['contig_id'] = seqrecord.name
+            seq_feature.qualifiers['hits'] = []
+            seq_feature.qualifiers['pseudo_type'] = None
+            seq_feature.qualifiers['note'] = ''
+
+        if seq_feature.type == 'intergenic':
+            seq_feature.qualifiers['locus_tag'] = ['%s_ign_%05d' % (seqrecord.name, intergenic_counter)]
+            intergenic_counter += 1
+
+        if seq_feature.type == 'CDS':
+            seq_feature.qualifiers['dnds'] = []
+
+
+
+def gbk_to_seqrecord_list(args, gbk: str):
+    """
+    Uses biopython SeqIO to convert a genbank file into a list of SeqRecord, one for each contig then modified.
+    - intergenic space is added as features
+    - additional qualifiers added to features
+    """
+    seqrecord_list = []
+    with open(gbk, "r") as input_handle:
+        for record in SeqIO.parse(input_handle, "genbank"):
+            seqrecord_list.append(record)
+
+    for contig in seqrecord_list:
+        add_intergenic_to_seqrecord(args, contig)
+        add_qualifiers_to_features(args, contig)
+        contig.features = sorted(contig.features, key=lambda x: x.location.start)
+
+    return seqrecord_list
+
+
+def parse_features_from_record(record: SeqRecord, feature_type: str) -> list:
+    """
+    Returns all features of a particular type from a record as a list of seq_features.
+    """
+    feature_list = []
+    for seq_feature in record.features:
+        if seq_feature.type == feature_type:
+            feature_list.append(seq_feature)
+    return feature_list
+
+
+def extract_features_from_genome(args, genome, feature_type: str) -> list:
+    """
+    Returns all features from genome as a list.
+    """
+    feature_list = []
+    for record in genome:
+        feature_list.extend(parse_features_from_record(record, feature_type))
+    return feature_list
+
+
+def write_fasta(seqs: list, outfile: str, seq_type='nt') -> None:
+    """Takes a list of sequences in seq_feature format and writes them to fasta file"""
+
+    with open(outfile, "w") as output_handle:
+        for seq in seqs:
+            if seq_type == 'nt':
+                seq_string = seq.qualifiers['nucleotide_seq']
+            elif seq_type == 'aa':
+                seq_string = seq.qualifiers['translation'][0]
+            else:
+                print("Invalid seq_type. Please check your write_fasta() function call.")
+                exit()
+
+            output_handle.write(">%s %s %s\n%s\n" % (seq.qualifiers['locus_tag'][0],
+                                                     seq.qualifiers['contig_id'],
+                                                     seq.location,
+                                                     seq_string))
+
+
+def gff_entry(seq_id, source, feature_type, feature_start, feature_end, score, strand, phase, attributes):
+    return "\t".join([seq_id, source, feature_type, feature_start, feature_end, score, strand, phase, attributes])
+
+
+def format_strand(strand, format='gff'):
+    """Formats strand information namely for GFF3 compliance."""
+    if format == 'gff':
+        if strand == 1:
+            return "+"
+        elif strand == -1:
+            return "-"
+        elif strand == 0 or strand is None:
+            return "."
+
+    elif format == 'biopython':
+        if strand == '+':
+            return 1
+        elif strand == "-":
+            return -1
+        elif strand == ".":
+            return 0
+
+    else:
+        raise RuntimeError("incorrect format for format_strand().")
+
+
+def attribute_string(feature):
+    """Generates a string to fill attribute section of a GFF file."""
+    list = []
+    if feature.qualifiers['note']:
+        list.append("note=" + feature.qualifiers['note'])
+    list.append("locus_tag=" + feature.qualifiers['locus_tag'][0])
+    return ";".join(list)
+
+
+def write_gff(args, genome, outfile: str, seq_type):
+    """Writes a GFF3 format compliant GFF file with the desired sequence type."""
+
+    with open(outfile, 'w') as outfile:
+        # Header
+        outfile.write("##gff-version 3\n#!annotation-date\t%s\n" % (common.current_time()))
+        for seqrecord in genome:
+            entry = ["##sequence-region",
+                     "gnl|Prokka|%s" % seqrecord.name,
+                     str(1),
+                     str(len(seqrecord))]
+            outfile.write(" ".join(entry) + '\n')
+
+        seqs = extract_features_from_genome(args, genome, seq_type)
+        for seq in seqs:
+            seq_info = {'seq_id': "gnl|Prokka|%s" % seq.qualifiers['contig_id'],
+                        'source': "pseudofinder",
+                        'feature_type': seq_type,
+                        'feature_start': str(seq.location.start),
+                        'feature_end': str(seq.location.end),
+                        'score': '.',
+                        'strand': format_strand(seq.strand),
+                        'phase': '.',   # TODO: Understand what phase is and how to properly declare this
+                        'attributes': attribute_string(seq)}
+
+            outfile.write(gff_entry(**seq_info) + "\n")
+
+
+
+def write_gbk(args, genome, outfile):
+    """Writes a genbank file, excluding any analysis qualifiers present in the data structure."""
+
+    cleared_genome = clear_analysis_qualifiers(args, genome)
+
+    with open(outfile, "w") as output:
+        SeqIO.write(cleared_genome, output, "genbank")
 
 
 def get_CDSs(gbk: str, out_fasta: str) -> None:
@@ -185,8 +384,9 @@ def get_intergenic_regions(args, out_fasta: str) -> None:
 def run_blast(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
     """"Run BLASTP or BLASTX with fasta file against DB of your choice."""
 
-    print('%s\t%s executed with %s threads.' % (current_time(), search_type, args.threads)),
-    sys.stdout.flush()
+    common.print_with_time("%s executed with %s threads." % (search_type, args.threads))
+    # print('%s\t%s executed with %s threads.' % (current_time(), search_type, args.threads)),
+    # sys.stdout.flush()
 
     blast_dict = {'query': in_fasta,
                   'num_threads': args.threads,
@@ -223,6 +423,9 @@ def manage_blast_db(args):
 
 def run_diamond(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
     if search_type == 'blastp' or search_type == 'blastx':
+
+        common.print_with_time("Diamond %s executed with %s threads." % (search_type, args.threads))
+
         diamond_cline = ('diamond %s --quiet --query %s --out %s --threads %s --max-target-seqs %s --evalue %s --db %s '
                          '--outfmt 6 qseqid sseqid pident slen mismatch gapopen qstart qend sstart send evalue bitscore stitle --max-hsps 1'
                          % (search_type, in_fasta, out_tsv, args.threads, args.hitcap, args.evalue, args.database))
@@ -231,6 +434,321 @@ def run_diamond(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
     else:
         print("function run_diamond() can only accept \'blastp\' or \'blastx\' as search_type. Please use one of these options.")
         exit()
+
+
+def convert_tsv_to_blasthits(blast_tsv, blast_type):
+    """
+    Parses a TSV formatted blast file and returns each hit as a BlastHit object in a list.
+    """
+    hit_list = []
+    with open(blast_tsv, 'r') as tsv:
+        for line in tsv.readlines():
+            fields = [blast_type] + [common.literal_eval(x) for x in re.split("\t", line.rstrip("\n"))]
+            hit_list.append(BlastHit(*fields))
+
+    return hit_list
+
+
+def blasthit_length(hit, seq_type='nt', query=False):
+    """Returns the length of the given blasthit in the preferred format."""
+    if query:
+        if hit.blast_type == 'blastp':
+            aa_length = (hit.q_end - hit.q_start)
+            nt_length = aa_length*3
+
+        elif hit.blast_type == 'blastx':
+            nt_length = (hit.q_end - hit.q_start)
+            aa_length = nt_length/3
+
+        else:
+            raise RuntimeError("unknown blasthit type.")
+
+    else:
+        if hit.blast_type == 'blastp':
+            aa_length = hit.length
+            nt_length = aa_length*3
+
+        if hit.blast_type == 'blastx':
+            nt_length = hit.length
+            aa_length = nt_length/3
+
+    if seq_type == 'nt':
+        return nt_length
+    elif seq_type == 'aa':
+        return aa_length
+    else:
+        raise RuntimeError("unknown seq_type.")
+
+
+def features_with_locus_tags(genome):
+    """
+    Returns only features that have been given a locus tag.
+    """
+    relevant_features = []
+    for seqrecord in genome:
+        relevant_features.extend([feature for feature in seqrecord.features if feature.qualifiers.get('locus_tag')])
+    return relevant_features
+
+
+def add_blasthits_to_genome(args, genome, blast_file, blast_type):
+    """
+    Reads a TSV formatted blast output and adds all hits to record.features.qualifiers['hits'], where:
+    record = contig
+    feature = CDS or intergenic region
+    """
+
+    hit_list = convert_tsv_to_blasthits(blast_file, blast_type)
+    relevant_features = features_with_locus_tags(genome)
+    feature_dict = {feature.qualifiers['locus_tag'][0]: feature for feature in relevant_features}
+
+    for hit in hit_list:
+        feature_dict[hit.query].qualifiers['hits'].append(hit)
+
+
+def convert_csv_to_dnds(dnds_file):
+
+    dnds_list = []
+    with open(dnds_file, 'r') as csv:
+        next(csv)
+        for line in csv.readlines():
+            fields = [common.literal_eval(x) for x in re.split(",", line.rstrip("\n"))]
+            dnds_list.append(dnds_data(*fields[:-1]))
+    return dnds_list
+
+
+def add_dnds_info_to_genome(args, genome, dnds_folder):
+    """Adds dN/dS info from analysis to genome"""
+
+    dnds_list = convert_csv_to_dnds(dnds_folder+"/dnds-summary.csv")
+    relevant_features = extract_features_from_genome(args, genome, 'CDS')
+    feature_dict = {feature.qualifiers['locus_tag'][0]: feature for feature in relevant_features}
+    for item in dnds_list:
+        feature_dict[item.locus_tag].qualifiers['dnds'].append(item)
+
+
+def update_intergenic_locations(args, genome):
+    """Uses blasthit information to update where relevant intergenic space is on the genome."""
+
+    intergenic = extract_features_from_genome(args, genome, 'intergenic')
+
+    for feature in intergenic:
+        hits = feature.qualifiers['hits']
+        if len(hits) > 0:
+            all_starts = [hit.q_start-1 for hit in hits]
+            all_ends = [hit.q_end-1 for hit in hits]
+            all_vals = all_starts + all_ends
+            absolute_start = feature.location.start
+            new_start = min(all_vals)
+            new_end = max(all_vals)
+            feature.location = FeatureLocation(absolute_start + new_start, absolute_start + new_end)
+            feature.qualifiers['nucleotide_seq'] = feature.qualifiers['nucleotide_seq'][new_start:new_end]
+
+
+def feature_length_relative_to_hits(feature) -> float:
+    """
+    Returns a float that is equal to the ratio of (feature length / average length of hits)
+    """
+    db_lengths = [blasthit_length(hit, 'nt') for hit in feature.qualifiers['hits']]
+    average_db_len = sum(db_lengths) / len(db_lengths)
+    return len(feature) / average_db_len
+
+
+def find_individual_pseudos(args, seqrecord):
+
+    if args.reference:
+        find_dnds_pseudos(args, seqrecord)
+
+    for feature in seqrecord.features:
+        if feature.type == 'CDS' and len(feature.qualifiers['dnds']) > 0:
+            dnds_val = feature.qualifiers['dnds'][0].dnds
+
+            if dnds_val >= args.max_dnds:
+                feature.type = 'pseudogene'
+                feature.qualifiers['pseudo_type'] = PseudoType.dnds
+                feature.qualifiers['note'] = 'Pseudogene candidate. Reason: Elevated dN/dS (%s).' % round(dnds_val, 3)
+
+        if feature.type == 'CDS' and len(feature.qualifiers['hits']) > 0:
+            if feature_length_relative_to_hits(feature) <= args.length_pseudo:
+                feature.type = 'pseudogene'
+                feature.qualifiers['pseudo_type'] = PseudoType.short
+                feature.qualifiers['note'] = 'Pseudogene candidate. Reason: ORF is %s%% of the average length of ' \
+                                             'hits to this gene.' % (round(feature_length_relative_to_hits(feature)*100, 1))
+
+        if feature.type == 'intergenic':
+            if len(feature.qualifiers['hits']) / args.hitcap >= args.intergenic_threshold:
+                feature.type = 'pseudogene'
+                feature.qualifiers['pseudo_type'] = PseudoType.intergenic
+                feature.qualifiers['note'] = 'Pseudogene candidate. Reason: Intergenic region with %s blast hits.' % len(feature.qualifiers['hits'])
+        else:
+            pass
+
+
+def find_dnds_pseudos(args, seqrecord):
+    return False
+
+
+def matching_hits(f1, f2):
+    """Returns percentage of hits shared by two regions."""
+    f1_hits = f1.qualifiers['hits']
+    f2_hits = f2.qualifiers['hits']
+
+    if len(f1_hits) == 0 or len(f2_hits) == 0:
+        return False
+
+    else:
+        f1_set = set([hit.subject_accession for hit in f1_hits])
+        f2_set = set([hit.subject_accession for hit in f2_hits])
+
+        num_matching_hits = len(f1_set & f2_set)
+        least_hits_in_comparison = min(len(x) for x in (f1_hits, f2_hits))
+
+    return num_matching_hits / least_hits_in_comparison
+
+
+def matching_strands(f1, f2):
+    """
+    Returns whether two features are on the same strand. Always return true if one feature is intergenic
+    """
+    if f1.type == 'intergenic' or f2.type == 'intergenic':
+        return True
+    else:
+        return f1.strand == f2.strand
+
+
+def adjacent_fragments_match(args, f1, f2):
+    """Checks if features are fragments of a single pseudogene"""
+
+    if (
+        f1.location.end - f2.location.start < args.distance and
+        matching_hits(f1, f2) >= args.shared_hits and
+        matching_strands(f1, f2)
+    ):
+        return True
+
+    else:
+        return False
+
+
+def create_fragmented_pseudo(args, fragments, seqrecord):
+    """Takes a list of features are concatenates them into a single pseudogene feature"""
+
+    start = min([feature.location.start for feature in fragments])
+    end = max([feature.location.end for feature in fragments])
+
+    strands = [feature.strand for feature in fragments if (feature.strand is not None and feature.strand != 0)]
+    if len(strands) == 0:   # Occurs if two intergenic regions are being merged
+        strand = 0
+    elif all([strand == strands[0] for strand in strands]):
+        strand = strands[0]
+    else:
+        raise RuntimeError("Trying to combine genes on opposite strands.")
+
+    hits = []
+    for feature in fragments:
+        hits.extend(feature.qualifiers['hits'])
+
+    parents = []
+    for fragment in fragments:
+        frag_parents = fragment.qualifiers.get('parents')
+        if frag_parents is not None:
+            parents.extend(frag_parents)
+        parents.extend([feature.qualifiers['locus_tag'][0] for feature in fragments])
+        parents = list(set(parents))
+
+
+    pseudo = SeqFeature(location=FeatureLocation(start, end),
+                        type='pseudogene',
+                        strand=strand)
+
+    pseudo.qualifiers['nucleotide_seq'] = pseudo.extract(seqrecord.seq)
+    pseudo.qualifiers['contig_id'] = seqrecord.name
+    pseudo.qualifiers['hits'] = hits
+    pseudo.qualifiers['locus_tag'] = ''
+    pseudo.qualifiers['parents'] = parents
+    pseudo.qualifiers['pseudo_type'] = PseudoType.fragmented
+    pseudo.qualifiers['note'] = "Pseudogene candidate. Reason: Predicted fragmentation of a single gene."
+
+    seqrecord.features.append(pseudo)
+
+
+def manage_parent_fragments(fragments):
+    """
+    Adds an identifier to parent fragments in the list so that they will not be used again in the analysis.
+    """
+    for feature in fragments:
+        feature.type = 'consumed'
+        feature.qualifiers['pseudo_type'] = PseudoType.consumed
+
+
+def find_fragmented_pseudos(args, seqrecord):
+    """Finds pseudogenes composed of nearby fragments"""
+
+    features = [feature for feature in seqrecord.features if feature.type == 'CDS' or feature.type == 'intergenic' or feature.type == 'pseudogene']  # initial count
+
+    if len(features) > 2:   # contig must have at least 3 features in order to run this algorithm
+        i = 0
+        while i < len(features)-2:
+            f1 = features[i]
+            f2 = features[i+1]
+            f3 = features[i+2]
+
+            if adjacent_fragments_match(args, f1, f2):
+                create_fragmented_pseudo(args, (f1, f2), seqrecord)
+                manage_parent_fragments((f1, f2))
+                i -= 1
+
+            elif adjacent_fragments_match(args, f1, f3):
+                create_fragmented_pseudo(args, (f1, f2, f3), seqrecord)
+                manage_parent_fragments((f1, f2, f3))
+                i -= 1
+
+            else:
+                i += 1
+                continue
+
+            features = [feature for feature in features if feature.qualifiers.get('pseudo_type') is not PseudoType.consumed]
+            features = sorted(features, key=lambda x: x.location.start)
+
+        # final sort when finished
+        seqrecord.features = sorted(seqrecord.features, key=lambda x: x.location.start)
+
+
+def update_locus_tags(args, genome):
+    """Gives all pseudogenes a unique locus tag."""
+
+    pseudos = extract_features_from_genome(args, genome, 'pseudogene')
+    i = 1
+    for feature in pseudos:
+        contig_id = feature.qualifiers['contig_id']
+        feature.qualifiers['locus_tag'] = ['%s_pseudo_%05d' % (contig_id, i)]
+        i += 1
+
+
+def find_pseudos_on_genome(args, genome):
+    """
+    The main pseudogene function which performs individual pseudogene analyses.
+    """
+
+    for i, seqrecord in enumerate(genome):
+        common.print_with_time("Checking contig %s / %s for pseudogenes." % (i+1, len(genome)))
+        find_individual_pseudos(args, seqrecord)
+        find_fragmented_pseudos(args, seqrecord)
+
+        num_ORFs = len(parse_features_from_record(seqrecord, 'CDS'))
+        pseudos = [x for x in parse_features_from_record(seqrecord, 'pseudogene') if x.qualifiers.get("pseudo_type") != PseudoType.consumed]
+        num_pseudos = len(pseudos)
+
+        common.print_with_time("Number of ORFs on this contig: %s\n"
+                               "\t\t\tNumber of pseudogenes flagged: %s" % (num_ORFs, num_pseudos))
+
+    update_locus_tags(args, genome)
+
+
+
+
+def write_test_genome_output(file_dict, genome): #TODO: maybe move this to common or sandbox when done
+    with open(file_dict['base_filename']+"test_genome.gbk", "w") as output_handle:
+        SeqIO.write(genome, output_handle, "genbank")
 
 
 def parse_blast(fasta_file: str, blast_file: str, blast_format: str) -> List[RegionInfo]:
@@ -264,7 +782,7 @@ def parse_blast(fasta_file: str, blast_file: str, blast_format: str) -> List[Reg
             blast_hit = BlastHit(query=line_query,
                                  subject_accession=fields_in_line[1],
                                  percent_ident=float(fields_in_line[2]),
-                                 nucleotide_length=int(fields_in_line[3])*3, # convert aa to nucleotide
+                                 aa_length=int(fields_in_line[3])*3, # convert aa to nucleotide
                                  mismatch=int(fields_in_line[4]),
                                  gapopen=int(fields_in_line[5]),
                                  q_start=int(fields_in_line[6]),
@@ -751,16 +1269,13 @@ def write_pseudos_to_fasta(args, pseudofinder_regions: List[RegionInfo], outfile
     SeqIO.write(fasta_list, open(outfile, "w"), "fasta")
 
 
-def write_summary_file(args, file_dict: dict) -> None:
+def write_summary_file(args, outfile, file_dict) -> None:
     """Writes a summary file of statistics from the pseudo_finder run."""
-
-    print('%s\tWriting summary of run:\t%s' % (current_time(), file_dict['log'])),
-    sys.stdout.flush()
 
     printable_args = common.convert_args_to_str(args)
     printable_stats = {k: str(v) for k, v in StatisticsDict.items()}
 
-    with open(file_dict['log'], 'w') as logfile:
+    with open(outfile, 'w') as logfile:
 
         logfile.write(
             "####### Summary from annotate/reannotate #######\n\n"
@@ -785,6 +1300,7 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Intergenic_threshold:\t" + printable_args.intergenic_threshold + "\n"
             "Length_pseudo:\t" + printable_args.length_pseudo + "\n"
             "Shared_hits:\t" + printable_args.shared_hits + "\n"
+            "contig_ends:\t" + printable_args.contig_ends + "\n"
             "max_dnds:\t" + printable_args.max_dnds + "\n"
             "max_ds:\t" + printable_args.max_ds + "\n"
             "min_ds:\t" + printable_args.min_ds + "\n\n"
@@ -795,12 +1311,12 @@ def write_summary_file(args, file_dict: dict) -> None:
             "Number of contigs:\t" + printable_stats['NumberOfContigs'] + "\n"
             "#Output:\n"
             "Inital ORFs joined:\t" + printable_stats['FragmentedOrfs'] + "\n"
-            "Pseudogenes (total):\t" + str(StatisticsDict['PseudogenesTotal'] + StatisticsDict["dnds"]) + "\n"
+            "Pseudogenes (total):\t" + printable_stats['PseudogenesTotal'] + "\n"
             "Pseudogenes (too short):\t" + printable_stats['PseudogenesShort'] + "\n"
             "Pseudogenes (fragmented):\t" + printable_stats['PseudogenesFragmented'] + "\n"
             "Pseudogenes (no predicted ORF):\t" + printable_stats['PseudogenesIntergenic'] + "\n"
             "Pseudogenes (high dN/dS):\t" + printable_stats["dnds"] + "\n"
-            "Intact genes:\t" + str(StatisticsDict['ProteomeOrfs'] - StatisticsDict['FragmentedOrfs'] - StatisticsDict['PseudogenesShort'] - StatisticsDict["dnds"]) + "\n\n"
+            "Intact genes:\t" + printable_stats['IntactORFs'] + "\n\n"
 
             "####### Output Key #######\n"
             "Initial ORFs joined:\t\tThe number of input open reading frames "
@@ -815,14 +1331,18 @@ def write_summary_file(args, file_dict: dict) -> None:
 def reset_statistics_dict():
     """This function is needed because visualize.py was continuously accumulating values in StatisticsDict.
     Calling this function at the end of reannotate.py runs will ensure that the values are reset properly."""
+    for key, value in StatisticsDict.items():
+        if common.is_int(value):
+            StatisticsDict[key] = 0
 
-    StatisticsDict['ProteomeOrfs'] = 0
-    StatisticsDict['NumberOfContigs'] = 0
-    StatisticsDict['FragmentedOrfs'] = 0
-    StatisticsDict['PseudogenesTotal'] = 0
-    StatisticsDict['PseudogenesShort'] = 0
-    StatisticsDict['PseudogenesIntergenic'] = 0
-    StatisticsDict['PseudogenesFragmented'] = 0
+    # StatisticsDict['ProteomeOrfs'] = 0
+    # StatisticsDict['NumberOfContigs'] = 0
+    #
+    # StatisticsDict['FragmentedOrfs'] = 0
+    # StatisticsDict['PseudogenesTotal'] = 0
+    # StatisticsDict['PseudogenesShort'] = 0
+    # StatisticsDict['PseudogenesIntergenic'] = 0
+    # StatisticsDict['PseudogenesFragmented'] = 0
 
 
 def lastItem(ls):
@@ -1074,26 +1594,110 @@ def integrate_dnds(func_gff: str, pseudo_gff: str, dnds_out: str, func_faa: str,
     return len(newPseudosDict2.keys())
 
 
+def write_all_outputs(args, genome, file_dict, visualize=False):
+    """After analysis of pseudogenes is done, writes all necessary files."""
+
+    if visualize:
+        write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
+
+    else:
+        intact = extract_features_from_genome(args, genome, 'CDS')
+        pseudogenes = extract_features_from_genome(args, genome, 'pseudogene')
+        write_gff(args, genome, file_dict['pseudos_gff'], 'pseudogene')
+        write_gff(args, genome, file_dict['intact_gff'], 'CDS')
+        write_fasta(intact, file_dict['intact_ffn'], 'nt')
+        write_fasta(intact, file_dict['intact_faa'], 'aa')
+        write_fasta(pseudogenes, file_dict['pseudos_fasta'], 'nt')
+        write_gbk(args, genome, file_dict['gbk_out'])
+        genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+        write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
+
+
+def analysis_statistics(args, genome):
+    """Adds statistics to the main dictionary about the run."""
+
+    # cds
+    intact = len(extract_features_from_genome(args, genome, 'CDS'))
+
+    # pseudos
+    pseudos = extract_features_from_genome(args, genome, 'pseudogene')
+    total = len([x for x in pseudos if x.qualifiers.get('pseudo_type') != PseudoType.consumed])
+    total = total + StatisticsDict["dnds"]
+    short = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.short])
+    fragmented = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.fragmented])
+    intergenic = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.intergenic])
+    fragments = len(extract_features_from_genome(args, genome, 'consumed'))
+    dnds = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.dnds])
+
+    StatisticsDict['PseudogenesTotal'] = total
+    StatisticsDict['PseudogenesShort'] = short
+    StatisticsDict['PseudogenesFragmented'] = fragmented
+    StatisticsDict['PseudogenesIntergenic'] = intergenic
+    StatisticsDict['dnds'] = dnds
+    StatisticsDict['IntactORFs'] = intact
+    StatisticsDict['FragmentedOrfs'] = fragments
+
+
+def clear_analysis_qualifiers(args, genome):
+
+    copy_to_clear = copy(genome)
+    for seqrecord in copy_to_clear:
+        for feature in seqrecord.features:
+            if feature.type == 'intergenic':
+                seqrecord.features.remove(feature)
+            else:
+                quals = feature.qualifiers
+                quals.pop('nucleotide_seq', None)
+                quals.pop('contig_id', None)
+                quals.pop('hits', None)
+                quals.pop('pseudo_type', None)
+                quals.pop('note', None)
+                quals.pop('dnds', None)
+                quals.pop('parents', None)
+
+    return copy_to_clear
+
+
 def main():
     args = common.get_args('annotate')
-    if args.diamond:
-        search_engine = "diamond"
-    else:
-        search_engine = "blast"
-    # Declare filenames used throughout the rest of the program
-    file_dict = common.file_dict(args)
+    file_dict = common.file_dict(args)  # Declare filenames used throughout the rest of the program
 
-    # Collect sequences
-    get_CDSs(gbk=args.genome, out_fasta=file_dict['cds_filename'])
-    get_proteome(gbk=args.genome, out_faa=file_dict['proteome_filename'])
-    get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
+    genome = gbk_to_seqrecord_list(args, args.genome)
+    proteome = extract_features_from_genome(args, genome, 'CDS')
+    write_fasta(seqs=proteome, outfile=file_dict['cds_filename'], seq_type='nt')
+    write_fasta(seqs=proteome, outfile=file_dict['proteome_filename'], seq_type='aa')
+
+    common.print_with_time("CDS extracted from:\t\t\t%s\n"
+                           "\t\t\tWritten to file:\t\t\t%s." % (args.genome, file_dict['cds_filename']))
+
+    intergenic = extract_features_from_genome(args, genome, 'intergenic')
+    write_fasta(seqs=intergenic, outfile=file_dict['intergenic_filename'], seq_type='nt')
+
+    common.print_with_time("Intergenic regions extracted from:\t%s\n"
+                           "\t\t\tWritten to file:\t\t\t%s." % (args.genome, file_dict['intergenic_filename']))
+
+    StatisticsDict['NumberOfContigs'] = len(genome)
+    StatisticsDict['ProteomeOrfs'] = len(proteome)
+
+
+
+    # get_CDSs(gbk=args.genome, out_fasta=file_dict['cds_filename'])
+    # get_proteome(gbk=args.genome, out_faa=file_dict['proteome_filename'])
+    # get_intergenic_regions(args=args, out_fasta=file_dict['intergenic_filename'])
 
     if args.reference:  # #########################################################################################
-        get_CDSs(gbk=args.reference, out_fasta=file_dict['ref_cds_filename'])
-        get_proteome(gbk=args.reference, out_faa=file_dict['ref_proteome_filename'])
-        dnds.full(skip=False, ref=args.reference, nucOrfs=file_dict['cds_filename'], pepORFs=file_dict['proteome_filename'],  # NEED GENOME_FILENAME
-                  referenceNucOrfs=file_dict['ref_cds_filename'], referencePepOrfs=file_dict['ref_proteome_filename'],  # NEED TO COLLECT ORFS IN AMINO ACID AND NUCLEIC ACID FORMATS FROM PROVIDED REFERENCE GENOME
-                  c=file_dict['ctl'], dndsLimit=args.max_dnds, M=args.max_ds, m=args.min_ds, threads=args.threads, search=search_engine, out=file_dict['dnds_out'])
+        common.print_with_time("Starting dN/dS analysis pipeline...")
+
+        ref_genome = gbk_to_seqrecord_list(args, args.reference)
+        ref_proteome = extract_features_from_genome(args, ref_genome, 'CDS')
+        write_fasta(seqs=ref_proteome, outfile=file_dict['ref_cds_filename'], seq_type='nt')
+        write_fasta(seqs=ref_proteome, outfile=file_dict['ref_proteome_filename'], seq_type='aa')
+        #
+        # get_CDSs(gbk=args.reference, out_fasta=file_dict['ref_cds_filename'])
+        # get_proteome(gbk=args.reference, out_faa=file_dict['ref_proteome_filename'])
+        dnds.full(args, file_dict)
+
+        add_dnds_info_to_genome(args, genome, file_dict['dnds_out'])
 
     if args.diamond:  # run diamond
         if not args.skip_makedb:
@@ -1112,74 +1716,86 @@ def main():
         run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
                   out_tsv=file_dict['blastx_filename'])
 
-    # Collect everything from the blast files
-    orfs = parse_blast(fasta_file=file_dict['proteome_filename'], blast_file=file_dict['blastp_filename'], blast_format='blastp')
-    intergenic_regions = parse_blast(fasta_file=file_dict['intergenic_filename'], blast_file=file_dict['blastx_filename'], blast_format='blastx')
-    all_regions = orfs + intergenic_regions
-
-    # Sorted list of contigs containing only orfs, no intergenic regions
-    orfs_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=orfs))
-    # Sorted list of contigs containing orfs and intergenic regions
-    all_regions_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=all_regions))
-
-    pseudogenes = []
-    intact_genes = []
-
-    for contig_index, contig in enumerate(all_regions_by_contig):
-        print('\033[1m' + '%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
-                                                                                   contig_index + 1,
-                                                                                   len(all_regions_by_contig))),
-        sys.stdout.flush()
-
-        pseudos_on_contig = annotate_pseudos(args=args, contig=contig)  # Returns 'Contig' data type
-        pseudogenes.extend(pseudos_on_contig.regions)  # List of regions
-
-        try:
-            intact_genes_on_contig = get_intact_genes(contig=orfs_by_contig[contig_index],
-                                                              pseudos=pseudos_on_contig.regions)
-            intact_genes.extend(intact_genes_on_contig.regions)
-        except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
-            continue
-
-        sys.stdout.flush()
-
-        # Write all output files
-        write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
-        write_genes_to_gff(args, lopg=intact_genes, gff=file_dict['intact_gff'])
-        write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
-        # TODO: Activate this feature once you finish writing it
-        # write_intact_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['intact_faa'],
-        #                           contigs=intact_genes)
-        genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+    add_blasthits_to_genome(args, genome, file_dict['blastp_filename'], 'blastp')
+    add_blasthits_to_genome(args, genome, file_dict['blastx_filename'], 'blastx')
+    update_intergenic_locations(args, genome)
+    find_pseudos_on_genome(args, genome)
+    # write_test_genome_output(file_dict, genome)
 
 
-    # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
-    if args.reference:
-        newPseudos = integrate_dnds(func_gff=file_dict['intact_gff'], pseudo_gff=file_dict['pseudos_gff'],
-                       dnds_out=file_dict['dnds_out'] + "/dnds-summary.csv", func_faa=file_dict['intact_faa'],
-                       func_ffn=file_dict['intact_faa'], cds=file_dict['cds_filename'],
-                       proteome=file_dict['proteome_filename'], pseudo_fasta=file_dict['pseudos_fasta'],
-                       max_ds=args.max_ds, min_ds=args.min_ds, max_dnds=args.max_dnds)
+    # orfs = parse_blast(fasta_file=file_dict['proteome_filename'], blast_file=file_dict['blastp_filename'], blast_format='blastp')
+    #
+    # intergenic_regions = parse_blast(fasta_file=file_dict['intergenic_filename'], blast_file=file_dict['blastx_filename'], blast_format='blastx')
+    # all_regions = orfs + intergenic_regions
+    #
+    # # Sorted list of contigs containing only orfs, no intergenic regions
+    # orfs_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=orfs))
+    # # Sorted list of contigs containing orfs and intergenic regions
+    # all_regions_by_contig = sort_contigs(loc=split_regions_into_contigs(lori=all_regions))
+    #
+    # pseudogenes = []
+    # intact_genes = []
+    #
+    # for contig_index, contig in enumerate(all_regions_by_contig):
+    #     print('\033[1m' + '%s\tChecking contig %s / %s for pseudogenes.\033[0m' % (current_time(),
+    #                                                                                contig_index + 1,
+    #                                                                                len(all_regions_by_contig))),
+    #     sys.stdout.flush()
+    #
+    #     pseudos_on_contig = annotate_pseudos(args=args, contig=contig)  # Returns 'Contig' data type
+    #     pseudogenes.extend(pseudos_on_contig.regions)  # List of regions
+    #
+    #     try:
+    #         intact_genes_on_contig = get_intact_genes(contig=orfs_by_contig[contig_index],
+    #                                                           pseudos=pseudos_on_contig.regions)
+    #         intact_genes.extend(intact_genes_on_contig.regions)
+    #     except IndexError:  # If there are no orfs on a small contig, an error will be thrown when checking that contig.
+    #         continue
+    #
+    #     sys.stdout.flush()
+    #
+    #     # Write all output files
+    #     write_genes_to_gff(args, lopg=pseudogenes, gff=file_dict['pseudos_gff'])
+    #     write_genes_to_gff(args, lopg=intact_genes, gff=file_dict['intact_gff'])
+    #     write_pseudos_to_fasta(args, pseudofinder_regions=pseudogenes, outfile=file_dict['pseudos_fasta'])
+    #     # TODO: Activate this feature once you finish writing it
+    #     # write_intact_to_fasta(infile=file_dict['proteome_filename'], outfile=file_dict['intact_faa'],
+    #     #                           contigs=intact_genes)
+    #     genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+    #
+    #
+    # # INTEGRATING RESULTS FROM DNDS MODULE WITH THE REST OF THE PSEUDO-FINDER OUTPUT
+    # if args.reference: #TODO: make sure integration still works
+    #     newPseudos = integrate_dnds(func_gff=file_dict['intact_gff'], pseudo_gff=file_dict['pseudos_gff'],
+    #                    dnds_out=file_dict['dnds_out'] + "/dnds-summary.csv", func_faa=file_dict['intact_faa'],
+    #                    func_ffn=file_dict['intact_faa'], cds=file_dict['cds_filename'],
+    #                    proteome=file_dict['proteome_filename'], pseudo_fasta=file_dict['pseudos_fasta'],
+    #                    max_ds=args.max_ds, min_ds=args.min_ds, max_dnds=args.max_dnds)
 
-        for contig_index, contig in enumerate(all_regions_by_contig):
-            print('\t\t\tNumber of ORFs on this contig: %s\n'
-                  '\t\t\tNumber of pseudogenes flagged: %s' % (
-                      len([region for region in contig.regions if region.region_type == RegionType.ORF]),
-                      len(pseudos_on_contig.regions) + newPseudos)),
-            sys.stdout.flush()
+        # for contig_index, contig in enumerate(all_regions_by_contig):
+        #     print('\t\t\tNumber of ORFs on this contig: %s\n'
+        #           '\t\t\tNumber of pseudogenes flagged: %s' % (
+        #               len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+        #               len(pseudos_on_contig.regions) + newPseudos)),
+        #     sys.stdout.flush()
 
-        write_summary_file(args=args, file_dict=file_dict)
-    else:
-        for contig_index, contig in enumerate(all_regions_by_contig):
-
-            print('\t\t\tNumber of ORFs on this contig: %s\n'
-                  '\t\t\tNumber of pseudogenes flagged: %s' % (
-                      len([region for region in contig.regions if region.region_type == RegionType.ORF]),
-                      len(pseudos_on_contig.regions))),
-            sys.stdout.flush()
+        #write_summary_file(args=args, file_dict=file_dict)
+    # else:
+    #     for contig_index, contig in enumerate(all_regions_by_contig):
+    #
+    #         print('\t\t\tNumber of ORFs on this contig: %s\n'
+    #               '\t\t\tNumber of pseudogenes flagged: %s' % (
+    #                   len([region for region in contig.regions if region.region_type == RegionType.ORF]),
+    #                   len(pseudos_on_contig.regions))),
+    #         sys.stdout.flush()
 
         # write the log file
-        write_summary_file(args=args, file_dict=file_dict)
+        #write_summary_file(args=args, file_dict=file_dict)
+
+    common.print_with_time("Collecting run statistics and writing output files.")
+    analysis_statistics(args, genome)
+    write_all_outputs(args, genome, file_dict)
+
 
 
 if __name__ == '__main__':

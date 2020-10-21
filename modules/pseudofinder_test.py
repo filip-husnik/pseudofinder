@@ -51,6 +51,7 @@ def main():
     path_to_pseudofinder = path_to_master + "/pseudofinder.py"
     folder_name = manage_folders(path_to_test_data)
     output_prefix = folder_name + "/test"
+    reannotate_output_prefix = output_prefix + "_reannotate"
     blastp_file = output_prefix + "_proteome.faa.blastP_output.tsv"
     blastx_file = output_prefix + "_intergenic.fasta.blastX_output.tsv"
     log_file = output_prefix + "_log.txt"
@@ -74,8 +75,8 @@ def main():
     command_dict = OrderedDict()
     command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s -t %s%s" % (
         path_to_pseudofinder, args.genome, args.database, output_prefix, args.threads, diamond_param)
-    command_dict['Reannotate'] = "python3 %s reannotate -g %s -p %s -x %s -log %s -op %s" % (
-        path_to_pseudofinder, args.genome, blastp_file, blastx_file, log_file, output_prefix)
+    command_dict['Reannotate'] = "python3 %s reannotate -g %s -log %s -op %s" % (
+        path_to_pseudofinder, args.genome, log_file, reannotate_output_prefix)
     command_dict['Visualize'] = "python3 %s visualize -g %s -op %s -p %s -x %s -log %s" % (
         path_to_pseudofinder, args.genome, output_prefix, blastp_file, blastx_file, log_file)
 

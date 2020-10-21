@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from . import common
+from . import common, annotate
 import re
 from reportlab.lib import colors
 from Bio.Graphics import GenomeDiagram
@@ -39,13 +39,8 @@ def read_gff(gff: str) -> SeqIO.SeqRecord:
                 contig = line.split(sep="\t")[0]
                 start = int(line.split(sep="\t")[3])
                 end = int(line.split(sep="\t")[4])
-                strand = line.split(sep="\t")[6]
+                strand = annotate.format_strand(line.split(sep="\t")[6], format='biopython')
 
-                # Convert strand from symbol to number
-                if strand == '+':
-                    strand = 1
-                elif strand == "-":
-                    strand = -1
                 feature_list.append(SeqFeature(FeatureLocation(contig_dict[contig]['absolute_start']+start,
                                                                contig_dict[contig]['absolute_start']+end,
                                                                strand=strand), type='gene'))

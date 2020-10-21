@@ -9,6 +9,7 @@ from time import localtime, strftime
 from contextlib import contextmanager
 from Bio import SeqIO
 
+
 def bold(x):
     start_bold = '\033[1m'
     end_bold = '\033[0m'
@@ -29,19 +30,27 @@ def is_int(x: str):
     try:
         a = float(x)
         b = int(x)
-    except ValueError:
+    except (ValueError, TypeError):
         return False
     else:
         return a == b
 
 
 def is_float(x: str):
-    try:
-        float(x)
-    except ValueError:
+
+    if x == 'None' or x is None:
+        return False
+    elif x == 'True' or x is True:
+        return False
+    elif x == 'False' or x is False:
         return False
     else:
-        return True
+        try:
+            float(x)
+        except ValueError:
+            return False
+        else:
+            return True
 
 
 def literal_eval(x: str):
@@ -122,6 +131,16 @@ def verify_gbk(gbk):
                            'If generated with Prokka, please ensure the \'--compliant\' flag is used.')
 
 
+def verify_numeric(args):
+    for key, value in vars(args).items():
+        if is_float(value):
+            if float(value) > 0:
+                return True
+            else:
+                raise RuntimeError('pseudofinder has detected your %s argument is less than or equal to 0 (%s = %s). Please enter a positive value.' % (key, key, value))
+
+
+
 def verify_args(args):
     """
     Ensures that the arguments provided are of the correct format beyond data type.
@@ -129,6 +148,7 @@ def verify_args(args):
     """
     try:
         verify_gbk(args.genome)
+        verify_numeric(args)
     except AttributeError:
         pass
 
@@ -432,22 +452,22 @@ def get_args(module='None', **kwargs):
     if module == 'annotate':
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, distance, hitcap,
-                         contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip, skip_makedb]
+                         contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip_makedb]  # skip,
 
     elif module == 'reannotate':
-        required_args = [genome, blastp, blastx, logfile, outprefix]
+        required_args = [genome, logfile, outprefix]    # blastp, blastx, genome,
         optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, dnds_out]
 
     elif module == 'dnds':
         required_args = [prots, genes, ref_prots, ref_genes]
-        optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs, skip]
+        optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs]
 
     elif module == 'genome_map':
         required_args = [genome, gff, outprefix]
         optional_args = []
 
     elif module == 'visualize':
-        required_args = [genome, blastp, blastx, logfile, outprefix]
+        required_args = [logfile, outprefix]
         optional_args = [distance, intergenic_threshold, resolution, keep_files, title]
 
     elif module == 'test':
@@ -476,7 +496,7 @@ def get_args(module='None', **kwargs):
     return args
 
 
-def parse_log(logfile: str):
+def parse_log_args(logfile: str):
     """
     Returns a namespace of all args found in a logfile.
     """
@@ -488,7 +508,7 @@ def parse_log(logfile: str):
             for arg in get_args(names_only=True):
                 if re.match(arg, line, re.IGNORECASE):
                     item = str(line.split(sep=sep)[1])
-                    setattr(log_args, arg, item)
+                    setattr(log_args, arg, literal_eval(item))
     setattr(log_args, 'log_outprefix', log_args.blastp.replace('_proteome.faa.blastP_output.tsv', ''))
     return log_args
 
@@ -528,6 +548,7 @@ def file_dict(args, **kwargs):
         base_outfile_name = args.outprefix + "_"
 
     file_dict = {
+        'base_filename': base_outfile_name,
         'cds_filename': base_outfile_name + "cds.fasta",
         'ref_cds_filename': base_outfile_name + "ref_cds.fasta",
         'proteome_filename': base_outfile_name + "proteome.faa",
@@ -541,6 +562,7 @@ def file_dict(args, **kwargs):
         'intact_faa': base_outfile_name + "intact.faa",
         'intact_ffn': base_outfile_name + "intact.ffn",
         'chromosome_map': base_outfile_name + "map.pdf",
+        'gbk_out': base_outfile_name[:-1] + ".gbk",
         'dnds_out': base_outfile_name + "dnds",
         'log': base_outfile_name + "log.txt",
         'ctl': os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"

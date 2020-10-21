@@ -619,12 +619,31 @@ def main():
         print("Thanks for using!")
 
 
-def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str, referencePepOrfs: str, c: str, out: str, search: str, dndsLimit: float, M: int, m: int, threads: int):
-    cwd = os.getcwd()
+def full(args, file_dict, log_file_dict=None, skip=False):
+    ref = args.reference
+    nucOrfs = file_dict['cds_filename']
+    pepORFs = file_dict['proteome_filename']
+    referenceNucOrfs = file_dict['ref_cds_filename']
+    referencePepOrfs = file_dict['ref_proteome_filename']
+    c = file_dict['ctl']
+    dndsLimit = args.max_dnds
+    M = args.max_ds
+    m = args.min_ds
+
+    out = file_dict['dnds_out']
+
+    try:
+        if args.diamond:
+            search = "diamond"
+        else:
+            search = "blast"
+    except AttributeError:
+        pass
 
     if skip == True:
         pass
     else:
+        threads = args.threads
         os.system("echo ${ctl} > ctl.txt")
         file = open("ctl.txt")
         for i in file:
@@ -658,7 +677,7 @@ def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str
                 print(
                     "Did not find reference datasets. Please provide these using the \'-ra\' and \'rn\', or \'r\' flag")
 
-        print("Starting dN/dS analysis pipeline...")
+        #print("Starting dN/dS analysis pipeline...")
 
         os.system("mkdir -p " + out)
         os.system("mkdir -p " + out + "/dnds-analysis")
@@ -776,9 +795,10 @@ def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str
                 # os.system("rm codeml.out")
 
     # PARSING CODEML OUTPUT
-
-    cwd = os.getcwd()
-    DIR = out + "/dnds-analysis"
+    if log_file_dict:
+        DIR = log_file_dict['dnds_out'] + "/dnds-analysis"
+    else:
+        DIR = out + "/dnds-analysis"
 
     print("Summarizing codeml output")
     codealign = os.listdir(DIR)
@@ -818,7 +838,12 @@ def full(skip: bool, ref: str, nucOrfs: str, pepORFs: str, referenceNucOrfs: str
     dsList = []
     dndsList = []
     total = 0
-    OUT = open(out + "/dnds-summary.csv", "w")
+    try:
+        OUT = open(out + "/dnds-summary.csv", "w")
+    except FileNotFoundError:
+        os.makedirs(out)
+        OUT = open(out + "/dnds-summary.csv", "w")
+
     OUT.write("ORF" + "," + "referenceMatch" + "," + "dN" + "," + "dS" + "," + "dN/dS" + "," + "PG" + "\n")
     for i in sorted(dndsDict.keys()):
         total += 1
