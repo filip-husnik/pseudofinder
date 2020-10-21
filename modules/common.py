@@ -140,7 +140,6 @@ def verify_numeric(args):
                 raise RuntimeError('pseudofinder has detected your %s argument is less than or equal to 0 (%s = %s). Please enter a positive value.' % (key, key, value))
 
 
-
 def verify_args(args):
     """
     Ensures that the arguments provided are of the correct format beyond data type.
