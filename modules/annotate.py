@@ -3,7 +3,7 @@
 from . import common
 import re
 import os
-from copy import copy
+from copy import copy, deepcopy
 from enum import Enum
 from typing import NamedTuple
 from time import localtime, strftime
@@ -113,7 +113,7 @@ def add_qualifiers_to_features(args, seqrecord):
     """
     intergenic_counter = 1
     for seq_feature in seqrecord.features:
-        if seq_feature.type != 'source':
+        if seq_feature.type == 'CDS' or seq_feature.type == 'intergenic':
             seq_feature.qualifiers['nucleotide_seq'] = seq_feature.extract(seqrecord.seq)
             seq_feature.qualifiers['contig_id'] = seqrecord.name
             seq_feature.qualifiers['hits'] = []
@@ -230,16 +230,18 @@ def write_gff(args, genome, outfile: str, seq_type):
         outfile.write("##gff-version 3\n#!annotation-date\t%s\n" % (common.current_time()))
         for seqrecord in genome:
             entry = ["##sequence-region",
-                     "gnl|Prokka|%s" % seqrecord.name,
+                     seqrecord.name,
+                     #"gnl|Prokka|%s" % seqrecord.name,
                      str(1),
                      str(len(seqrecord))]
             outfile.write(" ".join(entry) + '\n')
 
         seqs = extract_features_from_genome(args, genome, seq_type)
         for seq in seqs:
-            seq_info = {'seq_id': "gnl|Prokka|%s" % seq.qualifiers['contig_id'],
+            seq_info = {'seq_id': seq.qualifiers['contig_id'],
+                        #'seq_id': "gnl|Prokka|%s" % seq.qualifiers['contig_id'],
                         'source': "pseudofinder",
-                        'feature_type': seq_type,
+                        'feature_type': "gene", # TODO: change this to 'CDS' or 'pseudogene' if given the go-ahead to do so
                         'feature_start': str(seq.location.start),
                         'feature_end': str(seq.location.end),
                         'score': '.',
@@ -250,6 +252,8 @@ def write_gff(args, genome, outfile: str, seq_type):
             outfile.write(gff_entry(**seq_info) + "\n")
 
 
+# TODO: Works, but not completely. Some features are missing info such as notes for reasons unclear to me,
+# TODO: and some features have extra info that should have been cleared but isn't.
 def write_gbk(args, genome, outfile):
     """Writes a genbank file, excluding any analysis qualifiers present in the data structure."""
 
@@ -694,7 +698,7 @@ def write_all_outputs(args, genome, file_dict, visualize=False):
         write_fasta(intact, file_dict['intact_ffn'], 'nt')
         write_fasta(intact, file_dict['intact_faa'], 'aa')
         write_fasta(pseudogenes, file_dict['pseudos_fasta'], 'nt')
-        write_gbk(args, genome, file_dict['gbk_out'])
+        # write_gbk(args, genome, file_dict['gbk_out']) #TODO: understand why this doesn't work as it should. See notes inside function
         genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
         write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
 
@@ -724,22 +728,25 @@ def analysis_statistics(args, genome):
     StatisticsDict['FragmentedOrfs'] = fragments
 
 
+ # TODO: This is deleting almost all, but not all things that we don't want. I am not sure why some features are slipping past this
+ # TODO: since they show up when you call seqrecord.features, but then do not get acted on.
+ # TODO: for example you can find some features in the output genbank that have 'nucleotide_seq' qualifiers. No idea why.
 def clear_analysis_qualifiers(args, genome):
     """Clears all analysis qualifiers that we don't want to write to a properly formatted genbank file."""
-    copy_to_clear = copy(genome)
+    copy_to_clear = deepcopy(genome)
     for seqrecord in copy_to_clear:
         for feature in seqrecord.features:
-            if feature.type == 'intergenic':
+            quals = feature.qualifiers
+            quals.pop('nucleotide_seq', None)
+            quals.pop('contig_id', None)
+            quals.pop('hits', None)
+            quals.pop('pseudo_type', None)
+            quals.pop('note', None)
+            quals.pop('dnds', None)
+            quals.pop('parents', None)
+
+            if feature.type == 'intergenic' or feature.type == 'consumed':
                 seqrecord.features.remove(feature)
-            else:
-                quals = feature.qualifiers
-                quals.pop('nucleotide_seq', None)
-                quals.pop('contig_id', None)
-                quals.pop('hits', None)
-                quals.pop('pseudo_type', None)
-                quals.pop('note', None)
-                quals.pop('dnds', None)
-                quals.pop('parents', None)
 
     return copy_to_clear
 
