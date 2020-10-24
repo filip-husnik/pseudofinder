@@ -217,6 +217,15 @@ The workflow will begin immediately and write the results to a timestamped folde
 
 ## Tutorial (Binder)
 
+Pseudofinder introductory slideshow
+
+[Content](https://github.com/biovcnet/bvcn-binder-pseudofinder/blob/master/Lesson-8-PseudoFinder.pdf) | [Video presentation](LINK)
+
+
+Pseudofinder video tutorial:
+
+[Content](https://github.com/biovcnet/bvcn-binder-pseudofinder/blob/master/README.md) | [Video presentation](LINK)
+
 Initially forked from [here](https://github.com/binder-examples/conda). Thank you to the awesome [binder](https://mybinder.org/) team!
 
 To start the tutorial, hit the 'launch binder' button below, and follow the commands in 'Walkthrough'
