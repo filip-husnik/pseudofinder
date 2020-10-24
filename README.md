@@ -219,12 +219,12 @@ The workflow will begin immediately and write the results to a timestamped folde
 
 Pseudofinder introductory slideshow:
 
-[Content](https://github.com/biovcnet/bvcn-binder-pseudofinder/blob/master/Lesson-8-PseudoFinder.pdf) | [Video presentation](LINK)
+[Content](https://github.com/biovcnet/bvcn-binder-pseudofinder/blob/master/Lesson-8-PseudoFinder.pdf) | [Video presentation](https://www.youtube.com/watch?v=h8sko_KEnD4)
 
 
 Pseudofinder video tutorial:
 
-[Content](https://github.com/biovcnet/bvcn-binder-pseudofinder/blob/master/README.md) | [Video presentation](LINK)
+[Content](https://github.com/biovcnet/bvcn-binder-pseudofinder/blob/master/README.md) | [Video presentation](https://www.youtube.com/watch?v=OWtdr6EqOYU)
 
 
 To start the tutorial, hit the 'launch binder' button below, and follow the commands in 'Walkthrough'
