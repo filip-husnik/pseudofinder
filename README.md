@@ -4,54 +4,47 @@
 </p>
 <br>
 
-## Table of contents
-- [Introduction](#introduction)
-- [Getting started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-- [Preparing your genome](#preparing-your-genome)
-    - [Assembly recommendations](#assembly-recommendations)
-    - [Annotation recommendations](#annotation-recommendations)
-- [How does Pseudofinder detect pseudogene candidates?](#how-does-pseudofinder-detect-pseudogene-candidates?)
-- [Commands](#commands)
-    - [Annotate](#annotate)
-    - [Reannotate](#reannotate)
-    - [Visualize](#visualize)
-    - [Test](#test)
-- [Versions and changes](#versions-and-changes)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-- [References](#references)
-- [Wish list](#wish-list)
-- [Citing Pseudofinder](#citing-pseudofinder)
+Table of Contents
+=================
 
+  * [Introduction](#introduction)
+  * [Getting started](#getting-started)
+     * [Easy Installation](#easy-installation)
+     * [Manual Installation](#manual-installation)
+  * [Input Files](#input-files)
+     * [Genome Assembly Recommendations](#genome-assembly-recommendations)
+     * [Annotation Recommendations](#annotation-recommendations)
+     * [Database Recommendations](#database-recommendations)
+  * [How does Pseudofinder detect pseudogene candidates?](#how-does-pseudofinder-detect-pseudogene-candidates)
+  * [Commands](#commands)
+     * [Annotate](#annotate)
+     * [dN/dS](#dnds)
+     * [Reannotate](#reannotate)
+     * [Visualize](#visualize)
+     * [Test](#test)
+  * [Tutorial (Binder)](#tutorial-binder)
+     * [Walkthrough](#walkthrough)
+  * [Contributing](#contributing)
+  * [License](#license)
+  * [Acknowledgements](#acknowledgements)
+  * [References](#references)
+  * [Wish list](#wish-list)
+  * [Citing Pseudofinder](#citing-pseudofinder)
 
 ## Introduction
 
 Pseudofinder is a Python3 script that detects pseudogene candidates [https://en.wikipedia.org/wiki/Pseudogene] from annotated genbank files of bacterial and archaeal genomes.
 
-It was tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag (i.e. including both /gene and /CDS annotations).
+It has been tested mostly on genbank (.gbf/.gbk) files annotated by Prokka [https://github.com/tseemann/prokka] with the --compliant flag (i.e. including both /gene and /CDS annotations).
 
-There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them is open source and allows easy fine-tuning of parameters.
+There are alternative programs for pseudogene finding and annotation (e.g. the NCBI Prokaryotic Genome Annotation Pipeline [https://www.ncbi.nlm.nih.gov/genome/annotation_prok/]), but to the best of our knowledge, none of them are open source or allow easy fine-tuning of parameters.
 
 
 ## Getting started
+This section will guide you through setting up Pseudofinder and its dependencies on your machine.
 
-These instructions will (hopefully) get you the pipeline up and running on your local machine.
-
-### Prerequisites
-
-Installation requirements: 
-- python3
-- pip3 (or any other way how to install python libraries, e.g. conda or easy_install)
-- biopython
-- ncbi-blast+
-- Databases: NCBI-NR (non-redundant) protein database (or similar such as SwissProt) formatted for blastP/blastX searches.
-- An annotated prokaryotic genome in genbank (.gbf/.gbk) format.
-
-### Easy Installation (Conda required)
-This will pseudo-finder into your $PATH and take care of all dependencies
+### Easy Installation
+Easy installation requires python3 and Conda already installed. This will install pseudofinder into your $PATH and take care of all dependencies. 
 ```
 git clone https://github.com/filip-husnik/pseudo-finder.git
 
@@ -60,10 +53,16 @@ bash setup.sh
 source activate pseudofinder
 ```
 
+### Manual Installation
+If you prefer to not use Conda, these are the dependencies that you must have to properly run Pseudofinder.
 
-### Installation
-
-A step by step series of commands to install all system dependencies:
+<b>Installation requirements: 
+- python3
+- pip3 (or any other way how to install python libraries, e.g. conda or easy_install)
+- biopython
+- ncbi-blast+
+- Databases: NCBI-NR (non-redundant) protein database (or similar such as SwissProt) formatted for blastP/blastX searches.
+- An annotated prokaryotic genome in genbank (.gbf/.gbk) format.
 
 <b>Installation of python3, pip3, git (optional), and ncbi-blast+ on Ubuntu (as an administrator):</b>
 ```
@@ -84,18 +83,6 @@ sudo pip3 install numpy
 sudo pip3 install reportlab
 ```
 
-*Alternative installation with conda (no root access required) is also possible:*
-
-```
-#install Python3 miniconda https://conda.io/miniconda.html
-conda install -c conda-forge biopython
-conda install -c bioconda blast
-conda install plotly
-conda install pandas
-conda install numpy
-conda install reportlab
-```
-
 <b>Clone the up to date pseudofinder.py code from github (no root access required):</b>
 
 ```
@@ -108,21 +95,24 @@ git clone https://github.com/filip-husnik/pseudo-finder.git
 ```
 
 
-## Preparing your genome
+## Input Files
+Pseudofinder requires the user to provide the genome in genbank format as well as a non-redundant protein database formatted for BlastP/BlastX searches. If possible, providing a reference genome allows Pseudofinder to include dN/dS calculations to identify pseudogenes.
 
-### Assembly recommendations
-
+### Genome Assembly Recommendations
 We recommend several rounds of Pilon polishing with Illumina reads to improve your consensus sequence [https://github.com/broadinstitute/pilon/wiki], particularly if you're interested to find pseudogenes in minION/PacBio assemblies. However, Pseudofinder can also help with finding sequencing/basecalling errors potentially breaking genes in MinION/PacBio-only assemblies.
 
 Genomes closed into one or several circular-mapping molecules (chromosomes, plasmids, and phages) should be ideally oriented based on their origin of replication [e.g. by Ori-Finder 2; http://tubic.tju.edu.cn/Ori-Finder2/] to avoid broken genes on contigs randomly linearized by the genome assembler.
 
-### Annotation recommendations
-
+### Annotation Recommendations
 We recommend genbank (.gbf/.gbk) files generated by Prokka [https://github.com/tseemann/prokka] with the --compliant and --rfam flags. Annotating rRNAs, tRNAs, and other ncRNAs in Prokka is recommended to eliminate any false positive 'pseudogene' candidates. ORFs overlapping with non-coding RNAs such as rRNA can be sometimes misannotated in databases as 'hypothetical proteins'.
 
 ```
 prokka --compliant --rfam contigs.fa
 ```
+### Database Recommendations
+Database selection is critical to the speed and sensitivity of Pseudofinder. Users can provide any databse they would like provided it is a non-redundant protein databse formatted for BlastP/BlastX searches, but must keep in mind that larger databases will increase runtime while smaller databases could suffer in sensitivity if they lack relevant protein sequences.  For those who don't have manually curated databases tailored to their specific microbe, we recommend NCBI-NR (non-redundant) protein database (or similar such as SwissProt).
+
+Also to be considered is that while the pipeline runs using vanilla BlastP/BlastX, we have integrated Diamond which can be invoked using the '''--diamond''' flag and will significantly reduce runtime.
 
 
 ## How does Pseudofinder detect pseudogene candidates?
@@ -175,21 +165,24 @@ Every run will produce the following files:
 | \[prefix]_dnds | Directory containing output from the dnds module: BLAST results, dN/dS summary file, and a folder containing the nucleotide, amino acids, and codon alignments that were used to calculate dN and dS values. |
 
 ### dN/dS
-The <b>dnds</b> command will compare a genome against another closely-related genome. After homologous genes are identified, this module runs PAML on aligned genes to generate codon alignments and calculate per-gene dN/dS values. These dN/dS values can be used to infer neutral selection and potential cryptic pseudogenes. This module can be invoked withing the <b>Annotate</b> command by providing a closely-related reference genome using the -ref flag.
+The <b>dnds</b> command will compare a genome against another closely-related genome. After homologous genes are identified, this module runs PAML on aligned genes to generate codon alignments and calculate per-gene dN/dS values. These dN/dS values can be used to infer neutral selection and potential cryptic pseudogenes. This module can be invoked within the <b>Annotate</b> command by providing a closely-related reference genome using the -ref flag.
 
 Usage:
 ```
+# Call within annotate
+python3 pseudofinder.py annotate --genome GENOME.GBF --reference REFERENCE.GBF --outprefix PREFIX --database /PATH/TO/NR/nr --threads 16 
+
+# Stand alone dN/dS calcuation
 pseudofinder.py dnds -a GENOME_PROTS -n GENOME_GENES -ra REFERENCE-PROTS -rn REFERENCE_GENES
 ``` 
 
-
 ### Reannotate
-<b>Reannotate</b> will run the <b>annotate</b> workflow, beginning after the BLAST steps. 
-This command can very quickly reannotate pseudogenes if you would like to change any parameters downstream of BLAST.
+<b>Reannotate</b> will run the <b>annotate</b> workflow, beginning after the computationally intensive BLAST and codon alignment steps. 
+This command can very quickly reannotate pseudogenes if you would like to change any downstream parameters. The log file from the previous run will be parsed for previous parameters and files, so please keep the files in the locations described in the log file.
 
 Usage:
 ```
-pseudofinder.py reannotate -g GENOME -p BLASTP -x BLASTX -log LOGFILE -op OUTPREFIX
+pseudofinder.py reannotate -g GENOME -log LOGFILE -op OUTPREFIX
 ``` 
 
 ### Visualize
@@ -197,14 +190,16 @@ pseudofinder.py reannotate -g GENOME -p BLASTP -x BLASTX -log LOGFILE -op OUTPRE
 One strength of Pseudofinder is its ability to be fine-tuned to the user's preferences. 
 To help visualize the effects of changing the parameters of this program, we have provided the <b>visualize</b> command. 
 This command will display how many pseudogenes will be detected based on any combination of '--length_pseudo' and '--shared_hits'. 
-It is run by providing the blast files from the <b>annotate</b> command:
+Similar to the reannotate module, the log file will be parsed for information about relevant files and parameters.
+
+Usage:
 ```
-pseudofinder.py visualize -g GENOME -op OUTPREFIX -p BLASTP -x BLASTX -log LOGFILE
+pseudofinder.py visualize -g GENOME -log LOGFILE -op OUTPREFIX 
 ```
 
 ### Test
 
-With a single command, the entire Pseudofinder workflow can be run on the 139 kbp genome of <i>Candidatus</i> Tremblaya princeps strain PCIT.
+With a single command, the entire Pseudofinder workflow can be run on the 139 kbp genome of <i>Candidatus</i> Tremblaya princeps strain PCIT (or optionally, you may provide your own genome).
 
 Simply enter the following command:
 
@@ -212,7 +207,6 @@ Simply enter the following command:
 python3 pseudofinder.py test --database /PATH/TO/NR/nr
 ```
 The workflow will begin immediately and write the results to a timestamped folder found in ```/pseudo-finder/test/```.
-
 
 
 ## Tutorial (Binder)
@@ -250,12 +244,6 @@ Run the Annotate module
 Run the Annotate module, along with the DNDS module
 
     pseudofinder.py annotate -g test_data/Mycobacterium_leprae_TN.gbff -db test_data/combined_mycobacteria.faa -op testAnnotate --diamond -ref test_data/Mycobacterium_tuberculosis_H37Rv.gbff
-
-
-
-## Versions and changes
-
-Read the ChangeLog.txt [https://github.com/filip-husnik/pseudo-finder/blob/master/ChangeLog.txt] for major changes or look at Github commits for everything else [https://github.com/filip-husnik/pseudo-finder/commits/master].
 
 
 ## Contributing
