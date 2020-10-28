@@ -131,8 +131,7 @@ As with any other python script, there are two ways how to run it:
 python3 pseudofinder.py
 
 # Or make the file executable and then rely on its shebang line [#!/usr/bin/env python3].
-chmod u+x
-./pseudofinder.py
+chmod u+x ./pseudofinder.py
 ```
 
 Providing input files:
