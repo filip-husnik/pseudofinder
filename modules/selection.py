@@ -383,7 +383,7 @@ def delim(line):
 
 
 def main():
-    args = common.get_args('dnds')
+    args = common.get_args('selection')
 
     if not args.skip:
         ctl = os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
