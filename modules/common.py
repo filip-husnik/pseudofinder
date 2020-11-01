@@ -457,7 +457,7 @@ def get_args(module='None', **kwargs):
         required_args = [genome, logfile, outprefix]    # blastp, blastx, genome,
         optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, dnds_out]
 
-    elif module == 'dnds':
+    elif module == 'selection':
         required_args = [prots, genes, ref_prots, ref_genes]
         optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs]
 

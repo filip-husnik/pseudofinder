@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from . import common, annotate, dnds
+from . import common, annotate, selection
 
 StatisticsDict = annotate.StatisticsDict
 
@@ -12,7 +12,7 @@ def prepare_data_for_analysis(args, file_dict, log_file_dict):
     StatisticsDict['ProteomeOrfs'] = len(proteome)
 
     if args.dnds_out:
-        dnds.full(args, file_dict, log_file_dict, skip=True)
+        selection.full(args, file_dict, log_file_dict, skip=True)
         annotate.add_dnds_info_to_genome(args, genome, file_dict['dnds_out'])
 
     annotate.add_blasthits_to_genome(args, genome, log_file_dict['blastp_filename'], 'blastp')
