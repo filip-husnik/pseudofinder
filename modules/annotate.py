@@ -18,9 +18,9 @@ try:
 except ImportError:
     pass
 
-# importing selection module
+# importing dnds module
 try:
-    from . import selection
+    from . import dnds
 except ImportError:
     pass
 
@@ -778,7 +778,7 @@ def main():
         ref_proteome = extract_features_from_genome(args, ref_genome, 'CDS')
         write_fasta(seqs=ref_proteome, outfile=file_dict['ref_cds_filename'], seq_type='nt')
         write_fasta(seqs=ref_proteome, outfile=file_dict['ref_proteome_filename'], seq_type='aa')
-        selection.full(args, file_dict)
+        dnds.full(args, file_dict)
         add_dnds_info_to_genome(args, genome, file_dict['dnds_out'])
 
     if args.diamond:  # run diamond
