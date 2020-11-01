@@ -29,7 +29,7 @@ elif argv[1] == "reannotate":
 elif argv[1] == "visualize":
     visualize.main()
 elif argv[1] == "selection":
-    dnds.main()
+    selection.main()
 elif argv[1] == "test":
     pseudofinder_test.main()
 elif argv[1] == "help":
