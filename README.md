@@ -159,8 +159,8 @@ Every run will produce the following files:
 | \[prefix]_pseudos.fasta | Candidate pseudogenes in fasta format. |
 | \[prefix]_dnds | Directory containing output from the dnds module: BLAST results, dN/dS summary file, and a folder containing the nucleotide, amino acids, and codon alignments that were used to calculate dN and dS values. |
 
-### dN/dS
-The <b>dnds</b> command will compare a genome against another closely-related genome. After homologous genes are identified, this module runs PAML on aligned genes to generate codon alignments and calculate per-gene dN/dS values. These dN/dS values can be used to infer neutral selection and potential cryptic pseudogenes. This module can be invoked within the <b>Annotate</b> command by providing a closely-related reference genome using the -ref flag.
+### Selection
+The <b>selection</b> command will compare a genome against another closely-related genome. After homologous genes are identified, this module runs PAML on aligned genes to generate codon alignments and calculate per-gene dN/dS values. These dN/dS values can be used to infer neutral selection and potential cryptic pseudogenes. This module can be invoked within the <b>Annotate</b> command by providing a closely-related reference genome using the -ref flag.
 
 Usage:
 ```
