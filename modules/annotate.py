@@ -436,6 +436,7 @@ def feature_length_relative_to_hits(feature) -> float:
 def find_individual_pseudos(args, seqrecord):
 
     for feature in seqrecord.features:
+        # Option 1: DNDS pseudogene
         if feature.type == 'CDS' and len(feature.qualifiers['dnds']) > 0:
             dnds_val = feature.qualifiers['dnds'][0].dnds
 
@@ -444,6 +445,7 @@ def find_individual_pseudos(args, seqrecord):
                 feature.qualifiers['pseudo_type'] = PseudoType.dnds
                 feature.qualifiers['note'] = 'Pseudogene candidate. Reason: Elevated dN/dS (%s).' % round(dnds_val, 3)
 
+        # Option 2: Short pseudogene
         if feature.type == 'CDS' and len(feature.qualifiers['hits']) > 0:
             if feature_length_relative_to_hits(feature) <= args.length_pseudo:
                 feature.type = 'pseudogene'
@@ -451,6 +453,7 @@ def find_individual_pseudos(args, seqrecord):
                 feature.qualifiers['note'] = 'Pseudogene candidate. Reason: ORF is %s%% of the average length of ' \
                                              'hits to this gene.' % (round(feature_length_relative_to_hits(feature)*100, 1))
 
+        # Option 3: Intergenic pseudogene
         if feature.type == 'intergenic':
             if len(feature.qualifiers['hits']) / args.hitcap >= args.intergenic_threshold:
                 feature.type = 'pseudogene'
@@ -507,14 +510,25 @@ def create_fragmented_pseudo(args, fragments, seqrecord):
 
     start = min([feature.location.start for feature in fragments])
     end = max([feature.location.end for feature in fragments])
-
     strands = [feature.strand for feature in fragments if (feature.strand is not None and feature.strand != 0)]
+
     if len(strands) == 0:   # Occurs if two intergenic regions are being merged
         strand = 0
     elif all([strand == strands[0] for strand in strands]):
         strand = strands[0]
     else:
-        raise RuntimeError("Trying to combine genes on opposite strands.")
+        # TODO: This occurs if features from + and - strand are going to be combined. Very rarely does this happen
+        # TODO: but there could be biologically relevant reasons for this to occur ie two fragments on + strand
+        # TODO: separated by an ORF on the - strand which is an insertion sequence.
+        # TODO: We should explore options to handle these cases in the future.
+        tags = [feature.qualifiers['locus_tag'][0] for feature in fragments]
+        parent_tags = [feature.qualifiers.get('parents') for feature in fragments]
+        all_tags = list(filter(None, set(tags + parent_tags)))
+
+        common.print_with_time("WARNING: Pseudogene detected which traverses features on (+) and (-) strands.\n"
+                               "\t\t\tWe recommend manual inspection of this region.\n"
+                               "\t\t\tFeatures involved: %s" % all_tags)
+        # raise RuntimeError("Trying to combine genes on opposite strands.")
 
     hits = []
     for feature in fragments:
