@@ -18,7 +18,7 @@ Table of Contents
   * [How does Pseudofinder detect pseudogene candidates?](#how-does-pseudofinder-detect-pseudogene-candidates)
   * [Commands](#commands)
      * [Annotate](#annotate)
-     * [dN/dS](#dnds)
+     * [Selection](#selection)
      * [Reannotate](#reannotate)
      * [Visualize](#visualize)
      * [Test](#test)
