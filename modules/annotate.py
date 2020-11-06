@@ -528,6 +528,8 @@ def create_fragmented_pseudo(args, fragments, seqrecord):
         common.print_with_time("WARNING: Pseudogene detected which traverses features on (+) and (-) strands.\n"
                                "\t\t\tWe recommend manual inspection of this region.\n"
                                "\t\t\tFeatures involved: %s" % all_tags)
+
+        strand = 0
         # raise RuntimeError("Trying to combine genes on opposite strands.")
 
     hits = []
