@@ -22,26 +22,32 @@ except IndexError:
     stderr.write(errorMessage)
     exit()
 
-if argv[1] == "annotate":
-    annotate.main()
-elif argv[1] == "reannotate":
-    reannotate.main()
-elif argv[1] == "visualize":
-    visualize.main()
-elif argv[1] == "selection":
-    selection.main()
-elif argv[1] == "test":
-    pseudofinder_test.main()
-elif argv[1] == "help":
-    stderr.write("\tpseudofinder.py annotate: Flags candidate pseudogenes.\n"
-                 "\tpseudofinder.py reannotate: Begins the annotate pipeline post-BLAST.\n"
-                 "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of "
-                 "settings.\n"
-                 "\tpseudofinder.py selection: dN/dS analysis via pairwise comparison against a reference genome. "
-                 "Pseudogenes inferred from relaxed selection.\n"
-                 "\tpseudofinder.py test: Runs all commands on a test dataset and checks that the outputs "
-                 "are as expected.\n")
-    exit()
-else:
-    stderr.write(errorMessage)
+try:
+    if argv[1] == "annotate":
+        annotate.main()
+    elif argv[1] == "reannotate":
+        reannotate.main()
+    elif argv[1] == "visualize":
+        visualize.main()
+    elif argv[1] == "selection":
+        selection.main()
+    elif argv[1] == "test":
+        pseudofinder_test.main()
+    elif argv[1] == "help":
+        stderr.write("\tpseudofinder.py annotate: Flags candidate pseudogenes.\n"
+                     "\tpseudofinder.py reannotate: Begins the annotate pipeline post-BLAST.\n"
+                     "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of "
+                     "settings.\n"
+                     "\tpseudofinder.py selection: dN/dS analysis via pairwise comparison against a reference genome. "
+                     "Pseudogenes inferred from relaxed selection.\n"
+                     "\tpseudofinder.py test: Runs all commands on a test dataset and checks that the outputs "
+                     "are as expected.\n")
+        exit()
+    else:
+        stderr.write(errorMessage)
+        exit()
+
+except KeyboardInterrupt:
+    print("\n")
+    common.print_with_time("Pseudofinder process cancelled by user. Exiting now.")
     exit()
