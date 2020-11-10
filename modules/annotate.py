@@ -11,6 +11,7 @@ from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 from Bio import SeqIO
+from Bio.Data.CodonTable import TranslationError
 
 # This try block was added to stop a circular import error that occurs when this module is called from reannotate.py
 try:
@@ -52,7 +53,8 @@ PseudoType = Enum('PseudoType', ['short',
                                  'fragmented',
                                  'intergenic',
                                  'consumed',
-                                 'dnds'])
+                                 'dnds',
+                                 'input'])
 
 
 
@@ -63,6 +65,7 @@ StatisticsDict = {
                     'NumberOfContigs': 0,
                     'ProteomeOrfs': 0,
                     'FragmentedOrfs': 0,
+                    'PseudogenesInput': 0,
                     'PseudogenesTotal': 0,
                     'PseudogenesShort': 0,
                     'PseudogenesFragmented': 0,
@@ -107,25 +110,61 @@ def add_intergenic_to_seqrecord(args, seqrecord):
             seqrecord.features.append(intergenic_region)
 
 
+def translate_cds(args, feature, seqrecord):
+    """Translates a cds, with error handling and warnings."""
+    if not feature.type == 'CDS':
+        common.print_with_time('translate_cds() called on a feature that is not a CDS.')
+        exit()
+
+    try:  # Checks if the CDS feature contains a translation
+        feature.qualifiers['translation'][0]
+        return  # If translation already exists, no need to do anything else
+
+    except KeyError:
+        common.print_with_time(
+            "WARNING: %s with locus tag \"%s\" has no translation qualifier in the input genbank file."
+            " Pseudofinder will generate a translation using bacterial genetic code." % (feature.type, feature.qualifiers['locus_tag'][0]))
+
+        try:
+            feature.qualifiers['translation'] = [str(feature.translate(parent_sequence=seqrecord, table='Bacterial').seq)]
+        except TranslationError as e:
+            common.print_with_time("WARNING: Exception encountered when translating %s. Pseudofinder cannot analyze invalid CDS features.\n"
+                                   "\t\t\tError: %s\n"
+                                   "\t\t\tPlease fix input file. Pseudofinder will exit now." % (feature.qualifiers['locus_tag'][0], e))
+            exit()
+
+
 def add_qualifiers_to_features(args, seqrecord):
     """
     Adds additional qualifiers to each feature contained in the seqrecord, necessary for further analysis in the pipeline.
     """
     intergenic_counter = 1
-    for seq_feature in seqrecord.features:
-        if seq_feature.type == 'CDS' or seq_feature.type == 'intergenic':
-            seq_feature.qualifiers['nucleotide_seq'] = seq_feature.extract(seqrecord.seq)
-            seq_feature.qualifiers['contig_id'] = seqrecord.name
-            seq_feature.qualifiers['hits'] = []
-            seq_feature.qualifiers['pseudo_type'] = None
-            seq_feature.qualifiers['note'] = ''
+    for feature in seqrecord.features:
+        if feature.type == 'CDS' and feature.qualifiers.get('pseudo'):    # Finds CDS that are already annotated as pseudogenes
+            feature.type = 'pseudogene'
+            feature.qualifiers['pseudo_type'] = PseudoType.input
+            feature.qualifiers['note'] = 'Annotated as pseudogene in input genbank file.'
 
-        if seq_feature.type == 'intergenic':
-            seq_feature.qualifiers['locus_tag'] = ['%s_ign_%05d' % (seqrecord.name, intergenic_counter)]
+        if feature.type == 'CDS':
+            feature.qualifiers['dnds'] = []
+            translate_cds(args, feature, seqrecord)
+
+        if feature.type == 'intergenic':    # Changes for only intergenic regions
+            feature.qualifiers['locus_tag'] = ['%s_ign_%05d' % (seqrecord.name, intergenic_counter)]
             intergenic_counter += 1
 
-        if seq_feature.type == 'CDS':
-            seq_feature.qualifiers['dnds'] = []
+        if feature.type == 'CDS' or feature.type == 'intergenic' or feature.type == 'pseudogene':
+            feature.qualifiers['nucleotide_seq'] = feature.extract(seqrecord.seq)
+            feature.qualifiers['contig_id'] = seqrecord.name
+            feature.qualifiers['hits'] = []
+
+        if feature.type == 'CDS' or feature.type == 'intergenic':
+            feature.qualifiers['pseudo_type'] = None
+            feature.qualifiers['note'] = ''
+
+
+
+
 
 
 def gbk_to_seqrecord_list(args, gbk: str):
@@ -266,7 +305,7 @@ def write_gbk(args, genome, outfile):
 def run_blast(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
     """"Run BLASTP or BLASTX with fasta file against DB of your choice."""
 
-    common.print_with_time("%s executed with %s threads." % (search_type, args.threads))
+    common.print_with_time("%s executed with %s threads on %s." % (search_type, args.threads, in_fasta))
 
     blast_dict = {'query': in_fasta,
                   'num_threads': args.threads,
@@ -304,7 +343,7 @@ def manage_blast_db(args):
 def run_diamond(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
     if search_type == 'blastp' or search_type == 'blastx':
 
-        common.print_with_time("Diamond %s executed with %s threads." % (search_type, args.threads))
+        common.print_with_time("Diamond %s executed with %s threads on %s." % (search_type, args.threads, in_fasta))
 
         diamond_cline = ('diamond %s --quiet --query %s --out %s --threads %s --max-target-seqs %s --evalue %s --db %s '
                          '--outfmt 6 qseqid sseqid pident slen mismatch gapopen qstart qend sstart send evalue bitscore stitle --max-hsps 1'
@@ -436,6 +475,10 @@ def feature_length_relative_to_hits(feature) -> float:
 def find_individual_pseudos(args, seqrecord):
 
     for feature in seqrecord.features:
+        # Option 0: This will catch pseudogenes that were annotated as such in the input genbank file.
+        if feature.type == 'pseudogene':
+            pass
+
         # Option 1: DNDS pseudogene
         if feature.type == 'CDS' and len(feature.qualifiers['dnds']) > 0:
             dnds_val = feature.qualifiers['dnds'][0].dnds
@@ -672,6 +715,7 @@ def write_summary_file(args, outfile, file_dict) -> None:
             "####### Statistics #######\n"
             "#Input:\n"
             "Initial ORFs:\t" + printable_stats['ProteomeOrfs'] + "\n"
+            "Initial pseudogenes:\t" + printable_stats['PseudogenesInput'] + "\n"
             "Number of contigs:\t" + printable_stats['NumberOfContigs'] + "\n"
             "#Output:\n"
             "Inital ORFs joined:\t" + printable_stats['FragmentedOrfs'] + "\n"
@@ -772,21 +816,27 @@ def main():
     file_dict = common.file_dict(args)  # Declare filenames used throughout the rest of the program
 
     genome = gbk_to_seqrecord_list(args, args.genome)
+
     proteome = extract_features_from_genome(args, genome, 'CDS')
     write_fasta(seqs=proteome, outfile=file_dict['cds_filename'], seq_type='nt')
     write_fasta(seqs=proteome, outfile=file_dict['proteome_filename'], seq_type='aa')
-
     common.print_with_time("CDS extracted from:\t\t\t%s\n"
                            "\t\t\tWritten to file:\t\t\t%s." % (args.genome, file_dict['cds_filename']))
 
     intergenic = extract_features_from_genome(args, genome, 'intergenic')
     write_fasta(seqs=intergenic, outfile=file_dict['intergenic_filename'], seq_type='nt')
-
     common.print_with_time("Intergenic regions extracted from:\t%s\n"
                            "\t\t\tWritten to file:\t\t\t%s." % (args.genome, file_dict['intergenic_filename']))
 
+    input_pseudos = extract_features_from_genome(args, genome, 'pseudogene')
+    if len(input_pseudos) > 0:
+        write_fasta(seqs=input_pseudos, outfile=file_dict['input_pseudos_filename'], seq_type='nt')
+        common.print_with_time("%s pseudogenes found in genbank file:\t%s\n"
+                               "\t\t\tWritten to file:\t\t\t%s." % (len(input_pseudos), args.genome, file_dict['input_pseudos_filename']))
+
     StatisticsDict['NumberOfContigs'] = len(genome)
     StatisticsDict['ProteomeOrfs'] = len(proteome)
+    StatisticsDict['PseudogenesInput'] = len(input_pseudos)
 
     if args.reference:  # #########################################################################################
         common.print_with_time("Starting dN/dS analysis pipeline...")
@@ -805,6 +855,9 @@ def main():
                     out_tsv=file_dict['blastp_filename'])
         run_diamond(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
                     out_tsv=file_dict['blastx_filename'])
+        if len(input_pseudos) > 0:
+            run_diamond(args=args, search_type='blastx', in_fasta=file_dict['input_pseudos_filename'],
+                        out_tsv=file_dict['blastx_pseudos_filename'])
 
     else:  # run vanilla blast
         if not args.skip_makedb:
@@ -813,9 +866,14 @@ def main():
                   out_tsv=file_dict['blastp_filename'])
         run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
                   out_tsv=file_dict['blastx_filename'])
+        if len(input_pseudos) > 0:
+            run_blast(args=args, search_type='blastx', in_fasta=file_dict['input_pseudos_filename'],
+                        out_tsv=file_dict['blastx_pseudos_filename'])
 
     add_blasthits_to_genome(args, genome, file_dict['blastp_filename'], 'blastp')
     add_blasthits_to_genome(args, genome, file_dict['blastx_filename'], 'blastx')
+    if len(input_pseudos) > 0:
+        add_blasthits_to_genome(args, genome, file_dict['blastx_pseudos_filename'], 'blastx')
     update_intergenic_locations(args, genome)
     find_pseudos_on_genome(args, genome)
     common.print_with_time("Collecting run statistics and writing output files.")

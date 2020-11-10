@@ -27,8 +27,9 @@ def read_gff(gff: str) -> SeqIO.SeqRecord:
         previous_absolute_end = 0   # GFF is written with every contig starting at 1, so we use this to track distance
         for line in lines:
             if re.match("##sequence-region", line):  # These lines just list the lengths of all the contigs
-                name = line.split(sep=" ")[1]
-                length = int(line.split(sep=" ")[3])
+                fields = line.split(sep=" ")
+                name = fields[1]
+                length = int(fields[3])
                 contig_dict[name] = {'name': name,
                                      'length': length,
                                      'absolute_start': previous_absolute_end+1}
@@ -36,10 +37,11 @@ def read_gff(gff: str) -> SeqIO.SeqRecord:
                 previous_absolute_end += contig_dict[name]['length']
 
             elif not re.match("#", line):   # These lines will contain Feature information
-                contig = line.split(sep="\t")[0]
-                start = int(line.split(sep="\t")[3])
-                end = int(line.split(sep="\t")[4])
-                strand = annotate.format_strand(line.split(sep="\t")[6], format='biopython')
+                fields = line.split(sep="\t")
+                contig = fields[0]
+                start = int(re.sub("[^0-9]", "", fields[3]))
+                end = int(re.sub("[^0-9]", "", fields[4]))
+                strand = annotate.format_strand(fields[6], format='biopython')
 
                 feature_list.append(SeqFeature(FeatureLocation(contig_dict[contig]['absolute_start']+start,
                                                                contig_dict[contig]['absolute_start']+end,
