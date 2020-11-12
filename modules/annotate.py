@@ -56,8 +56,6 @@ PseudoType = Enum('PseudoType', ['short',
                                  'dnds',
                                  'input'])
 
-
-
 # Global dictionary, which will be called to write the log file
 StatisticsDict = {
                     'BlastpFilename': '',
@@ -144,6 +142,7 @@ def add_qualifiers_to_features(args, seqrecord):
             feature.type = 'pseudogene'
             feature.qualifiers['pseudo_type'] = PseudoType.input
             feature.qualifiers['note'] = 'Annotated as pseudogene in input genbank file.'
+            feature.qualifiers['parents'] = [feature.qualifiers['locus_tag']]
 
         if feature.type == 'CDS':
             feature.qualifiers['dnds'] = []
@@ -161,10 +160,7 @@ def add_qualifiers_to_features(args, seqrecord):
         if feature.type == 'CDS' or feature.type == 'intergenic':
             feature.qualifiers['pseudo_type'] = None
             feature.qualifiers['note'] = ''
-
-
-
-
+            feature.qualifiers['parents'] = []
 
 
 def gbk_to_seqrecord_list(args, gbk: str):
@@ -255,9 +251,15 @@ def format_strand(strand, format='gff'):
 def attribute_string(feature):
     """Generates a string to fill attribute section of a GFF file."""
     list = []
+
     if feature.qualifiers['note']:
         list.append("note=" + feature.qualifiers['note'])
+
     list.append("locus_tag=" + feature.qualifiers['locus_tag'][0])
+
+    if feature.type == 'pseudogene':
+        list.append("old_locus_tag=" + ",".join(feature.qualifiers['parents']))
+
     return ";".join(list)
 
 
@@ -487,6 +489,7 @@ def find_individual_pseudos(args, seqrecord):
                 feature.type = 'pseudogene'
                 feature.qualifiers['pseudo_type'] = PseudoType.dnds
                 feature.qualifiers['note'] = 'Pseudogene candidate. Reason: Elevated dN/dS (%s).' % round(dnds_val, 3)
+                feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
 
         # Option 2: Short pseudogene
         if feature.type == 'CDS' and len(feature.qualifiers['hits']) > 0:
@@ -495,6 +498,7 @@ def find_individual_pseudos(args, seqrecord):
                 feature.qualifiers['pseudo_type'] = PseudoType.short
                 feature.qualifiers['note'] = 'Pseudogene candidate. Reason: ORF is %s%% of the average length of ' \
                                              'hits to this gene.' % (round(feature_length_relative_to_hits(feature)*100, 1))
+                feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
 
         # Option 3: Intergenic pseudogene
         if feature.type == 'intergenic':
@@ -502,6 +506,7 @@ def find_individual_pseudos(args, seqrecord):
                 feature.type = 'pseudogene'
                 feature.qualifiers['pseudo_type'] = PseudoType.intergenic
                 feature.qualifiers['note'] = 'Pseudogene candidate. Reason: Intergenic region with %s blast hits.' % len(feature.qualifiers['hits'])
+                feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
         else:
             pass
 
@@ -874,6 +879,7 @@ def main():
     add_blasthits_to_genome(args, genome, file_dict['blastx_filename'], 'blastx')
     if len(input_pseudos) > 0:
         add_blasthits_to_genome(args, genome, file_dict['blastx_pseudos_filename'], 'blastx')
+
     update_intergenic_locations(args, genome)
     find_pseudos_on_genome(args, genome)
     common.print_with_time("Collecting run statistics and writing output files.")
