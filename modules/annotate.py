@@ -142,7 +142,7 @@ def add_qualifiers_to_features(args, seqrecord):
             feature.type = 'pseudogene'
             feature.qualifiers['pseudo_type'] = PseudoType.input
             feature.qualifiers['note'] = 'Annotated as pseudogene in input genbank file.'
-            feature.qualifiers['parents'] = [feature.qualifiers['locus_tag']]
+            feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
 
         if feature.type == 'CDS':
             feature.qualifiers['dnds'] = []
