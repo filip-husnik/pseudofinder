@@ -7,6 +7,7 @@ from copy import copy, deepcopy
 from enum import Enum
 from typing import NamedTuple
 from time import localtime, strftime
+from pandas.core.common import flatten
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature, FeatureLocation
@@ -590,8 +591,7 @@ def create_fragmented_pseudo(args, fragments, seqrecord):
         if frag_parents is not None:
             parents.extend(frag_parents)
         parents.extend([feature.qualifiers['locus_tag'][0] for feature in fragments])
-        parents = list(set(parents))
-
+        parents = list(set(flatten(parents)))
 
     pseudo = SeqFeature(location=FeatureLocation(start, end),
                         type='pseudogene',
