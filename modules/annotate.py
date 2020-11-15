@@ -624,7 +624,7 @@ def find_fragmented_pseudos(args, seqrecord):
 
     if len(features) > 2:   # contig must have at least 3 features in order to run this algorithm
         i = 0
-        while i < len(features)-2:
+        while i < len(features) - 2:
             f1 = features[i]
             f2 = features[i+1]
             f3 = features[i+2]
@@ -632,12 +632,14 @@ def find_fragmented_pseudos(args, seqrecord):
             if adjacent_fragments_match(args, f1, f2):
                 create_fragmented_pseudo(args, (f1, f2), seqrecord)
                 manage_parent_fragments((f1, f2))
-                i -= 1
+                if i > 0:
+                    i -= 1
 
             elif adjacent_fragments_match(args, f1, f3):
                 create_fragmented_pseudo(args, (f1, f2, f3), seqrecord)
                 manage_parent_fragments((f1, f2, f3))
-                i -= 1
+                if i > 0:
+                    i -= 1
 
             else:
                 i += 1
