@@ -572,7 +572,10 @@ def create_fragmented_pseudo(args, fragments, seqrecord):
         # TODO: We should explore options to handle these cases in the future.
         tags = [feature.qualifiers['locus_tag'][0] for feature in fragments]
         parent_tags = [feature.qualifiers.get('parents') for feature in fragments]
-        all_tags = list(filter(None, set(tags + parent_tags)))
+
+        # TODO: understand why 'tags + parent_tags' results in a nested list and fix the source of the issue rather than forcibly flattening.
+        # Order of operations: flatten -> remove duplicates -> remove 'None' -> convert to list
+        all_tags = list(filter(None, set(flatten(tags + parent_tags))))
 
         common.print_with_time("WARNING: Pseudogene detected which traverses features on (+) and (-) strands.\n"
                                "\t\t\tWe recommend manual inspection of this region.\n"
