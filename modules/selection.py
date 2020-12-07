@@ -446,12 +446,13 @@ def main():
 
         prescreened = []
         alnLengthDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        aaiDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
         blast = open("%s/pseudogene.blast" % args.out)
         for i in blast:
             ls = i.rstrip().split("\t")
             if ls[0] not in prescreened:
                 alnLengthDict[ls[0]] = ls[3]
-
+                aaiDict[ls[0]] = ls[2]
                 outNUC = open(args.out + "/dnds-analysis/%s.faa.fna" % ls[0], "w")
                 outNUC.write(">" + ls[1] + "\n")
                 outNUC.write(refFnaDict[ls[1]] + "\n")
@@ -569,7 +570,7 @@ def main():
     dndsList = []
     total = 0
     out = open(args.out + "/dnds-summary.csv", "w")
-    out.write("ORF" + "," + "referenceMatch" + "," + "dN" + "," + "dS" + "," + "dN/dS" + "," + "PG" + "\n")
+    out.write("ORF" + "," + "referenceMatch" + "," + "amino_acid_identity" + "," + "dN" + "," + "dS" + "," + "dN/dS" + "," + "PG" + "\n")
     for i in sorted(dndsDict.keys()):
         total += 1
 
@@ -585,7 +586,7 @@ def main():
             else:
                 pg = "Y"
 
-            out.write(i + "," + str(dndsDict[i]["orf"]) + "," + str(dndsDict[i]["dn"]) + "," + str(dndsDict[i]["ds"]) + "," +
+            out.write(i + "," + str(dndsDict[i]["orf"]) + "," + str(aaiDict[i]) + "," + str(dndsDict[i]["dn"]) + "," + str(dndsDict[i]["ds"]) + "," +
 
                       str(dnds) + "," + str(pg) + "\n")
 
@@ -718,12 +719,13 @@ def full(args, file_dict, log_file_dict=None, skip=False):
 
         prescreened = []
         alnLengthDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+        aaiDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
         blast = open("%s/pseudogene.blast" % out)
         for i in blast:
             ls = i.rstrip().split("\t")
             if ls[0] not in prescreened:
                 alnLengthDict[ls[0]] = ls[3]
-
+                aaiDict[ls[0]] = ls[2]
                 outNUC = open(out + "/dnds-analysis/%s.faa.fna" % ls[0], "w")
                 outNUC.write(">" + ls[1] + "\n")
                 outNUC.write(refFnaDict[ls[1]] + "\n")
@@ -844,7 +846,7 @@ def full(args, file_dict, log_file_dict=None, skip=False):
         os.makedirs(out)
         OUT = open(out + "/dnds-summary.csv", "w")
 
-    OUT.write("ORF" + "," + "referenceMatch" + "," + "dN" + "," + "dS" + "," + "dN/dS" + "," + "PG" + "\n")
+    OUT.write("ORF" + "," + "referenceMatch" + "," + "amino_acid_identity" + "," + "dN" + "," + "dS" + "," + "dN/dS" + "," + "PG" + "\n")
     for i in sorted(dndsDict.keys()):
         total += 1
 
@@ -861,7 +863,7 @@ def full(args, file_dict, log_file_dict=None, skip=False):
                 pg = "Y"
 
             OUT.write(
-                i + "," + str(dndsDict[i]["orf"]) + "," + str(dndsDict[i]["dn"]) + "," + str(dndsDict[i]["ds"]) + "," +
+                i + "," + str(dndsDict[i]["orf"]) + "," + str(aaiDict[i]) + "," + str(dndsDict[i]["dn"]) + "," + str(dndsDict[i]["ds"]) + "," +
 
                 str(dnds) + "," + str(pg) + "\n")
 
