@@ -9,8 +9,8 @@ Tested mostly on .gbk files annotated by Prokka with the --compliant flag.
 
 Installation requirements: Please see github repo for detailed explanation of requirements.
  """
-__author__ = "Mitch Syberg-Olsen & Filip Husnik"
-__version__ = "0.11"
+__author__ = "Mitch Syberg-Olsen, Arkadiy Garber & Filip Husnik"
+__version__ = "1.00"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
