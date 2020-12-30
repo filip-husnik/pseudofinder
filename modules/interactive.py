@@ -21,7 +21,7 @@ class Entry:
     def __init__(self, args, seqfeature, normalized=False):
         self.args = args
         self.feature = seqfeature
-        self.contig = self.feature.qualifiers['contig_id'][0]
+        self.contig = self.feature.qualifiers['contig_id']
         self.feature_type = self.retrieve_feature_type()
         self.normalized = normalized
         self.position = self.feature.location
@@ -170,9 +170,9 @@ class Figure:
 
         elif object_type == 'scatter':
             if data_is_normalized(dataset):
-                trace_name = 'Normalized BLAST hit length'
+                trace_name = 'Normalized BLAST hit length (Mean, SD)'
             else:
-                trace_name = 'BLAST mean hit length (nt)'
+                trace_name = 'BLAST hit length (Mean nt, SD)'
 
         else:
             raise RuntimeError("wrong use of Figure.trace_name().")
