@@ -7,12 +7,12 @@ import os
 import re
 import shutil
 from contextlib import contextmanager
-from copy import deepcopy, copy
+from copy import deepcopy
 
 import pandas as pd
 import numpy
 from plotly.offline import plot
-from plotly.graph_objs import Surface, Layout, Scene, Figure
+from plotly.graph_objs import Surface, Layout, Figure
 
 
 @contextmanager
@@ -94,15 +94,19 @@ def make_plot(args):
     with common.suppress_output_to_console():
         data = [Surface(x=matrix.columns,
                         y=matrix.index,
-                        z=matrix.values)]
+                        z=matrix.values,
+                        hovertemplate='length_pseudo: %{y}<br>'
+                                      'shared_hits: %{x}<br>'
+                                      'pseudogene calls: %{z}',
+                        hoverlabel=dict(namelength=-1))]
 
         layout = Layout(
-            scene=Scene(
+            scene=dict(
                 xaxis=dict(title='shared_hits',
                            autorange=True),
                 yaxis=dict(title='length_pseudo',
                            autorange=True),
-                zaxis=dict(title=args.title,
+                zaxis=dict(title='pseudogene calls',
                            autorange=True)
             )
         )
@@ -129,6 +133,7 @@ def main():
 
     if args.keep_files is False:
         shutil.rmtree(args.outprefix)
+
 
 if __name__ == '__main__':
     main()

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 __package__ = 'modules'
 import sys
-import common
+from . import common
 import os
 import statistics
 import sys
 from copy import deepcopy
 from typing import NamedTuple, List, OrderedDict
 from collections import defaultdict
+from Bio import SeqIO
+from enum import Enum
 
 # All possible types of regions
 RegionType = Enum('RegionType', ['ORF',
@@ -116,7 +118,7 @@ with common.suppress_output_to_console():
     os.system("echo hello 2")
 
 
-def write_test_genome_output(file_dict, genome): #TODO: maybe move this to common or sandbox when done
+def write_test_genome_output(file_dict, genome):
     with open(file_dict['base_filename']+"test_genome.gbk", "w") as output_handle:
         SeqIO.write(genome, output_handle, "genbank")
 

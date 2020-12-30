@@ -17,23 +17,25 @@ __email__ = "filip.husnik@gmail.com"
 errorMessage = "Options: " + common.bold("pseudofinder.py [ annotate | reannotate | visualize | selection | test | help ]\n")
 
 try:
-    argv[1]
+    module = argv[1]
 except IndexError:
     stderr.write(errorMessage)
     exit()
 
 try:
-    if argv[1] == "annotate":
+    if module == "annotate":
         annotate.main()
-    elif argv[1] == "reannotate":
+    elif module == "reannotate":
         reannotate.main()
-    elif argv[1] == "visualize":
+    elif module == "visualize":
         visualize.main()
-    elif argv[1] == "selection":
+    elif module == "selection":
         selection.main()
-    elif argv[1] == "test":
+    elif module == "test":
         pseudofinder_test.main()
-    elif argv[1] == "help":
+    elif module == "interactive":
+        interactive.main()
+    elif module == "help":
         stderr.write("\tpseudofinder.py annotate: Flags candidate pseudogenes.\n"
                      "\tpseudofinder.py reannotate: Begins the annotate pipeline post-BLAST.\n"
                      "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of "

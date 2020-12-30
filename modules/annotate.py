@@ -26,6 +26,12 @@ try:
 except ImportError:
     pass
 
+# importing interactive module
+try:
+    from . import interactive
+except ImportError:
+    pass
+
 # Data definitions
 # An individual blast hit to a region.
 BlastHit = NamedTuple('BlastHit', [('blast_type', str),
@@ -420,11 +426,17 @@ def add_blasthits_to_genome(args, genome, blast_file, blast_type):
     """
 
     hit_list = convert_tsv_to_blasthits(blast_file, blast_type)
-    relevant_features = features_with_locus_tags(genome)
+    relevant_features = [f for f in features_with_locus_tags(genome) if f.type == 'CDS' or f.type == 'intergenic' or 'pseudo' in f.type.lower()]
     feature_dict = {feature.qualifiers['locus_tag'][0]: feature for feature in relevant_features}
 
     for hit in hit_list:
-        feature_dict[hit.query].qualifiers['hits'].append(hit)
+        try:
+            feature_dict[hit.query].qualifiers['hits'].append(hit)
+        except KeyError:
+            common.print_with_time("Potential duplicate locus tags detected in genome, unable to process. "
+                                   "Offending tag: %s "
+                                   "Exiting now." % hit.query)
+            exit()
 
 
 def convert_csv_to_dnds(dnds_file):
@@ -769,6 +781,8 @@ def write_all_outputs(args, genome, file_dict, visualize=False):
         write_fasta(intact, file_dict['intact_faa'], 'aa')
         write_fasta(pseudogenes, file_dict['pseudos_fasta'], 'nt')
         # write_gbk(args, genome, file_dict['gbk_out']) #TODO: understand why this doesn't work as it should. See notes inside function
+        # common.write_test_genome_output(file_dict, genome)
+        # interactive.genome_to_graphs(args=args, file_dict=file_dict, genome=genome)
         genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
         write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
 

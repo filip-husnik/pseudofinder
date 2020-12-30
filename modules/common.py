@@ -160,6 +160,14 @@ def get_args(module='None', **kwargs):
         'help': 'Please provide your genome file in the genbank format.',
         'required': False if module == 'test' else True
     }
+    annotated_genome = {
+        'short': '-ag',
+        'long': '--annotated_genome',
+        'help': 'Testing feature. Genbank file with all extra qualifiers and pseudogene annotations contained.\n'
+                'If this is the only argument supplied, the figure will appear in your browser.\n'
+                'If you supply an outprefix, figure will be saved as an html file.',
+        'required': True
+    }
     database = {
         'short': '-db',
         'long': '--database',
@@ -170,7 +178,7 @@ def get_args(module='None', **kwargs):
         'short': '-op',
         'long': '--outprefix',
         'help': 'Specify an output prefix.',
-        'required': True
+        'required': False if module == 'interactive' else True
     }
     threads = {
         'short': '-t',
@@ -467,11 +475,15 @@ def get_args(module='None', **kwargs):
 
     elif module == 'visualize':
         required_args = [logfile, outprefix]
-        optional_args = [distance, intergenic_threshold, resolution, keep_files, title]
+        optional_args = [distance, intergenic_threshold, resolution, keep_files]
 
     elif module == 'test':
         required_args = [database]
         optional_args = [genome, diamond, threads]
+
+    elif module == 'interactive':
+        required_args = [annotated_genome]
+        optional_args = [outprefix]
 
     else:
         print("Module not found. Please check your get_args() function call.")
@@ -563,6 +575,7 @@ def file_dict(args, **kwargs):
         'intact_faa': base_outfile_name + "intact.faa",
         'intact_ffn': base_outfile_name + "intact.ffn",
         'chromosome_map': base_outfile_name + "map.pdf",
+        'interactive': base_outfile_name + "interactive_results.html",
         'gbk_out': base_outfile_name[:-1] + ".gbk",
         'dnds_out': base_outfile_name + "dnds",
         'log': base_outfile_name + "log.txt",
@@ -570,3 +583,7 @@ def file_dict(args, **kwargs):
     }
     return file_dict
 
+
+def write_test_genome_output(file_dict, genome):
+    with open(file_dict['base_filename']+"test_genome.gbk", "w") as output_handle:
+        SeqIO.write(genome, output_handle, "genbank")
