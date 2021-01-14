@@ -3,10 +3,9 @@
 from . import common
 import re
 import os
-from copy import copy, deepcopy
+from copy import deepcopy
 from enum import Enum
 from typing import NamedTuple
-from time import localtime, strftime
 from pandas.core.common import flatten
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
 from Bio.SeqRecord import SeqRecord
@@ -50,10 +49,10 @@ BlastHit = NamedTuple('BlastHit', [('blast_type', str),
                                    ('stitle', str)])
 
 dnds_data = NamedTuple('dnds_data', [('locus_tag', str),
-                           ('reference_tag', str),
-                           ('dn', float),
-                           ('ds', float),
-                           ('dnds', float)])
+                                     ('reference_tag', str),
+                                     ('dn', float),
+                                     ('ds', float),
+                                     ('dnds', float)])
 
 
 PseudoType = Enum('PseudoType', ['short',
@@ -79,11 +78,6 @@ StatisticsDict = {
                     'dnds': 0,
                     'IntactORFs': 0
                   }
-
-
-def current_time() -> str:
-    """Returns the current time when this function was executed."""
-    return str(strftime("%Y-%m-%d %H:%M:%S", localtime()))
 
 
 def add_intergenic_to_seqrecord(args, seqrecord):
@@ -134,8 +128,8 @@ def translate_cds(args, feature, seqrecord):
             feature.qualifiers['translation'] = [str(feature.translate(parent_sequence=seqrecord, table='Bacterial').seq)]
         except TranslationError as e:
             common.print_with_time("WARNING: Exception encountered when translating %s. Pseudofinder cannot analyze invalid CDS features.\n"
-                                   "\t\t\tError: %s\n"
-                                   "\t\t\tPlease fix input file. Pseudofinder will exit now." % (feature.qualifiers['locus_tag'][0], e))
+                                   "Error: %s\n"
+                                   "Please fix input file. Pseudofinder will exit now." % (feature.qualifiers['locus_tag'][0], e))
             exit()
 
 
@@ -200,13 +194,29 @@ def parse_features_from_record(record: SeqRecord, feature_type: str) -> list:
     return feature_list
 
 
-def extract_features_from_genome(args, genome, feature_type: str) -> list:
+def extract_features_from_genome(args, genome, feature_type: list or str) -> list:
     """
     Returns all features from genome as a list.
+    feature_type can be a string or infinitely deeply nested lists of strings.
+    ie, 'CDS' or ['CDS', 'intergenic'] work but something crazy like
+     ['CDS', ['intergenic', 'ncRNA', ['pseudogene']]] would also be valid.
+    Will throw an error if feature_type is anything other than a list or a string.
     """
     feature_list = []
-    for record in genome:
-        feature_list.extend(parse_features_from_record(record, feature_type))
+    if isinstance(feature_type, list):
+        for item in feature_type:
+            feature_list.extend(extract_features_from_genome(args, genome, item))
+
+    elif isinstance(feature_type, str):
+        for record in genome:
+            feature_list.extend(parse_features_from_record(record, feature_type))
+
+    else:
+        raise TypeError("extract_features_from_genome() received invalid type: %s" % type(feature_type))
+
+    # remove duplicates
+    feature_list = list(set(feature_list))
+
     return feature_list
 
 
@@ -440,7 +450,10 @@ def add_blasthits_to_genome(args, genome, blast_file, blast_type):
 
 
 def convert_csv_to_dnds(dnds_file):
-
+    """
+    Reads values from the dNdS csv file and converts each row into a dnds_data entry.
+    Returns a list of dnds_data
+    """
     dnds_list = []
     with open(dnds_file, 'r') as csv:
         next(csv)
@@ -590,8 +603,8 @@ def create_fragmented_pseudo(args, fragments, seqrecord):
         all_tags = list(filter(None, set(flatten(tags + parent_tags))))
 
         common.print_with_time("WARNING: Pseudogene detected which traverses features on (+) and (-) strands.\n"
-                               "\t\t\tWe recommend manual inspection of this region.\n"
-                               "\t\t\tFeatures involved: %s" % all_tags)
+                               "We recommend manual inspection of this region.\n"
+                               "Features involved: %s" % all_tags)
 
         strand = 0
         # raise RuntimeError("Trying to combine genes on opposite strands.")
@@ -693,7 +706,7 @@ def find_pseudos_on_genome(args, genome):
         num_pseudos = len(pseudos)
 
         common.print_with_time("Number of ORFs on this contig: %s\n"
-                               "\t\t\tNumber of pseudogenes flagged: %s" % (num_ORFs, num_pseudos))
+                               "Number of pseudogenes flagged: %s" % (num_ORFs, num_pseudos))
 
     update_locus_tags(args, genome)
 
@@ -708,7 +721,7 @@ def write_summary_file(args, outfile, file_dict) -> None:
 
         logfile.write(
             "####### Summary from annotate/reannotate #######\n\n"
-            "Date/time:\t" + current_time() + "\n\n"
+            "Date/time:\t" + common.current_time() + "\n\n"
             "#######    Files   #######\n"
             "Genome:\t" + printable_args.genome + "\n"
             "Database:\t" + printable_args.database + "\n"
@@ -845,18 +858,18 @@ def main():
     write_fasta(seqs=proteome, outfile=file_dict['cds_filename'], seq_type='nt')
     write_fasta(seqs=proteome, outfile=file_dict['proteome_filename'], seq_type='aa')
     common.print_with_time("CDS extracted from:\t\t\t%s\n"
-                           "\t\t\tWritten to file:\t\t\t%s." % (args.genome, file_dict['cds_filename']))
+                           "Written to file:\t\t\t%s." % (args.genome, file_dict['cds_filename']))
 
     intergenic = extract_features_from_genome(args, genome, 'intergenic')
     write_fasta(seqs=intergenic, outfile=file_dict['intergenic_filename'], seq_type='nt')
     common.print_with_time("Intergenic regions extracted from:\t%s\n"
-                           "\t\t\tWritten to file:\t\t\t%s." % (args.genome, file_dict['intergenic_filename']))
+                           "Written to file:\t\t\t%s." % (args.genome, file_dict['intergenic_filename']))
 
     input_pseudos = extract_features_from_genome(args, genome, 'pseudogene')
     if len(input_pseudos) > 0:
         write_fasta(seqs=input_pseudos, outfile=file_dict['input_pseudos_filename'], seq_type='nt')
         common.print_with_time("%s pseudogenes found in genbank file:\t%s\n"
-                               "\t\t\tWritten to file:\t\t\t%s." % (len(input_pseudos), args.genome, file_dict['input_pseudos_filename']))
+                               "Written to file:\t\t\t%s." % (len(input_pseudos), args.genome, file_dict['input_pseudos_filename']))
 
     StatisticsDict['NumberOfContigs'] = len(genome)
     StatisticsDict['ProteomeOrfs'] = len(proteome)

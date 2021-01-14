@@ -22,7 +22,9 @@ def current_time() -> str:
 
 
 def print_with_time(x):
-    print(bold(current_time()) + '\t' + x)
+    # This will auto indent newlines to accomodate the datetime
+    x_indented = '\t' + x.replace('\n', '\n\t\t\t')
+    print(bold(current_time()) + x_indented)
     sys.stdout.flush()
 
 
@@ -84,7 +86,9 @@ def suppress_output_to_console():
     """Prevents writing to stdout. Use in the following way:
 
     with suppress_output_to_console():
-        action_to_perform()
+        action_to_silence()
+
+    outside_of_scope_will_print_again()
     """
     with open(os.devnull, "w") as devnull:
         old_stdout = sys.stdout
@@ -554,9 +558,12 @@ def file_dict(args, **kwargs):
     outprefix = kwargs.get('outprefix', None)
 
     if outprefix:
-        base_outfile_name = outprefix + "_"
+        base_outfile_name = outprefix
     else:
-        base_outfile_name = args.outprefix + "_"
+        base_outfile_name = args.outprefix
+
+    if not base_outfile_name.endswith('_'):
+        base_outfile_name += '_'
 
     file_dict = {
         'base_filename': base_outfile_name,
@@ -575,7 +582,8 @@ def file_dict(args, **kwargs):
         'intact_faa': base_outfile_name + "intact.faa",
         'intact_ffn': base_outfile_name + "intact.ffn",
         'chromosome_map': base_outfile_name + "map.pdf",
-        'interactive': base_outfile_name + "interactive_results.html",
+        'interactive_bar': base_outfile_name + "interactive_results.html",
+        'interactive_map': base_outfile_name + "interactive_map.pdf",
         'gbk_out': base_outfile_name[:-1] + ".gbk",
         'dnds_out': base_outfile_name + "dnds",
         'log': base_outfile_name + "log.txt",

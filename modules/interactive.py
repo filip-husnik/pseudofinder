@@ -8,20 +8,13 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.offline import plot
 
-# this section silences warnings while importing an improperly formatted genbank file.
-# Shouldn't need when program is called to plot from the annotate module since it will pass a SeqRecord
-# instead of a text file
-import warnings
-from Bio import BiopythonParserWarning
-warnings.simplefilter('ignore', BiopythonParserWarning)
-
 
 class Entry:
     """Entry converts a SeqFeature into an object that has all info needed for plotting a single data point."""
     def __init__(self, args, seqfeature, normalized=False):
         self.args = args
         self.feature = seqfeature
-        self.contig = self.feature.qualifiers['contig_id']
+        self.contig = self.feature.qualifiers['contig_id'][0]
         self.feature_type = self.retrieve_feature_type()
         self.normalized = normalized
         self.position = self.feature.location
@@ -112,25 +105,17 @@ class Entry:
 
 
 class Figure:
-    """Calling this object will create a figure with the provided datasets."""
-    def __init__(self, args, file_dict, datasets, descriptions):
-        self.args = args
+    def __init__(self, args, file_dict):
+        self.args = args,
         self.file_dict = file_dict
-        self.datasets = datasets
-        self.num_plots = len(datasets)
-        self.fig = make_subplots(rows=self.num_plots, cols=1, subplot_titles=descriptions)
-
-        for i, dataset in enumerate(self.datasets):
-            self.generate_subplot(dataset, i+1)
-        self.fig.update_layout(hovermode='x unified',
-                               xaxis=dict(ticks="",
-                                          showticklabels=False))
+        self.fig = None
+        self.filename = None
 
     def show(self):
         self.fig.show()
 
     def offline_plot(self):
-        plot(self.fig, filename=self.file_dict['interactive'], auto_open=False)
+        plot(self.fig, filename=self.filename, auto_open=False)
 
     def bar_colours(self, dataset):
         colours = []
@@ -148,18 +133,59 @@ class Figure:
     def hovertext(self, dataset, object_type):
         hovertext = []
         for entry in dataset:
+            bar_text = "Contig: %s<br>" \
+                       "Locus: %s %s<br>" \
+                       "Annotation: %s<br>" % (entry.contig, entry.locus, str(entry.position), entry.annotation)
+
+            if 'pseudo' in entry.feature_type.lower():
+                bar_text = bar_text + "Pseudo call: %s" % entry.feature_type
+
+            scatter_text = "%s blast hits." % len(entry.blast_lengths)
+            pie_length = 'Length (nt): %s<br>' \
+                         'BLAST hit length (Mean nt, SD): %s +/- %s<br>' % (entry.length,
+                                                                            entry.mean_blast_length,
+                                                                            round(entry.blast_stdev, 3))
+            pie_text = pie_length + bar_text + "<br>" + scatter_text
+
             if object_type == "bar":
-                bar_text = "Contig: %s %s<br>" \
-                           "Locus: %s<br>" \
-                           "Annotation: %s<br>" % (entry.contig, str(entry.position), entry.locus, entry.annotation)
-                if 'pseudo' in entry.feature_type.lower():
-                    bar_text = bar_text + "Pseudo call: %s" % entry.feature_type
                 hovertext.append(bar_text)
             elif object_type == "scatter":
-                hovertext.append("%s blast hits." % len(entry.blast_lengths))
+                hovertext.append(scatter_text)
+            elif object_type == 'pie':
+                hovertext.append(pie_text)
             else:
                 raise RuntimeError("wrong use of Figure.hovertext().")
+
         return hovertext
+
+    def show_alignment(self):
+        """This function should bring up the associated protein alignment."""
+        return False
+
+
+class Bar(Figure):
+    """Calling this object will create a figure with the provided datasets."""
+    def __init__(self, args, file_dict, datasets, descriptions):
+        super().__init__(args, file_dict)
+        self.filename = self.file_dict['interactive_bar']
+        self.datasets = datasets
+        self.num_plots = len(datasets)
+        self.fig = make_subplots(rows=self.num_plots, cols=1, subplot_titles=descriptions)
+        for i, dataset in enumerate(self.datasets):
+            self.generate_subplot(dataset, i+1)
+        self.fig.update_layout(hovermode='x unified',
+                               xaxis=dict(ticks="",
+                                          showticklabels=False),
+                               width=self.fig_width())
+
+    def fig_width(self):
+        """In pixels. Below 350 features, lets plotly set this automatically."""
+        largest_dataset = sorted(self.datasets, key=lambda x: len(x))[-1]
+        dataset_length = len(largest_dataset)
+        if dataset_length < 350:
+            return None
+        else:
+            return dataset_length * 5
 
     def trace_name(self, dataset, object_type):
         if object_type == 'bar':
@@ -179,55 +205,103 @@ class Figure:
         return trace_name
 
     def generate_subplot(self, dataset, row: int):
+        # TODO: Google how to remove space at start/end of plot
+        # TODO: google how to align titles to left side
+
+        # Collect all the data from the dataset
         x_vals = np.arange(len(dataset))
         y_mean_hit_vals = [x.mean_blast_length for x in dataset]
         y_mean_hit_stdev = [x.blast_stdev for x in dataset]
         y_gene_vals = [x.length for x in dataset]
-        colours = self.bar_colours(dataset)
+
+        # Any common keyword arguments for every graph_object go here
         markersize = 1
+        go_kwargs = dict(x=x_vals,
+                         hoverlabel=dict(namelength=-1),
+                         showlegend=False)
+        # Error bars
         error = dict(type='data',
                      array=y_mean_hit_stdev,
                      width=markersize,
                      thickness=markersize,
                      visible=True)
+        # Bar plot
+        bar = go.Bar(go_kwargs,
+                     y=y_gene_vals,
+                     marker=dict(color=self.bar_colours(dataset)),
+                     hovertext=self.hovertext(dataset, 'bar'),
+                     name=self.trace_name(dataset, 'bar'))
 
-        self.fig.add_trace(go.Bar(x=x_vals,
-                                  y=y_gene_vals,
-                                  marker=dict(color=colours),
-                                  hoverlabel=dict(namelength=-1),
-                                  hovertext=self.hovertext(dataset, 'bar'),
-                                  showlegend=False,
-                                  name=self.trace_name(dataset, 'bar')),
-                           row=row,
-                           col=1)
-
+        # If normalized to y=1, no need for a marker but a line will be drawn at y=1.
         if data_is_normalized(dataset):
-            self.fig.add_trace(go.Scatter(x=x_vals,
-                                          y=y_mean_hit_vals,
-                                          error_y=error,
-                                          mode='lines',
-                                          marker=dict(color='black', size=0),
-                                          line=dict(width=markersize),
-                                          hoverlabel=dict(namelength=-1),
-                                          hovertext=self.hovertext(dataset, 'scatter'),
-                                          showlegend=False,
-                                          name=self.trace_name(dataset, 'scatter')),
-                               row=row,
-                               col=1)
+            scatter = go.Scatter(go_kwargs,
+                                 y=y_mean_hit_vals,
+                                 error_y=error,
+                                 mode='lines',
+                                 marker=dict(color='black', size=0),
+                                 line=dict(width=markersize),
+                                 hovertext=self.hovertext(dataset, 'scatter'),
+                                 name=self.trace_name(dataset, 'scatter'))
+        # If not normalized, no line but draw markers for each point
         else:
-            self.fig.add_trace(go.Scatter(x=x_vals,
-                                          y=y_mean_hit_vals,
-                                          error_y=error,
-                                          mode='markers',
-                                          marker=dict(color='black', size=markersize),
-                                          hoverlabel=dict(namelength=-1),
-                                          hovertext=self.hovertext(dataset, 'scatter'),
-                                          showlegend=False,
-                                          name=self.trace_name(dataset, 'scatter')),
-                               row=row,
-                               col=1)
+            scatter = go.Scatter(go_kwargs,
+                                 y=y_mean_hit_vals,
+                                 error_y=error,
+                                 mode='markers',
+                                 marker=dict(color='black', size=markersize),
+                                 hovertext=self.hovertext(dataset, 'scatter'),
+                                 name=self.trace_name(dataset, 'scatter'))
 
+        self.fig.add_trace(bar, row=row, col=1)
+        self.fig.add_trace(scatter, row=row, col=1)
         self.fig.update_xaxes(ticks="", showticklabels=False, row=row, col=1)
+
+
+class Map(Figure):
+    """Makes a genome diagram from the plotly piechart"""
+    def __init__(self, args, file_dict, dataset):
+        super().__init__(args, file_dict)
+        self.filename = self.file_dict['interactive_map']
+        self.dataset = dataset
+        self.data_by_contig = self.split_dataset_by_contig()
+        self.num_plots = len(self.data_by_contig)
+        self.fig = make_subplots(cols=self.num_plots, rows=1)
+        for i, dataset in enumerate(self.data_by_contig):
+            self.genome_map(dataset['contig'], dataset['entries'], i + 1)
+
+    def split_dataset_by_contig(self):
+        # TODO: WIP, doesn't actually split the data
+        return [{'contig': 'Put contig name here',
+                 'entries': self.dataset}]
+
+    def genome_map(self, contig, dataset, col: int):
+        """
+        Makes a genome diagram using the plotly.pie object.
+        TODO:
+        - draw one pie per replicon, scale them according to each other
+        - add some sort of colored border around each entry so it doesn't blur in with adjacent entries
+        - Contig label in the center
+        - fix scaling for larger genomes so that they are readable
+        - prevent it from writing on entries with more than like.. 10 contigs. that would be a mess
+        """
+        values = [entry.length for entry in dataset]
+        labels = [entry.locus for entry in dataset]
+        pie_kwargs = dict(direction='clockwise',
+                          hole=0.90,
+                          sort=False,
+                          hoverinfo='text',
+                          insidetextorientation='radial',
+                          textinfo='none',
+                          showlegend=False)
+        pie = go.Pie(pie_kwargs,
+                     values=values,
+                     labels=labels,
+                     title=contig,
+                     marker=dict(colors=self.bar_colours(dataset)),
+                     hovertext=self.hovertext(dataset, 'pie'),
+                     domain=dict(column=col, row=1)) #TODO: this is supposed to be how to subplot pie charts?
+
+        self.fig.add_trace(pie)
 
 
 def data_is_normalized(dataset):
@@ -281,10 +355,7 @@ def features_to_data(args, features):
 
 def genome_to_graphs(args, file_dict, genome, show=False):
     # Collect all relevant features
-    cds_features = annotate.extract_features_from_genome(args, genome, 'CDS')
-    intergenic_features = annotate.extract_features_from_genome(args, genome, 'intergenic')
-    pseudo_features = annotate.extract_features_from_genome(args, genome, 'pseudogene')
-    all_features = cds_features + intergenic_features + pseudo_features
+    all_features = annotate.extract_features_from_genome(args, genome, ['CDS', 'intergenic', 'pseudogene'])
 
     # Convert to data (list of Entry objects)
     data = features_to_data(args, all_features)
@@ -302,18 +373,30 @@ def genome_to_graphs(args, file_dict, genome, show=False):
     plot3_data = sorted(plot2_data, key=lambda x: x.length)
 
     # Plot the data
-    fig = Figure(args=args,
-                 file_dict=file_dict,
-                 datasets=[plot1_data, plot2_data, plot3_data],
-                 descriptions=[desc1, desc2, desc3])
+    bar = Bar(args=args,
+              file_dict=file_dict,
+              datasets=[plot1_data, plot2_data, plot3_data],
+              descriptions=[desc1, desc2, desc3])
 
+    map = Map(args=args,
+              file_dict=file_dict,
+              dataset=plot1_data)
     if show:
-        fig.show()
+         bar.show()
+         map.show()
     else:
-        fig.offline_plot()
+        bar.offline_plot()
+        map.offline_plot()
 
 
 def main():
+    # this import silences warnings while importing an improperly formatted genbank file.
+    # Shouldn't need when program is called to plot from the annotate module since it will pass a SeqRecord
+    # instead of a text file
+    import warnings
+    from Bio import BiopythonParserWarning
+    warnings.simplefilter('ignore', BiopythonParserWarning)
+
     args = common.get_args('interactive')
     annotated_genome = gbk_to_seqrecord_list(args, args.annotated_genome)
     if args.outprefix:
