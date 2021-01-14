@@ -14,7 +14,10 @@ class Entry:
     def __init__(self, args, seqfeature, normalized=False):
         self.args = args
         self.feature = seqfeature
-        self.contig = self.feature.qualifiers['contig_id'][0]
+        if isinstance(self.feature.qualifiers['contig_id'], list):
+            self.contig = self.feature.qualifiers['contig_id'][0]
+        else:
+            self.contig = self.feature.qualifiers['contig_id']
         self.feature_type = self.retrieve_feature_type()
         self.normalized = normalized
         self.position = self.feature.location
@@ -109,10 +112,16 @@ class Figure:
         self.args = args,
         self.file_dict = file_dict
         self.fig = None
+        self.config = self.plot_config()
         self.filename = None
 
+    def plot_config(self):
+        config = dict(displayModeBar=True,
+                      displaylogo=False)
+        return config
+
     def show(self):
-        self.fig.show()
+        self.fig.show(config=self.config)
 
     def offline_plot(self):
         plot(self.fig, filename=self.filename, auto_open=False)
@@ -143,7 +152,7 @@ class Figure:
             scatter_text = "%s blast hits." % len(entry.blast_lengths)
             pie_length = 'Length (nt): %s<br>' \
                          'BLAST hit length (Mean nt, SD): %s +/- %s<br>' % (entry.length,
-                                                                            entry.mean_blast_length,
+                                                                            round(entry.mean_blast_length, 3),
                                                                             round(entry.blast_stdev, 3))
             pie_text = pie_length + bar_text + "<br>" + scatter_text
 
@@ -173,6 +182,7 @@ class Bar(Figure):
         self.fig = make_subplots(rows=self.num_plots, cols=1, subplot_titles=descriptions)
         for i, dataset in enumerate(self.datasets):
             self.generate_subplot(dataset, i+1)
+
         self.fig.update_layout(hovermode='x unified',
                                xaxis=dict(ticks="",
                                           showticklabels=False),
@@ -205,9 +215,6 @@ class Bar(Figure):
         return trace_name
 
     def generate_subplot(self, dataset, row: int):
-        # TODO: Google how to remove space at start/end of plot
-        # TODO: google how to align titles to left side
-
         # Collect all the data from the dataset
         x_vals = np.arange(len(dataset))
         y_mean_hit_vals = [x.mean_blast_length for x in dataset]
@@ -254,7 +261,9 @@ class Bar(Figure):
 
         self.fig.add_trace(bar, row=row, col=1)
         self.fig.add_trace(scatter, row=row, col=1)
-        self.fig.update_xaxes(ticks="", showticklabels=False, row=row, col=1)
+        self.fig.update_xaxes(range=[-1, x_vals[-1] + 1], ticks="", showticklabels=False, row=row, col=1)
+        self.fig.update_yaxes(fixedrange=True, row=row, col=1)
+        self.fig.layout.annotations[row-1].update(xanchor='left', x=0)
 
 
 class Map(Figure):
@@ -265,24 +274,39 @@ class Map(Figure):
         self.dataset = dataset
         self.data_by_contig = self.split_dataset_by_contig()
         self.num_plots = len(self.data_by_contig)
-        self.fig = make_subplots(cols=self.num_plots, rows=1)
+        self.fig = make_subplots(cols=self.num_plots, rows=1, specs=[[{'type': 'domain'}]*self.num_plots])
         for i, dataset in enumerate(self.data_by_contig):
             self.genome_map(dataset['contig'], dataset['entries'], i + 1)
 
     def split_dataset_by_contig(self):
-        # TODO: WIP, doesn't actually split the data
-        return [{'contig': 'Put contig name here',
-                 'entries': self.dataset}]
+        replicon_limit = 5
+        datasets = []
+        contigs = sorted(list(set([x.contig for x in self.dataset])))
+
+        for contig in contigs:
+            datasets.append({'contig': contig,
+                             'entries': self.entries_on_contig(contig)})
+
+        if len(datasets) >= replicon_limit:
+            common.print_with_time('%s replicons in input file. Will only display visualization of first %s replicons.' % (len(datasets), replicon_limit))
+            datasets = datasets[:replicon_limit]
+
+        return datasets
+
+    def entries_on_contig(self, contig):
+        entries = []
+
+        for entry in self.dataset:
+            if entry.contig == contig:
+                entries.append(entry)
+
+        return entries
 
     def genome_map(self, contig, dataset, col: int):
         """
         Makes a genome diagram using the plotly.pie object.
         TODO:
-        - draw one pie per replicon, scale them according to each other
-        - add some sort of colored border around each entry so it doesn't blur in with adjacent entries
-        - Contig label in the center
         - fix scaling for larger genomes so that they are readable
-        - prevent it from writing on entries with more than like.. 10 contigs. that would be a mess
         """
         values = [entry.length for entry in dataset]
         labels = [entry.locus for entry in dataset]
@@ -297,11 +321,12 @@ class Map(Figure):
                      values=values,
                      labels=labels,
                      title=contig,
-                     marker=dict(colors=self.bar_colours(dataset)),
+                     marker=dict(colors=self.bar_colours(dataset),
+                                 line=dict(color='black', width=0.01)),
                      hovertext=self.hovertext(dataset, 'pie'),
-                     domain=dict(column=col, row=1)) #TODO: this is supposed to be how to subplot pie charts?
+                     scalegroup='one')
 
-        self.fig.add_trace(pie)
+        self.fig.add_trace(pie, row=1, col=col)
 
 
 def data_is_normalized(dataset):

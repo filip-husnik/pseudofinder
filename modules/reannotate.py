@@ -5,6 +5,13 @@ StatisticsDict = annotate.StatisticsDict
 
 
 def prepare_data_for_analysis(args, file_dict, log_file_dict):
+    """
+    Converts genbank file to one seqrecord entry per contig, and makes the following changes:
+    - creates seqfeatures for each intergenic region
+    - adds extra qualifiers to each feature (see annotate.add_qualifiers_to_features)
+    - adds dnds / blast results to each feature
+    - updates intergenic regions to reflect where blast information shows potential pseudogenes to be located
+    """
     genome = annotate.gbk_to_seqrecord_list(args, args.genome)
     proteome = annotate.extract_features_from_genome(args, genome, 'CDS')
 

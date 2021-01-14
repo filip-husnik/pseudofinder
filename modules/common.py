@@ -583,7 +583,7 @@ def file_dict(args, **kwargs):
         'intact_ffn': base_outfile_name + "intact.ffn",
         'chromosome_map': base_outfile_name + "map.pdf",
         'interactive_bar': base_outfile_name + "interactive_results.html",
-        'interactive_map': base_outfile_name + "interactive_map.pdf",
+        'interactive_map': base_outfile_name + "interactive_map.html",
         'gbk_out': base_outfile_name[:-1] + ".gbk",
         'dnds_out': base_outfile_name + "dnds",
         'log': base_outfile_name + "log.txt",
