@@ -51,11 +51,18 @@ This section will guide you through setting up Pseudofinder and its dependencies
 ### Easy Installation
 Easy installation requires python3 and Conda already installed. This will install pseudofinder into your $PATH and take care of all dependencies. 
 ```
-git clone https://github.com/filip-husnik/pseudo-finder.git
+git clone https://github.com/filip-husnik/pseudofinder.git
 
 bash setup.sh
 
 source activate pseudofinder
+or # depending on your system configuration
+conda activate pseudofinder
+
+# when finished with using pseudofinder
+source deactivate
+or # depending on your system configuration
+conda deactivate
 ```
 
 ### Manual Installation
