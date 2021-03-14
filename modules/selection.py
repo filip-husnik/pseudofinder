@@ -532,6 +532,12 @@ def main():
     cwd = os.getcwd()
     DIR = args.outdir + "/dnds-analysis"
 
+    aaiDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+    blast = open("%s/pseudogene.blast" % args.outdir)
+    for i in blast:
+        ls = i.rstrip().split("\t")
+        aaiDict[ls[0]] = ls[2]
+
     print("summarizing codeml output")
     codealign = os.listdir(DIR)
     dndsDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
@@ -582,7 +588,7 @@ def main():
             dsList.append(float(dndsDict[i]["ds"]))
             dndsList.append(dnds)
 
-            if dnds < args.dnds:
+            if dnds < args.max_dnds:
                 pg = "N"
             else:
                 pg = "Y"
