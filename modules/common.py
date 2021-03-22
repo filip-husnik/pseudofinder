@@ -490,8 +490,8 @@ def get_args(module='None', **kwargs):
                          no_bidirectional_length]
 
     elif module == 'selection':
-        required_args = [prots, genes, ref_prots, ref_genes]
-        optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs]
+        required_args = [prots, genes, ref_prots, ref_genes, reference]
+        optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs, skip]
 
     elif module == 'genome_map':
         required_args = [genome, gff, outprefix]

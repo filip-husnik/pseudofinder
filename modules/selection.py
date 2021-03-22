@@ -385,50 +385,51 @@ def delim(line):
 def main():
     args = common.get_args('selection')
 
+
     if not args.skip:
         ctl = os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
-        faa = args.a
-        fna = args.n
+        faa = args.prots
+        fna = args.genes
 
-        if args.ra != "NA" and args.rn != "NA":
-            refFaa = args.ra
-            refFna = args.rn
+        if args.ref_prots != "NA" and args.ref_genes != "NA":
+            refFaa = args.ref_prots
+            refFna = args.ref_genes
         else:
             if args.r != "NA":
 
                 os.system("prodigal -i %s -a %s-proteins.faa -d %s-proteins.fna > /dev/null 2>&1" % (args.r, args.r, args.r))
 
-                refFna = args.r + "-proteins.fna"
-                refFaa = args.r + "-proteins.faa"
+                refFna = args.reference + "-proteins.fna"
+                refFaa = args.reference + "-proteins.faa"
             else:
                 print("Did not find reference datasets. Please provided these using the \'-ra\' and \'rn\', or \'r\' flag")
 
 
         print("Starting pipeline...")
-        print(args.out)
-        print(args.out + "/dnds-analysis")
-        os.system("mkdir -p " + args.out)
-        os.system("mkdir -p " + args.out + "/dnds-analysis")
+        print(args.outdir)
+        print(args.outdir + "/dnds-analysis")
+        os.system("mkdir -p " + args.outdir)
+        os.system("mkdir -p " + args.outdir + "/dnds-analysis")
 
-        if args.s == "blast":
+        if args.search_engine == "blast":
             print("Running BLAST")
             os.system("makeblastdb -dbtype prot -in %s -out %s > /dev/null 2>&1" % (refFaa, refFaa))
             # os.system("rm makeblastdb.out")
             os.system("blastp -query %s -db %s "
                       "-outfmt 6 -out %s/pseudogene.blast -evalue 1E-6 -num_threads %s -max_target_seqs 1 > /dev/null 2>&1" % (
-                          faa, refFaa, args.out, args.t))
+                          faa, refFaa, args.outdir, args.threads))
 
             os.system("rm %s.psq" % refFaa)
             os.system("rm %s.phr" % refFaa)
             os.system("rm %s.pin" % refFaa)
 
-        elif args.s == "diamond":
+        elif args.search_engine == "diamond":
             print("Running DIAMOND")
             os.system(
                 "diamond makedb --in %s -d %s > /dev/null 2>&1" % (refFaa, refFaa))
 
             os.system("diamond blastp --db %s.dmnd --query %s --outfmt 6 --out %s/pseudogene.blast "
-                      "--max-target-seqs 1 --evalue 1E-6 --threads %d > /dev/null 2>&1" % (refFaa, faa, args.out, args.t))
+                      "--max-target-seqs 1 --evalue 1E-6 --threads %s > /dev/null 2>&1" % (refFaa, faa, args.outdir, args.threads))
 
 
         ####################################################################################################################
@@ -447,20 +448,20 @@ def main():
         prescreened = []
         alnLengthDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
         aaiDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-        blast = open("%s/pseudogene.blast" % args.out)
+        blast = open("%s/pseudogene.blast" % args.outdir)
         for i in blast:
             ls = i.rstrip().split("\t")
             if ls[0] not in prescreened:
                 alnLengthDict[ls[0]] = ls[3]
                 aaiDict[ls[0]] = ls[2]
-                outNUC = open(args.out + "/dnds-analysis/%s.faa.fna" % ls[0], "w")
+                outNUC = open(args.outdir + "/dnds-analysis/%s.faa.fna" % ls[0], "w")
                 outNUC.write(">" + ls[1] + "\n")
                 outNUC.write(refFnaDict[ls[1]] + "\n")
                 outNUC.write(">" + ls[0] + "\n")
                 outNUC.write(fnaDict[ls[0]] + "\n")
                 outNUC.close()
 
-                outAA = open(args.out + "/dnds-analysis/%s.faa" % ls[0], "w")
+                outAA = open(args.outdir + "/dnds-analysis/%s.faa" % ls[0], "w")
                 outAA.write(">" + ls[1] + "\n")
                 outAA.write(refFaaDict[ls[1]] + "\n")
                 outAA.write(">" + ls[0] + "\n")
@@ -470,7 +471,7 @@ def main():
 
         # ALIGNING PROTEIN SEQUENCES AND CREATING A CODON ALIGNMENT
         print("aligning files...")
-        DIR = args.out + "/dnds-analysis"
+        DIR = args.outdir + "/dnds-analysis"
         os.system("for i in %s/*faa; do"
                   " muscle -in $i -out $i.aligned.fa > /dev/null 2>&1;"
                   # " rm muscle.out;"
@@ -479,7 +480,7 @@ def main():
 
         # BUILDING CONTROL FILES
         print("preparing for codeml analysis")
-        DIR = args.out + "/dnds-analysis"
+        DIR = args.outdir + "/dnds-analysis"
         codealign = os.listdir(DIR)
         count = 0
         for file in codealign:
@@ -493,12 +494,12 @@ def main():
                 for i in setup:
                     if re.findall('seqfile', i):
                         out.write(
-                            '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + 'seqfile' + ' ' + '= ' + args.out + '/dnds-analysis/' + file + ' ' + '*' + ' ' + 'sequence' + ' ' + 'data' + ' ' + 'filename\n')
+                            '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + 'seqfile' + ' ' + '= ' + args.outdir + '/dnds-analysis/' + file + ' ' + '*' + ' ' + 'sequence' + ' ' + 'data' + ' ' + 'filename\n')
 
                     elif re.findall(r'outfile', i):
                         out.write(
                             '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + 'outfile' + ' ' + '=' + ' '
-                            + args.out + '/dnds-analysis/mlcTree_' + str(
+                            + args.outdir + '/dnds-analysis/mlcTree_' + str(
                                 clu) + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' ' + '' + ' '
                             + '' + ' ' + '' + ' ' + '' + ' ' + '*' + ' ' + 'main' + ' ' + 'result' + ' ' + 'file' + ' ' + 'name\n')
 
@@ -521,15 +522,21 @@ def main():
                 perc = (count / total) * 100
                 sys.stdout.write("running codeml: %d%%   \r" % (perc))
                 sys.stdout.flush()
-                os.system("codeml %s/dnds-analysis/%s > /dev/null 2>&1" % (args.out, file))
-                print("codeml %s/dnds-analysis/%s" % (args.out, file))
+                os.system("codeml %s/dnds-analysis/%s > /dev/null 2>&1" % (args.outdir, file))
+                print("codeml %s/dnds-analysis/%s" % (args.outdir, file))
                 print("\n\n")
                 # os.system("rm codeml.out")
 
     # PARSING CODEML OUTPUT
 
     cwd = os.getcwd()
-    DIR = args.out + "/dnds-analysis"
+    DIR = args.outdir + "/dnds-analysis"
+
+    aaiDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+    blast = open("%s/pseudogene.blast" % args.outdir)
+    for i in blast:
+        ls = i.rstrip().split("\t")
+        aaiDict[ls[0]] = ls[2]
 
     print("summarizing codeml output")
     codealign = os.listdir(DIR)
@@ -557,8 +564,8 @@ def main():
     dndsDict2 = defaultdict(list)
     for i in sorted(dndsDict.keys()):
         count += 1
-        if float(dndsDict[i]["dn"]) <= args.M and float(dndsDict[i]["ds"]) <= args.M and float(
-                dndsDict[i]["ds"]) >= args.m and float(dndsDict[i]["dn"]) >= args.m:
+        if float(dndsDict[i]["dn"]) <= args.max_ds and float(dndsDict[i]["ds"]) <= args.max_ds and float(
+                dndsDict[i]["ds"]) >= args.min_ds and float(dndsDict[i]["dn"]) >= args.min_ds:
             orf = dndsDict[i]["orf"]
             dn = dndsDict[i]["dn"]
             ds = dndsDict[i]["ds"]
@@ -569,19 +576,19 @@ def main():
     dsList = []
     dndsList = []
     total = 0
-    out = open(args.out + "/dnds-summary.csv", "w")
+    out = open(args.outdir + "/dnds-summary.csv", "w")
     out.write("ORF" + "," + "referenceMatch" + "," + "amino_acid_identity" + "," + "dN" + "," + "dS" + "," + "dN/dS" + "," + "PG" + "\n")
     for i in sorted(dndsDict.keys()):
         total += 1
 
-        if float(dndsDict[i]["ds"]) < float(args.M) and float(dndsDict[i]["ds"]) > float(args.m):
+        if float(dndsDict[i]["ds"]) < float(args.max_ds) and float(dndsDict[i]["ds"]) > float(args.min_ds):
 
             dnds = float(dndsDict[i]["dn"]) / float(dndsDict[i]["ds"])
 
             dsList.append(float(dndsDict[i]["ds"]))
             dndsList.append(dnds)
 
-            if dnds < args.dnds:
+            if dnds < args.max_dnds:
                 pg = "N"
             else:
                 pg = "Y"
@@ -598,12 +605,12 @@ def main():
         print("Done!")
         print("********************************************************************************")
         print("Identified a total of %d orthologs between the query and reference datasets," % total)
-        print("with %d orthologs between the dS range of %d-%d" % (len(dsList), args.m, args.M))
+        print("with %d orthologs between the dS range of %d-%d" % (len(dsList), args.min_ds, args.max_ds))
         print("")
         print("Average dS among orthologs within the specified dS range: " + str(ave(dsList)))
         print("Average dN/dS among orthologs within the specified dS range: " + str(ave(dndsList)))
         print("")
-        print("See %s/dnds-summay.csv for detailed results." % args.out)
+        print("See %s/dnds-summay.csv for detailed results." % args.outdir)
         print("********************************************************************************")
         print("Thanks for using!")
 
