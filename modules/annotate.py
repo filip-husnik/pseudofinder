@@ -55,12 +55,16 @@ dnds_data = NamedTuple('dnds_data', [('locus_tag', str),
                                      ('dnds', float)])
 
 
-PseudoType = Enum('PseudoType', ['short',
-                                 'fragmented',
-                                 'intergenic',
-                                 'consumed',
-                                 'dnds',
-                                 'input'])
+PseudoType = Enum('PseudoType', ['truncated',   # Pseudo based on length length relative to blast hits
+                                 'short_alignment',  # Pseudo based on alignment length relative to blast hits
+                                 'long',    # Pseudo based on length length relative to blast hits
+                                 'fragmented',  # Pseudo composed of multiple input features
+                                 'intergenic',  # Pseudo recovered from intergenic space
+                                 'consumed',    # If feature has been combined with another feature
+                                 'dnds',    # Pseudo based on elevated dnds
+                                 'input_general',  # If input gbk feature.type == 'pseudo' but we don't have a reason why
+                                 'input_indel',  # if input feature.seq is not a multiple of 3
+                                 'input_internalstop'])  # If * is present in input feature.seq
 
 # Global dictionary, which will be called to write the log file
 StatisticsDict = {
@@ -139,9 +143,12 @@ def add_qualifiers_to_features(args, seqrecord):
     """
     intergenic_counter = 1
     for feature in seqrecord.features:
+        #TODO: Look for internal stop codons in translations present in the provided genbank file (can be the case if the genbank file is generated from GeneMark-predicted ORFs).
+        # TODO: Look for gene (nucleotide) lengths that are not multiples of 3.
+        #TODO: perhaps we can add a warning or an additional note in the log output?
         if feature.type == 'CDS' and feature.qualifiers.get('pseudo'):    # Finds CDS that are already annotated as pseudogenes
             feature.type = 'pseudogene'
-            feature.qualifiers['pseudo_type'] = PseudoType.input
+            feature.qualifiers['pseudo_type'] = PseudoType.input_general
             feature.qualifiers['note'] = 'Annotated as pseudogene in input genbank file.'
             feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
 
@@ -387,9 +394,9 @@ def convert_tsv_to_blasthits(blast_tsv, blast_type):
     return hit_list
 
 
-def blasthit_length(hit, seq_type='nt', query=False):
+def blasthit_length(hit, seq_type='nt', alignment=False):
     """Returns the length of the given blasthit in the preferred format."""
-    if query:
+    if alignment:
         if hit.blast_type == 'blastp':
             aa_length = (hit.q_end - hit.q_start)
             nt_length = aa_length*3
@@ -491,13 +498,21 @@ def update_intergenic_locations(args, genome):
             feature.qualifiers['nucleotide_seq'] = feature.qualifiers['nucleotide_seq'][new_start:new_end]
 
 
-def feature_length_relative_to_hits(feature) -> float:
+def feature_length_relative_to_hits(feature, alignment=False) -> float:
     """
     Returns a float that is equal to the ratio of (feature length / average length of hits)
+    If alignment is true, returns the ratio of (average alignment length / average length of hits)
     """
+
     db_lengths = [blasthit_length(hit, 'nt') for hit in feature.qualifiers['hits']]
     average_db_len = sum(db_lengths) / len(db_lengths)
-    return len(feature) / average_db_len
+
+    if alignment:
+        aln_lengths = [blasthit_length(hit, 'nt', alignment=True) for hit in feature.qualifiers['hits']]
+        average_aln_len = sum(aln_lengths) / len(aln_lengths)
+        return average_aln_len / average_db_len
+    else:
+        return len(feature) / average_db_len
 
 
 def find_individual_pseudos(args, seqrecord):
@@ -517,11 +532,25 @@ def find_individual_pseudos(args, seqrecord):
                 feature.qualifiers['note'] = 'Pseudogene candidate. Reason: Elevated dN/dS (%s).' % round(dnds_val, 3)
                 feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
 
-        # Option 2: Short pseudogene
+        # Option 2: Length-based pseudogenes
         if feature.type == 'CDS' and len(feature.qualifiers['hits']) > 0:
             if feature_length_relative_to_hits(feature) <= args.length_pseudo:
                 feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.short
+                feature.qualifiers['pseudo_type'] = PseudoType.truncated
+
+            elif feature_length_relative_to_hits(feature) >= 2 - args.length_pseudo:
+                if args.no_bidirectional_length:
+                    pass
+                else:
+                    feature.type = 'pseudogene'
+                    feature.qualifiers['pseudo_type'] = PseudoType.long
+
+            elif feature_length_relative_to_hits(feature, alignment=True) <= args.length_pseudo:
+                if args.use_alignment:
+                    feature.type = 'pseudogene'
+                    feature.qualifiers['pseudo_type'] = PseudoType.short_alignment
+
+            if feature.type == 'pseudogene':
                 feature.qualifiers['note'] = 'Pseudogene candidate. Reason: ORF is %s%% of the average length of ' \
                                              'hits to this gene.' % (round(feature_length_relative_to_hits(feature)*100, 1))
                 feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
@@ -565,13 +594,35 @@ def matching_strands(f1, f2):
         return f1.strand == f2.strand
 
 
+def concatenation_overestimation_checker(args, f1, f2):
+    """check to make sure that combining two fragments would not lead to an overly large concatenated pseudo"""
+    if args.no_bidirectional_length:
+        return True
+    else:
+        fragments = [f1, f2]
+        start = min([feature.location.start for feature in fragments])
+        end = max([feature.location.end for feature in fragments])
+        concatenated_length = end - start
+
+        for f in fragments:
+            db_lengths = [blasthit_length(hit, 'nt') for hit in f.qualifiers['hits']]
+            average_db_len = sum(db_lengths) / len(db_lengths)
+            if concatenated_length >= average_db_len * (2 - args.length_pseudo):
+                return False
+            else:
+                pass
+
+    return True
+
+
 def adjacent_fragments_match(args, f1, f2):
     """Checks if features are fragments of a single pseudogene"""
 
     if (
         f1.location.end - f2.location.start < args.distance and
         matching_hits(f1, f2) >= args.shared_hits and
-        matching_strands(f1, f2)
+        matching_strands(f1, f2) and
+        concatenation_overestimation_checker(args, f1, f2)
     ):
         return True
 
@@ -710,7 +761,7 @@ def find_pseudos_on_genome(args, genome):
 
     update_locus_tags(args, genome)
 
-
+# TODO: when finished making changes to algorithm, update the nomenclature etc.
 def write_summary_file(args, outfile, file_dict) -> None:
     """Writes a summary file of statistics from the pseudo_finder run."""
 
@@ -743,6 +794,8 @@ def write_summary_file(args, outfile, file_dict) -> None:
             "Length_pseudo:\t" + printable_args.length_pseudo + "\n"
             "Shared_hits:\t" + printable_args.shared_hits + "\n"
             "contig_ends:\t" + printable_args.contig_ends + "\n"
+            "no_bidirectional_length:\t" + printable_args.no_bidirectional_length + "\n"
+            "use_alignment:\t" + printable_args.use_alignment + "\n"
             "max_dnds:\t" + printable_args.max_dnds + "\n"
             "max_ds:\t" + printable_args.max_ds + "\n"
             "min_ds:\t" + printable_args.min_ds + "\n\n"
@@ -799,7 +852,7 @@ def write_all_outputs(args, genome, file_dict, visualize=False):
         genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
         write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
 
-
+# TODO: when finished making changes to algorithm, update the nomenclature etc.
 def analysis_statistics(args, genome):
     """Adds statistics to the main dictionary about the run."""
 
@@ -810,7 +863,7 @@ def analysis_statistics(args, genome):
     pseudos = extract_features_from_genome(args, genome, 'pseudogene')
     total = len([x for x in pseudos if x.qualifiers.get('pseudo_type') != PseudoType.consumed])
     total = total + StatisticsDict["dnds"]
-    short = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.short])
+    short = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.truncated])
     fragmented = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.fragmented])
     intergenic = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.intergenic])
     fragments = len(extract_features_from_genome(args, genome, 'consumed'))

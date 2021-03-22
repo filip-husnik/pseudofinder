@@ -408,10 +408,10 @@ def genome_to_graphs(args, file_dict, genome, show=False):
               dataset=plot1_data)
     if show:
          bar.show()
-         map.show()
+         #map.show()
     else:
         bar.offline_plot()
-        map.offline_plot()
+        #map.offline_plot()
 
 
 def main():

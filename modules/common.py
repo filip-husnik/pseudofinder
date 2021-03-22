@@ -452,6 +452,24 @@ def get_args(module='None', **kwargs):
         'default': False,
         'action': 'store_true'
     }
+    no_bidirectional_length = {
+        'short': '-nbl',
+        'long': '--no_bidirectional_length',
+        'help': 'Pseudofinder by default will consider the length_pseudo parameter for assessing both truncated and run-on pseudogenes.'
+                'By adding this flag, length_pseudo will only be used for truncated pseudogenes, and pseudofinder will not check for run-on pseudogenes.',
+        'required': False,
+        'default': False,
+        'action': 'store_true'
+    }
+    use_alignment = {
+        'short': '-al',
+        'long': '--use_alignment',
+        'help': 'Feature currently in development, use at own risk. This flag will make pseudofinder consider '
+                'alignment quality between query and hits when considering pseudogene flags.',
+        'required': False,
+        'default': False,
+        'action': 'store_true'
+    }
 
     if names_only:
         to_remove = ['module', 'kwargs', 'names_only', 'to_remove']
@@ -463,11 +481,13 @@ def get_args(module='None', **kwargs):
     if module == 'annotate':
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, distance, hitcap,
-                         contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip_makedb]  # skip,
+                         contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip_makedb,
+                         no_bidirectional_length, use_alignment]
 
     elif module == 'reannotate':
-        required_args = [genome, logfile, outprefix]    # blastp, blastx, genome,
-        optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, dnds_out]
+        required_args = [genome, logfile, outprefix]
+        optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, dnds_out,
+                         no_bidirectional_length]
 
     elif module == 'selection':
         required_args = [prots, genes, ref_prots, ref_genes]
