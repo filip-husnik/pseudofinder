@@ -50,6 +50,7 @@ BlastHit = NamedTuple('BlastHit', [('blast_type', str),
 
 dnds_data = NamedTuple('dnds_data', [('locus_tag', str),
                                      ('reference_tag', str),
+                                     ('amino_acid_identity', float),
                                      ('dn', float),
                                      ('ds', float),
                                      ('dnds', float)])
@@ -927,6 +928,7 @@ def main():
     StatisticsDict['NumberOfContigs'] = len(genome)
     StatisticsDict['ProteomeOrfs'] = len(proteome)
     StatisticsDict['PseudogenesInput'] = len(input_pseudos)
+
 
     if args.reference:  # #########################################################################################
         common.print_with_time("Starting dN/dS analysis pipeline...")
