@@ -144,9 +144,6 @@ def add_qualifiers_to_features(args, seqrecord):
     """
     intergenic_counter = 1
     for feature in seqrecord.features:
-        #TODO: Look for internal stop codons in translations present in the provided genbank file (can be the case if the genbank file is generated from GeneMark-predicted ORFs).
-        # TODO: Look for gene (nucleotide) lengths that are not multiples of 3.
-        #TODO: perhaps we can add a warning or an additional note in the log output?
         if feature.type == 'CDS' and feature.qualifiers.get('pseudo'):    # Finds CDS that are already annotated as pseudogenes
             feature.type = 'pseudogene'
             feature.qualifiers['pseudo_type'] = PseudoType.input_general
@@ -155,7 +152,21 @@ def add_qualifiers_to_features(args, seqrecord):
 
         if feature.type == 'CDS':
             feature.qualifiers['dnds'] = []
+            nt_seq = feature.extract(seqrecord.seq)
             translate_cds(args, feature, seqrecord)
+            translation = feature.qualifiers['translation'][0]
+
+            if len(nt_seq) % 3 != 0:    # this code block checks if the nucleotide sequence is not a multiple of 3 and flags as input pseudo
+                feature.type = 'pseudogene'
+                feature.qualifiers['pseudo_type'] = PseudoType.input_indel
+                feature.qualifiers['note'] = 'Nucleotide sequence is not a multiple of 3.'
+                feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
+
+            if '*' in translation[:-1]:  # this code block checks for internal stop codons and flags as input pseudo if they exist.
+                feature.type = 'pseudogene'
+                feature.qualifiers['pseudo_type'] = PseudoType.input_internalstop
+                feature.qualifiers['note'] = 'Translation qualifier contains 1 or more internal stop codons.'
+                feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
 
         if feature.type == 'intergenic':    # Changes for only intergenic regions
             feature.qualifiers['locus_tag'] = ['%s_ign_%05d' % (seqrecord.name, intergenic_counter)]
@@ -614,6 +625,11 @@ def concatenation_overestimation_checker(args, f1, f2):
                 pass
 
     return True
+
+
+def adjacent_fragments_proximity(f1, f2):
+    return False # stub
+
 
 
 def adjacent_fragments_match(args, f1, f2):
