@@ -5,6 +5,7 @@ from argparse import Namespace
 import os
 import sys
 import re
+import warnings
 from time import localtime, strftime
 from contextlib import contextmanager
 from Bio import SeqIO
@@ -99,10 +100,14 @@ def suppress_output_to_console():
             sys.stdout = old_stdout
 
 
-def unpack_arg(arg_group, arg: dict):
+def unpack_arg(arg_group, arg: dict, deprecated=False):
     name = (arg['short'], arg['long'])
     del arg['short']
     del arg['long']
+    if deprecated:
+        arg['help'] = argparse.SUPPRESS
+        arg['required'] = False
+        del arg['default']
     arg_group.add_argument(*name, **arg)
 
 
@@ -144,12 +149,21 @@ def verify_numeric(args):
                 raise RuntimeError('pseudofinder has detected your %s argument is less than or equal to 0 (%s = %s). Please enter a positive value.' % (key, key, value))
 
 
-def verify_args(args):
+# TODO: expand on this if we need to add more deprecated arguments
+def verify_deprecated(args, deprecated_args):
+    """This is where a real deprecated argument function should go, however right now we will just manually check
+    args.distance since it is the only one."""
+    if args.distance:
+        warnings.warn("--distance parameter is deprecated. Fragment merging algorithm logic improved such that it is no longer needed."
+                      "Program will continute to run but please be advised that changing the --distance parameter now has no effect.", Warning)
+
+
+def verify_args(args, deprecated_args):
     """
     Ensures that the arguments provided are of the correct format beyond data type.
-    At this moment, only checks to make sure that genbank files are Genbank/ENA/DDJB compliant.
     """
     try:
+        verify_deprecated(args, deprecated_args)
         verify_gbk(args.genome)
         verify_numeric(args)
     except AttributeError:
@@ -480,34 +494,41 @@ def get_args(module='None', **kwargs):
 
     if module == 'annotate':
         required_args = [genome, database, outprefix]
-        optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, distance, hitcap,
+        optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, hitcap,
                          contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip_makedb,
                          no_bidirectional_length, use_alignment]
+        deprecated_args = [distance]
 
     elif module == 'reannotate':
         required_args = [genome, logfile, outprefix]
-        optional_args = [length_pseudo, shared_hits, intergenic_threshold, distance, max_dnds, max_ds, min_ds, dnds_out,
+        optional_args = [length_pseudo, shared_hits, intergenic_threshold, max_dnds, max_ds, min_ds, dnds_out,
                          no_bidirectional_length]
+        deprecated_args = [distance]
 
     elif module == 'selection':
         required_args = [prots, genes, ref_prots, ref_genes, reference]
         optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs, skip]
+        deprecated_args = []
 
     elif module == 'genome_map':
         required_args = [genome, gff, outprefix]
         optional_args = []
+        deprecated_args = []
 
     elif module == 'visualize':
         required_args = [logfile, outprefix]
-        optional_args = [distance, intergenic_threshold, resolution, keep_files]
+        optional_args = [intergenic_threshold, resolution, keep_files]
+        deprecated_args = [distance]
 
     elif module == 'test':
         required_args = [database]
         optional_args = [genome, diamond, threads]
+        deprecated_args = []
 
     elif module == 'interactive':
         required_args = [annotated_genome]
         optional_args = [outprefix]
+        deprecated_args = []
 
     else:
         print("Module not found. Please check your get_args() function call.")
@@ -517,6 +538,7 @@ def get_args(module='None', **kwargs):
                                      usage=bold(usage_message(module, required_args)))
     always_required = parser.add_argument_group('Required arguments')
     optional = parser.add_argument_group('Adjustable parameters')
+    deprecated = parser.add_argument_group('Deprecated parameters')
 
     for arg in required_args:
         unpack_arg(always_required, arg)
@@ -524,10 +546,13 @@ def get_args(module='None', **kwargs):
     for arg in optional_args:
         unpack_arg(optional, arg)
 
+    for arg in deprecated_args:
+        unpack_arg(deprecated, arg, deprecated=True)
+
     # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
     # We only care about the known arguments, so we take [0].
     args = parser.parse_known_args()[0]
-    verify_args(args)
+    verify_args(args, deprecated_args)
     return args
 
 
@@ -588,6 +613,7 @@ def file_dict(args, **kwargs):
     file_dict = {
         'base_filename': base_outfile_name,
         'cds_filename': base_outfile_name + "cds.fasta",
+        'contigs_filename': base_outfile_name + "contigs.fasta",
         'ref_cds_filename': base_outfile_name + "ref_cds.fasta",
         'proteome_filename': base_outfile_name + "proteome.faa",
         'ref_proteome_filename': base_outfile_name + "ref_proteome.faa",

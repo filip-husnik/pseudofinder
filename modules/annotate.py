@@ -239,23 +239,26 @@ def extract_features_from_genome(args, genome, feature_type: list or str) -> lis
     return feature_list
 
 
-def write_fasta(seqs: list, outfile: str, seq_type='nt') -> None:
+def write_fasta(seqs: list, outfile: str, seq_type='nt', in_type='features') -> None:
     """Takes a list of sequences in seq_feature format and writes them to fasta file"""
 
     with open(outfile, "w") as output_handle:
         for seq in seqs:
-            if seq_type == 'nt':
-                seq_string = seq.qualifiers['nucleotide_seq']
-            elif seq_type == 'aa':
-                seq_string = seq.qualifiers['translation'][0]
-            else:
-                print("Invalid seq_type. Please check your write_fasta() function call.")
-                exit()
+            if in_type == 'features':
+                if seq_type == 'nt':
+                    seq_string = seq.qualifiers['nucleotide_seq']
+                elif seq_type == 'aa':
+                    seq_string = seq.qualifiers['translation'][0]
+                else:
+                    print("Invalid seq_type. Please check your write_fasta() function call.")
+                    exit()
 
-            output_handle.write(">%s %s %s\n%s\n" % (seq.qualifiers['locus_tag'][0],
-                                                     seq.qualifiers['contig_id'],
-                                                     seq.location,
-                                                     seq_string))
+                output_handle.write(">%s %s %s\n%s\n" % (seq.qualifiers['locus_tag'][0],
+                                                         seq.qualifiers['contig_id'],
+                                                         seq.location,
+                                                         seq_string))
+            elif in_type == 'records':
+                output_handle.write(">%s\n%s\n" % (seq.name, seq.seq))
 
 
 def gff_entry(seq_id, source, feature_type, feature_start, feature_end, score, strand, phase, attributes):
@@ -616,18 +619,37 @@ def concatenation_overestimation_checker(args, f1, f2):
         end = max([feature.location.end for feature in fragments])
         concatenated_length = end - start
 
-        for f in fragments:
-            db_lengths = [blasthit_length(hit, 'nt') for hit in f.qualifiers['hits']]
-            average_db_len = sum(db_lengths) / len(db_lengths)
-            if concatenated_length >= average_db_len * (2 - args.length_pseudo):
-                return False
-            else:
-                pass
+        f1_hit_accessions = set([hit.subject_accession for hit in f1.qualifiers['hits']])
+        f2_hit_accessions = set([hit.subject_accession for hit in f2.qualifiers['hits']])
+        common_accessions = list(f1_hit_accessions & f2_hit_accessions)  # collect shared hit accession numbers
+        common_hits = [hit for hit in f1.qualifiers['hits'] if hit.subject_accession in common_accessions]
+        # Important: only retrieve hits from f1, not f1&f2. Every blasthit object is unique because it contains
+        # information about the subject and QUERY! and since f1 and f2 are unique queries, you will get duplicate
+        # hit info if you retrieve from both.
 
-    return True
+        if len(common_hits) == 0:
+            return False
+
+        mean_common_length = sum([blasthit_length(hit, 'nt') for hit in common_hits]) / len(common_hits)
+        if concatenated_length >= mean_common_length * (2 - args.length_pseudo):
+            return False
+        else:
+            return True
 
 
 def adjacent_fragments_proximity(f1, f2):
+    f1_hits = set(f1.qualifiers['hits'])
+    f2_hits = set(f2.qualifiers['hits'])
+    common_hits = list(f1_hits & f2_hits)
+    mean_common_length = sum([blasthit_length(hit, 'nt') for hit in common_hits]) / len(common_hits)
+
+    if len(common_hits) == 0:
+        return False
+
+    else:
+        f1_set = set([hit.subject_accession for hit in f1_hits])
+        f2_set = set([hit.subject_accession for hit in f2_hits])
+
     return False # stub
 
 
@@ -636,7 +658,7 @@ def adjacent_fragments_match(args, f1, f2):
     """Checks if features are fragments of a single pseudogene"""
 
     if (
-        f1.location.end - f2.location.start < args.distance and
+        #f1.location.end - f2.location.start < args.distance and
         matching_hits(f1, f2) >= args.shared_hits and
         matching_strands(f1, f2) and
         concatenation_overestimation_checker(args, f1, f2)
@@ -923,6 +945,7 @@ def main():
     file_dict = common.file_dict(args)  # Declare filenames used throughout the rest of the program
 
     genome = gbk_to_seqrecord_list(args, args.genome)
+    write_fasta(seqs=genome, outfile=file_dict['contigs_filename'], in_type='records')
 
     proteome = extract_features_from_genome(args, genome, 'CDS')
     write_fasta(seqs=proteome, outfile=file_dict['cds_filename'], seq_type='nt')
