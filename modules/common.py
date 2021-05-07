@@ -517,7 +517,7 @@ def get_args(module='None', **kwargs):
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, hitcap,
                          contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip_makedb,
-                         no_bidirectional_length, use_alignment, perc_cov, perc_id]
+                         no_bidirectional_length, use_alignment]
         deprecated_args = [distance]
 
     elif module == 'reannotate':
@@ -532,8 +532,8 @@ def get_args(module='None', **kwargs):
         deprecated_args = []
 
     elif module == 'sleuth':
-        required_args = [ref_genes, genome]
-        optional_args = [outdir, threads, perc_id, perc_cov, evalue]
+        required_args = [ref_genes, genome, ref_gff]
+        optional_args = [outdir, threads, perc_id, perc_cov, evalue, max_dnds, length_pseudo]
         deprecated_args = []
 
     elif module == 'genome_map':

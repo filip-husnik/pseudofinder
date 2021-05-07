@@ -2118,13 +2118,13 @@ def merge(args, file_dict, log_file_dict=None):
                     pseudoDict[ls[1]].append(string)
 
             if instop > 0:
-                if stopSeverity < 0.75:
+                if stopSeverity < args.length_pseudo:
                     string = "Internal stop codon at " + str(round(stopSeverity * 100)) + "% expected length."
                     pseudoDict[ls[1]].append(string)
 
             if dnds != "NA":
                 dnds = float(dnds)
-                if dnds > 0.3:
+                if dnds > args.max_dnds:
                     if dnds < 3:
                         string = "Elevated dN/dS: " + str(round(dnds, 4)) + "."
                         pseudoDict[ls[1]].append(string)
@@ -2135,7 +2135,7 @@ def merge(args, file_dict, log_file_dict=None):
 
             if bias < 1.10:
                 if stopSeverity > 0.95:
-                    if cov > 0.75:
+                    if cov > args.length_pseudo:
                         if dnds != "NA":
                             dnds = float(dnds)
                             if dnds < 0.1:
