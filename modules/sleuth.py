@@ -892,12 +892,19 @@ def delim(line):
 def main():
     args = common.get_args('sleuth')
 
+    ref_ffn = args.ref_genes
+    ref_gff = args.ref_gff
+    target_genome = genome
+    out = args.outdir
+    e = args.evalue
+    threads = args.threads
+
     # SETTING LOCATION OF CODEML PARAMTER FILE
     ctl = os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
 
     # MAKING DIRECTORIES
-    os.system("mkdir -p %s" % args.outdir)
-    os.system("mkdir -p %s/nuc_aln" % args.outdir)
+    os.system("mkdir -p %s" % out)
+    os.system("mkdir -p %s/nuc_aln" % out)
 
     # READING IN RRNA AND TRNA FROM GFF FILE (FOR EXCLUSION LATER ON)
     rRNAdict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
@@ -912,44 +919,45 @@ def main():
                     rRNAdict[ls[8].split("ID=")[1].split(";")[0]] = ls
 
     # RUNNING BLAST
-    ffn = open(args.ref_genes)
+    print("Running BLAST")
+    ffn = open(ref_ffn)
     ffn = fasta2(ffn)
 
-    genome = open(args.genome)
+    genome = open(target_genome)
     genome = fasta2(genome)
+
     count = 0
     for i in genome.keys():
         if re.findall(r'\|', i):
             count += 1
     if count > 0:
 
-        print(
-            "detected \'|\' characters in input fasta file. Creating a new version of the file %s-fixed.fna" % allButTheLast(
-                args.genome, "."))
+        print("detected \'|\' characters in input fasta file. Creating a new version of the file %s-fixed.fna" % allButTheLast(args.genome, "."))
         out = open("%s/%s-fixed.fna" % (args.outdir, allButTheLast(args.genome, ".")), "w")
         for i in genome.keys():
             out.write(">" + remove(i, ["|"]) + "\n")
             out.write(genome[i] + "\n")
         out.close()
-        genome = open("%s/%s-fixed.fna" % (args.outdir, allButTheLast(args.genome, ".")))
+        genome = open("%s/%s-fixed.fna" % (args.outdir, allButTheLast(target_genome, ".")))
         genome = fasta2(genome)
 
-        os.system("makeblastdb -dbtype nucl -in %s/%s-fixed.fna -out %s/%s-fixed.fna" % (
-            args.outdir, allButTheLast(args.genome, "."), args.outdir, allButTheLast(args.genome, ".")))
-        os.system("blastn -query %s -db %s/%s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s" % (
-            args.ref_genes, args.outdir, allButTheLast(args.genome, "."), args.outdir, str(args.eval)))
+        os.system("makeblastdb -dbtype nucl -in %s/%s-fixed.fna -out %s/%s-fixed.fna > /dev/null 2>&1" % (
+            args.outdir, allButTheLast(target_genome, "."), out, allButTheLast(target_genome, ".")))
+        os.system("blastn -query %s -db %s/%s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s > /dev/null 2>&1" % (
+            ref_genes, out, allButTheLast(target_genome, "."), out, str(e)))
 
     else:
-        os.system("makeblastdb -dbtype nucl -in %s -out %s" % (args.genome, args.genome))
-        os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s" % (
-        args.ref_genes, args.genome, args.outdir, args.eval))
+        os.system("makeblastdb -dbtype nucl -in %s -out %s > /dev/null 2>&1" % (target_genome, target_genome))
+        os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s > /dev/null 2>&1" % (
+        ref_genes, genome, out, e))
 
+    print("Done with BLAST\n.")
     # PARSING THE BLAST OUTPUT AND WRITING SEQUENCE FILES FOR ALIGNMENT
     diffList = []
     blastDict = defaultdict(list)
     blastDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     counter = 0
-    blast = open("%s/cds.genome.blast" % args.outdir)
+    blast = open("%s/cds.genome.blast" % out)
     for i in blast:
         ls = i.rstrip().split("\t")
         if ls[0] not in rRNAdict.keys():
@@ -1029,7 +1037,7 @@ def main():
 
     for i in blastDict2.keys():
         for j in blastDict2[i]:
-            out = open("%s/nuc_aln/%s.ffn" % (args.outdir, i + "__" + j), "w")
+            out = open("%s/nuc_aln/%s.ffn" % (out, i + "__" + j), "w")
             out.write(">" + i + "\n")
             out.write(ffn[i] + "\n")
             out.write(">" + j + "\n")
@@ -1037,22 +1045,25 @@ def main():
             out.close()
 
     # RUNNING MUSCLE ON NUCLEOTIDE PAIRS
-
-    os.system("for i in %s/nuc_aln/*ffn; do"
-              " muscle -in $i -out $i.fa > /dev/null 2>&1;"
-              " done" % args.outdir)
-    for i in range(10):
-        print(".")
-        time.sleep(i / 25)
-    print("done with muscle")
-    time.sleep(1)
-    print("preparing for codeml")
+    print("starting Muscle")
+    count = 0
+    for file in (os.listdir(out + "/nuc_aln")):
+        if lastItem(file.split(".")) == "ffn":
+            count += 1
+    total = count
+    count = 0
+    for file in os.listdir(out + "/nuc_aln"):
+        if lastItem(file.split(".")) == "ffn":
+            os.system("muscle -in %s/nuc_aln/%s -out %s/nuc_aln/%s.fa > /dev/null 2>&1" % (out, file, out, allButTheLast(file, ".")))
+            count += 1
+            perc = (count / total) * 100
+            sys.stdout.write("running Muscle: %d%%   \r" % (perc))
+            sys.stdout.flush()
 
     # PARSING THE ALIGNMENT FILES FOR DEEP ANALYSIS OF PSEUDOGENIZATION
     count = 0
     summaryDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    alnDir = "%s/nuc_aln" % args.outdir
-    codemlDIR = "%s/nuc_aln/degapped" % args.outdir
+    alnDir = "%s/nuc_aln" % out
     for i in os.listdir(alnDir):
         if re.findall(r'.fa', i):
             file = open("%s/%s" % (alnDir, i))
@@ -1078,7 +1089,7 @@ def main():
 
                 lengthDiff = len(remove(targetAbridged, ["-"])) / len(remove(refAbridged, ["-"]))
 
-                if lengthDiff > float(args.p):
+                if lengthDiff > float(args.perc_cov):
                     # cutting off the trailing gaps after stop codon
                     refAbridged2 = (stopfinder(refAbridged)[0])
                     end = (stopfinder(refAbridged)[1])
@@ -1088,7 +1099,7 @@ def main():
                     percIdentN = NterminalStats[0]
                     gapsN = NterminalStats[1]
 
-                    if gapsN < 0.25 and percIdentN > 0.5 and AAI(refAbridged2, targetAbridged2) > args.id:
+                    if gapsN < 0.25 and percIdentN > 0.5 and AAI(refAbridged2, targetAbridged2) > float(args.perc_id):
 
                         # looking for start and stop codons in the *reference* sequence
                         START = refAbridged[0:3]
@@ -1100,7 +1111,7 @@ def main():
                             # Nterminal =
 
                             # writing first setup file for apparent dN/dS using correct alignment
-                            setup = open(args.ctl)
+                            setup = open(ctl)
                             out = open("%s/%s.ctl" % (alnDir, i), "w")
 
                             for line in setup:
@@ -1122,7 +1133,7 @@ def main():
                             out.close()
 
                             # writing second setup file for no-mercy dN/dS (incorrect value, but represents reality)
-                            setup = open(args.ctl)
+                            setup = open(ctl)
                             out = open("%s/%s2.ctl" % (alnDir, i), "w")
 
                             for line in setup:
@@ -1253,7 +1264,6 @@ def main():
                             refStraightDegap = remove(refAbridged3, ["-"])
                             targetStraightDegap = remove(targetAbridged3, ["-"])
 
-
                             refNoMercy = ""
                             targetNoMercy = ""
                             for j in range(0, sorted([len(refStraightDegap), len(targetStraightDegap)])[0], 3):
@@ -1291,10 +1301,12 @@ def main():
 
                             summaryDict[i]["numInframeInserts"] = numInframeInserts
                             summaryDict[i]["numOutframeInserts"] = numOutframeInserts
-                            summaryDict[i]["totalInserts"] = totalInserts / len(refDegap1)
+                            # summaryDict[i]["totalInserts"] = totalInserts / len(refDegap1)
+                            summaryDict[i]["totalInserts"] = totalInserts
                             summaryDict[i]["numInframeDels"] = numInframeDels
                             summaryDict[i]["numOutframeDels"] = numOutframeDels
-                            summaryDict[i]["totalDels"] = totalDels / len(refDegap1)
+                            # summaryDict[i]["totalDels"] = totalDels / len(refDegap1)
+                            summaryDict[i]["totalDels"] = totalDels
                             summaryDict[i]["startcodon"] = startcodon
                             summaryDict[i]["stopcodon"] = stopcodon
                             summaryDict[i]["stops"] = stops
@@ -1309,7 +1321,14 @@ def main():
                             summaryDict[i]["preferredStartLoss"] = preferredStartLoss
                             summaryDict[i]["preferredStartGain"] = preferredStartGain
 
-    # RUNNING CODEML
+    # # RUNNING CODEML
+    count = 0
+    for file in (os.listdir(out + "/nuc_aln")):
+        if re.findall(r'aln2-', file):
+            if lastItem(file.split(".")) == "ffn":
+                count += 1
+    total = count
+    count = 0
     aaiDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     for file in os.listdir(alnDir):
         if re.findall(r'aln2-', file):
@@ -1323,25 +1342,37 @@ def main():
                 target = (list(protAln.keys())[1])
                 targetProt = protAln[target]
                 aai = AAI(refProt, targetProt)
-                aaiDict[ref + "__" + target + ".ffn.fa"] = str(aai)
+                aaiDict[ref + "__" + target + ".fa"] = str(aai)
                 os.system("pal2nal.pl %s/%s.faa.fa %s/%s -output fasta > %s/%s.ca.ffn" %
                           (alnDir, file.split(".")[0], alnDir, file, alnDir, file.split(".")[0]))
-
+                count += 1
+                perc = (count / total) * 100
+                sys.stdout.write("running pal2nal: %d%%   \r" % (perc))
+                sys.stdout.flush()
+    print("")
+    count = 0
+    for file in (os.listdir(out + "/nuc_aln")):
+        if lastItem(file.split(".")) == "ctl":
+            count += 1
+    total = count
+    count = 0
     for file in os.listdir(alnDir):
         if lastItem(file.split(".")) == "ctl":
             os.system("codeml %s/%s > /dev/null 2>&1" % (alnDir, file))
-            os.system("\n")
-            print("\n")
-
-    print("done with codeml")
+            count += 1
+            perc = (count / total) * 100
+            sys.stdout.write("running codeml: %d%%   \r" % (perc))
+            sys.stdout.flush()
+    print("")
+    print("done with codeml\n.")
     time.sleep(2)
     count = 0
-    alnDir = "%s/nuc_aln" % args.outdir
+    alnDir = "%s/nuc_aln" % out
     for i in os.listdir(alnDir):
         if re.findall(r'mlcTree_', i):
             count += 1
-    print("%s out of %s input CDS had detectable homology (below evalue of %s)" %
-          (str(count), str(len(ffn.keys())), str(args.eval)))
+    print("%s out of %s input reference CDS had detectable homology (below evalue of %s)" %
+          (str(count), str(len(ffn.keys())), str(e)))
     print("writing output file")
 
 
@@ -1349,9 +1380,13 @@ def main():
     fastaOut = open(args.outdir + "/ref_based_cds_predictions.ffn", "w")
     mainOut = open(args.outdir + "/sleuth_report.csv", "w")
     mainOut.write("reference_locus,target_locus,AAI,aln_query_cov,start,"
-                  "loss_of_preferred_start,gain_of_preferred_start,stop,internal_stops,stop_severity,"
-                  "out_of_frame_inserts,out_of_frame_dels,inframe_inserts,inframe_dels,proportion_inserted,proportion_deleted,"
+
+                  "loss_of_preferred_start,gain_of_preferred_start_codon,stop_codon,internal_stops,first_stop_codon,"
+
+                  "out_of_frame_inserts,out_of_frame_dels,inframe_inserts,inframe_dels,total_inserts,total_deleted_bases,"
+
                   "ds,dnds,ds_no_mercy,dnds_no_mercy,"
+
                   "full_seq,mercy_aln,no_mercy_aln,full_ref_seq,mercy_aln_ref,no_mercy_aln_ref\n")
 
     for i in os.listdir(alnDir):
@@ -1428,13 +1463,15 @@ def main():
             preferredStartGain = summaryDict[originalname]["preferredStartGain"]
 
             aai = aaiDict[originalname]
+            targetStraightDegapRaw = remove(targetAbridged2, ["-"])
 
             fastaOut.write(">" + target + "\n")
             fastaOut.write(targetStraightDegapRaw + "\n")
             mainOut.write(ref + "," + target + "," + str(aai) + "," + str(lengthDiff) + "," +
                           startcodon + "," + preferredStartLoss + "," + preferredStartGain + "," + stopcodon + "," + str(
                 stops) + "," + str(severity) + "," +
-                          str(numOutframeInserts) + "," + str(numOutframeDels) + "," + str(numInframeInserts) + "," +
+                          str(numOutframeInserts) + "," + str(numOutframeDels) + "," + str(
+                numInframeInserts) + "," +
                           str(numInframeDels) + "," + str(totalInserts) + "," + str(totalDels) + "," +
                           str(ds) + "," + str(dnds) + "," + str(dsNoMercy) + "," + str(
                 dndsNoMercy) + "," + targetAbridged2 +
