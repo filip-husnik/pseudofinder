@@ -241,6 +241,27 @@ def get_args(module='None', **kwargs):
         'default': '1e-4',
         'type': str
     }
+
+    perc_id = {
+        'short': '-id',
+        'long': '--perc_id',
+        'help': 'the candidate gene/pseudogene needs to be at least this proportion of '
+                'reference gene length for frameshift and dN/dS analysis. Default is %(default)s.',
+        'required': False,
+        'default': '0.25',
+        'type': str
+    }
+
+    perc_cov = {
+        'short': '-cov',
+        'long': '--perc_cov',
+        'help': 'the candidate gene/pseudogene needs to be at least this percent identicial '
+                'to reference gene for frameshift and dN/dS analysis. Default is %(default)s.',
+        'required': False,
+        'default': '0.25',
+        'type': str
+    }
+
     distance = {
         'short': '-d',
         'long': '--distance',
@@ -496,7 +517,7 @@ def get_args(module='None', **kwargs):
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, hitcap,
                          contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip_makedb,
-                         no_bidirectional_length, use_alignment]
+                         no_bidirectional_length, use_alignment, perc_cov, perc_id]
         deprecated_args = [distance]
 
     elif module == 'reannotate':
@@ -508,6 +529,11 @@ def get_args(module='None', **kwargs):
     elif module == 'selection':
         required_args = [prots, genes, ref_prots, ref_genes, reference]
         optional_args = [control_file, outdir, search_engine, min_ds, max_ds, max_dnds, threads, ref_contigs, skip]
+        deprecated_args = []
+
+    elif module == 'sleuth':
+        required_args = [ref_genes, genome]
+        optional_args = [outdir, threads, perc_id, perc_cov, evalue]
         deprecated_args = []
 
     elif module == 'genome_map':
@@ -623,16 +649,22 @@ def file_dict(args, **kwargs):
         'blastx_filename': base_outfile_name + "intergenic.fasta" + ".blastX_output.tsv",
         'blastx_pseudos_filename': base_outfile_name + "input_pseudos.fasta" + ".blastX_output.tsv",
         'pseudos_gff': base_outfile_name + "pseudos.gff",
+        'new_pseudos_gff': base_outfile_name + "pseudos-2.gff",
         'pseudos_fasta': base_outfile_name + "pseudos.fasta",
+        'new_pseudos_fasta': base_outfile_name + "pseudos-2.fasta",
         'intact_gff': base_outfile_name + "intact.gff",
+        'new_intact_gff': base_outfile_name + "intact-2.gff",
         'intact_faa': base_outfile_name + "intact.faa",
+        'new_intact_faa': base_outfile_name + "intact-2.faa",
         'intact_ffn': base_outfile_name + "intact.ffn",
+        'new_intact_ffn': base_outfile_name + "intact-2.ffn",
         'chromosome_map': base_outfile_name + "map.pdf",
         'interactive_bar': base_outfile_name + "interactive_results.html",
         'interactive_map': base_outfile_name + "interactive_map.html",
         'gbk_out': base_outfile_name[:-1] + ".gbk",
         'dnds_out': base_outfile_name + "dnds",
         'log': base_outfile_name + "log.txt",
+        'sleuthDir': base_outfile_name + "sleuth",
         'ctl': os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
     }
     return file_dict

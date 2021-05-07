@@ -21,7 +21,7 @@ except ImportError:
 
 # importing selection module
 try:
-    from . import selection
+    from . import sleuth
 except ImportError:
     pass
 
@@ -55,6 +55,20 @@ dnds_data = NamedTuple('dnds_data', [('locus_tag', str),
                                      ('ds', float),
                                      ('dnds', float)])
 
+
+# dnds_data = NamedTuple('dnds_data', [('reference_locus', str),
+#                                      ('target_locus', str),
+#                                      ('AAI', float),
+#                                      ('aln_query_cov', float),
+#                                      ('start', float),
+#                                      ('loss_of_preferred_start', float),
+#                                      ('')])
+
+# sleuth fields
+"reference_locus	target_locus	AAI	aln_query_cov	start	loss_of_preferred_start	gain_of_preferred_start	stop	" \
+"internal_stops	stop_severity	out_of_frame_inserts	out_of_frame_dels	inframe_inserts	inframe_dels	" \
+"proportion_inserted	proportion_deleted	ds	dnds	ds_no_mercy	dnds_no_mercy	full_seq	mercy_aln	" \
+"no_mercy_aln	full_ref_seq	mercy_aln_ref	no_mercy_aln_ref"
 
 PseudoType = Enum('PseudoType', ['truncated',   # Pseudo based on length length relative to blast hits
                                  'short_alignment',  # Pseudo based on alignment length relative to blast hits
@@ -481,7 +495,7 @@ def convert_csv_to_dnds(dnds_file):
         next(csv)
         for line in csv.readlines():
             fields = [common.literal_eval(x) for x in re.split(",", line.rstrip("\n"))]
-            dnds_list.append(dnds_data(*fields[:-1]))
+            dnds_list.append(dnds_data(*fields[:-1])) # unpacking
     return dnds_list
 
 
@@ -490,7 +504,7 @@ def add_dnds_info_to_genome(args, genome, dnds_folder):
 
     dnds_list = convert_csv_to_dnds(dnds_folder+"/dnds-summary.csv")
     relevant_features = extract_features_from_genome(args, genome, 'CDS')
-    feature_dict = {feature.qualifiers['locus_tag'][0]: feature for feature in relevant_features}
+    feature_dict = {feature.qualifiers['locus_tag'][0]: feature for feature in relevant_features} # list comprehension
     for item in dnds_list:
         feature_dict[item.locus_tag].qualifiers['dnds'].append(item)
 
@@ -969,15 +983,6 @@ def main():
     StatisticsDict['PseudogenesInput'] = len(input_pseudos)
 
 
-    if args.reference:  # #########################################################################################
-        common.print_with_time("Starting dN/dS analysis pipeline...")
-        ref_genome = gbk_to_seqrecord_list(args, args.reference)
-        ref_proteome = extract_features_from_genome(args, ref_genome, 'CDS')
-        write_fasta(seqs=ref_proteome, outfile=file_dict['ref_cds_filename'], seq_type='nt')
-        write_fasta(seqs=ref_proteome, outfile=file_dict['ref_proteome_filename'], seq_type='aa')
-        selection.full(args, file_dict)
-        add_dnds_info_to_genome(args, genome, file_dict['dnds_out'])
-
     if args.diamond:  # run diamond
         if not args.skip_makedb:
             manage_diamond_db(args)
@@ -1011,6 +1016,18 @@ def main():
     common.print_with_time("Collecting run statistics and writing output files.")
     analysis_statistics(args, genome)
     write_all_outputs(args, genome, file_dict)
+
+    if args.reference:  # #########################################################################################
+        common.print_with_time("Starting Sleuth...")
+        ref_genome = gbk_to_seqrecord_list(args, args.reference)
+        ref_proteome = extract_features_from_genome(args, ref_genome, 'CDS')
+        write_fasta(seqs=ref_proteome, outfile=file_dict['ref_cds_filename'], seq_type='nt')
+        write_fasta(seqs=ref_proteome, outfile=file_dict['ref_proteome_filename'], seq_type='aa')
+        # selection.full(args, file_dict)
+        # add_dnds_info_to_genome(args, genome, file_dict['dnds_out'])
+
+        sleuth.full(args, file_dict)
+        sleuth.merge(args, file_dict)
 
 
 if __name__ == '__main__':
