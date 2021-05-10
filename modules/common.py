@@ -246,7 +246,7 @@ def get_args(module='None', **kwargs):
         'short': '-id',
         'long': '--perc_id',
         'help': 'the candidate gene/pseudogene needs to be at least this proportion of '
-                'reference gene length for frameshift and dN/dS analysis. Default is %(default)s.',
+                'reference gene length for frameshift and dN/dS analysis (Sleuth module or Annotate module with -reference). Default is %(default)s.',
         'required': False,
         'default': '0.25',
         'type': str
@@ -256,7 +256,7 @@ def get_args(module='None', **kwargs):
         'short': '-cov',
         'long': '--perc_cov',
         'help': 'the candidate gene/pseudogene needs to be at least this percent identicial '
-                'to reference gene for frameshift and dN/dS analysis. Default is %(default)s.',
+                'to reference gene for frameshift and dN/dS analysis (Sleuth module or Annotate module with -reference). Default is %(default)s.',
         'required': False,
         'default': '0.25',
         'type': str
@@ -516,14 +516,14 @@ def get_args(module='None', **kwargs):
     if module == 'annotate':
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, hitcap,
-                         contig_ends, intergenic_threshold, reference, max_dnds, max_ds, min_ds, diamond, skip_makedb,
-                         no_bidirectional_length, use_alignment]
+                         contig_ends, intergenic_threshold, reference, diamond, skip_makedb,
+                         no_bidirectional_length, use_alignment, perc_id, perc_cov, evalue, max_dnds]
         deprecated_args = [distance]
 
     elif module == 'reannotate':
         required_args = [genome, logfile, outprefix]
         optional_args = [length_pseudo, shared_hits, intergenic_threshold, max_dnds, max_ds, min_ds, dnds_out,
-                         no_bidirectional_length]
+                         no_bidirectional_length, use_alignment, perc_id, perc_cov, evalue, max_dnds]
         deprecated_args = [distance]
 
     elif module == 'selection':
