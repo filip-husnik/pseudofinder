@@ -850,8 +850,8 @@ def write_summary_file(args, outfile, file_dict) -> None:
             "no_bidirectional_length:\t" + printable_args.no_bidirectional_length + "\n"
             "use_alignment:\t" + printable_args.use_alignment + "\n"
             "max_dnds:\t" + printable_args.max_dnds + "\n"
-            "max_ds:\t" + printable_args.max_ds + "\n"
-            "min_ds:\t" + printable_args.min_ds + "\n\n"
+            # "max_ds:\t" + printable_args.max_ds + "\n"
+            # "min_ds:\t" + printable_args.min_ds + "\n\n"
 
             "####### Statistics #######\n"
             "#Input:\n"
