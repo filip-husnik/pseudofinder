@@ -2029,9 +2029,12 @@ def full(args, file_dict, log_file_dict=None):
             except AttributeError:
                 dndsNoMercy = "NA"
 
-            try:
-                dndsNoMercy = dnNoMercy / dsNoMercy
-            except ZeroDivisionError:
+            if dsNoMercy >= 0.001:
+                try:
+                    dndsNoMercy = dnNoMercy / dsNoMercy
+                except ZeroDivisionError:
+                    dndsNoMercy = "NA"
+            else:
                 dndsNoMercy = "NA"
 
             numInframeInserts = summaryDict[originalname]["numInframeInserts"]
