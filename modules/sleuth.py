@@ -2135,7 +2135,6 @@ def merge(args, file_dict, log_file_dict=None):
                         string = "Elevated dN/dS: " + str(round(dnds, 4)) + " (this exceptionally high dN/dS is likely caused by a poor alignment, which may be indiciative of a true pseudogene, or a false positive BLAST hit)."
                         pseudoDict[ls[1]].append(string)
 
-
             if bias < 1.10:
                 if stopSeverity > 0.95:
                     if cov > args.length_pseudo:
@@ -2383,13 +2382,13 @@ def merge(args, file_dict, log_file_dict=None):
         ls = i.rstrip().split(",")
         if ls[0] != "reference_locus":
             outfile.write(
-                ls[0] + "," + str(len(ls[23])) + "," + ls[1] + "," + str(blastDict2[ls[1]]) + "," + ls[1] + "," + ls[2] + "," + ls[3] + "," + ls[4] + "," +
+                ls[0] + "," + str(len(ls[23])) + "," + ls[1] + "," + str(blastDict2[ls[1]]) + "," + ls[2] + "," + ls[3] + "," + ls[4] + "," +
                 ls[5] + "," + ls[6] + "," + ls[7] + "," + ls[8] + "," + ls[9] + "," + ls[10] + "," +
                 ls[11] + "," + ls[12] + "," + ls[13] + "," + ls[14] + "," + ls[15] + "," + ls[16] + "," +
-                ls[17] + "," + ls[18] + "," + ls[19] + "," + str(float(18) / float(16)) + "," + "," + ls[20] + "," + ls[21] + "," + ls[22] + "," +
+                ls[17] + "," + ls[18] + "," + ls[19] + "," + str(float(ls[18]) / float(ls[16])) + "," + ls[20] + "," + ls[21] + "," + ls[22] + "," +
                 ls[23] + "," + ls[24] + "," + ls[25] + "\n")
         else:
-            outfile.write(ls[0] + "," + "ref_length" + "," + ls[1] + ",target_gbk_locus_tags," + ls[1] + "," + ls[2] + "," + ls[3] + "," + ls[4] + "," +
+            outfile.write(ls[0] + "," + "ref_length" + "," + ls[1] + ",target_gbk_locus_tags," + ls[2] + "," + ls[3] + "," + ls[4] + "," +
                           ls[5] + "," + ls[6] + "," + ls[7] + "," + ls[8] + "," + ls[9] + "," + ls[10] + "," +
                           ls[11] + "," + ls[12] + "," + ls[13] + "," + ls[14] + "," + ls[15] + "," + ls[16] + "," +
                           ls[17] + "," + ls[18] + "," + ls[19] + ",ds_ratio," + "," + ls[20] + "," + ls[21] + "," + ls[22] + "," +
