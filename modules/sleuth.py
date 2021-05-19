@@ -2399,11 +2399,16 @@ def merge(args, file_dict, log_file_dict=None):
     for i in summary:
         ls = i.rstrip().split(",")
         if ls[0] != "reference_locus":
+            try:
+                bias = sorted([ls[16], ls[18]])[1] / sorted([ls[16], ls[18]])[0]
+            except ZeroDivisionError:
+                bias = "NA"
+
             outfile.write(
                 ls[0] + "," + str(len(ls[23])) + "," + ls[1] + "," + str(blastDict2[ls[1]]) + "," + ls[2] + "," + ls[3] + "," + ls[4] + "," +
                 ls[5] + "," + ls[6] + "," + ls[7] + "," + ls[8] + "," + ls[9] + "," + ls[10] + "," +
                 ls[11] + "," + ls[12] + "," + ls[13] + "," + ls[14] + "," + ls[15] + "," + ls[16] + "," +
-                ls[17] + "," + ls[18] + "," + ls[19] + "," + str(float(ls[18]) / float(ls[16])) + "," + ls[20] + "," + ls[21] + "," + ls[22] + "," +
+                ls[17] + "," + ls[18] + "," + ls[19] + "," + str(bias) + "," + ls[20] + "," + ls[21] + "," + ls[22] + "," +
                 ls[23] + "," + ls[24] + "," + ls[25] + "\n")
         else:
             outfile.write(ls[0] + "," + "ref_length" + "," + ls[1] + ",target_gbk_locus_tags," + ls[2] + "," + ls[3] + "," + ls[4] + "," +
