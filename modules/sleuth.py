@@ -892,12 +892,18 @@ def delim(line):
 def main():
     args = common.get_args('sleuth')
 
-    ref_ffn = args.ref_genes
+    ref_genes = args.ref_genes
     ref_gff = args.ref_gff
     target_genome = genome
     out = args.outdir
     e = args.evalue
     threads = args.threads
+
+    ffn = open(ref_genes)
+    ffn = fasta2(ffn)
+
+    genome = open(target_genome)
+    genome = fasta2(genome)
 
     # SETTING LOCATION OF CODEML PARAMTER FILE
     ctl = os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
@@ -908,24 +914,33 @@ def main():
 
     # READING IN RRNA AND TRNA FROM GFF FILE (FOR EXCLUSION LATER ON)
     rRNAdict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    gff = open(args.ref_gff)
-    for i in gff:
-        if re.findall(r'FASTA', i):
-            break
-        else:
-            if not re.match(r'#', i):
-                ls = i.rstrip().split("\t")
-                if ls[2] == "rRNA":
-                    rRNAdict[ls[8].split("ID=")[1].split(";")[0]] = ls
+
+    if args.gff != "NA":
+        gff = open(args.ref_gff)
+        for i in gff:
+            if re.findall(r'FASTA', i):
+                break
+            else:
+                if not re.match(r'#', i):
+                    ls = i.rstrip().split("\t")
+                    if ls[2] == "rRNA":
+                        rRNAdict[ls[8].split("ID=")[1].split(";")[0]] = ls
+    else:
+        out = open("%s/%s-fixed.ffn" % (args.outdir, allButTheLast(args.ref_ffn, ".")), "w")
+        for i in ffn.keys():
+            if not re.findall(r'tRNA-\.\.\.\(', i) and not re.findall(r'S ribosomal RNA', i):
+                out.write(">" + i + "\n")
+                out.write(ffn[i] + "\n")
+        out.close()
+
+        ffn = open("%s/%s-fixed.ffn" % (args.outdir, allButTheLast(args.ref_ffn, ".")))
+        ffn = fasta2(ffn)
+
+        ref_genes = "%s/%s-fixed.ffn" % (args.outdir, allButTheLast(args.ref_ffn, "."))
+
 
     # RUNNING BLAST
     print("Running BLAST")
-    ffn = open(ref_ffn)
-    ffn = fasta2(ffn)
-
-    genome = open(target_genome)
-    genome = fasta2(genome)
-
     count = 0
     for i in genome.keys():
         if re.findall(r'\|', i):
@@ -2113,7 +2128,10 @@ def merge(args, file_dict, log_file_dict=None):
             ds = float(ls[16])
             dsNoMercy = float(ls[18])
             dnds = (ls[17])
-            bias = sorted([ds, dsNoMercy])[1] / sorted([ds, dsNoMercy])[0]
+            try:
+                bias = sorted([ds, dsNoMercy])[1] / sorted([ds, dsNoMercy])[0]
+            except ZeroDivisionError:
+                bias = sorted([ds, dsNoMercy])[1]
 
             if fsIn + fsDel > 0:
                 if bias > 1.25:
