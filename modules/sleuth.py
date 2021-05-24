@@ -2099,6 +2099,7 @@ def merge(args, file_dict, log_file_dict=None):
     out = file_dict["sleuthDir"]
     cds = file_dict["cds_filename"]
     e = args.evalue
+    base = file_dict["base_filename"]
 
     os.system("makeblastdb -dbtype nucl -in %s -out %s" % (cds, cds))
     os.system("blastn -db %s -query %s/ref_based_cds_predictions.ffn -outfmt 6 -out %s/sleuth.finder.blast -num_threads 4 -perc_identity 99.9 -evalue %s" % (cds, out, out, e))
@@ -2179,7 +2180,6 @@ def merge(args, file_dict, log_file_dict=None):
     outNewIntact = open(file_dict["new_intact_gff"], 'w')
     for i in intact:
         if not re.match(r'#', i):
-            print(i.rstrip())
             ls = i.rstrip().split("\t")
             locus = ls[8].split("=")[1]
             if locus in blastDict.keys():
@@ -2189,7 +2189,6 @@ def merge(args, file_dict, log_file_dict=None):
                     intactToPseudo[locus]["reason"] = pseudoDict[pseudoLocus]
                     intactToPseudo[locus]["stats"] = ls
                 else:
-                    print("\n")
                     outNewIntact.write(i.rstrip() + "\n")
         else:
             outNewIntact.write(i.rstrip() + "\n")
@@ -2345,7 +2344,6 @@ def merge(args, file_dict, log_file_dict=None):
     print("\n\n\n\n")
     for i in PseudoToIntact.keys():
         ls = (PseudoToIntact[i])
-        print(ls)
         oldLocus = (ls[8].split("old_locus_tag=")[1])
         outNewIntact.write(
             ls[0] + "\t" + ls[1] + "\t" + ls[2] + "\t" + ls[3] + "\t" + ls[4] + "\t" + ls[5] + "\t" + ls[6] + "\t" + ls[
@@ -2400,7 +2398,7 @@ def merge(args, file_dict, log_file_dict=None):
         ls = i.rstrip().split(",")
         if ls[0] != "reference_locus":
             try:
-                bias = sorted([ls[16], ls[18]])[1] / sorted([ls[16], ls[18]])[0]
+                bias = float(sorted([ls[16], ls[18]])[1]) / float(sorted([ls[16], ls[18]])[0])
             except ZeroDivisionError:
                 bias = "NA"
 
@@ -2427,6 +2425,8 @@ def merge(args, file_dict, log_file_dict=None):
     os.system("mv %s %s" % (file_dict["new_pseudos_gff"], file_dict["pseudos_gff"]))
     os.system("mv %s %s" % (file_dict["new_pseudos_fasta"], file_dict["pseudos_fasta"]))
     os.system("rm *.fasta.n*")
+    os.system("rm -r %s" % out)
+    os.system("mv sleuth_report.csv %ssleuth_report.csv" % base)
 
 
 
