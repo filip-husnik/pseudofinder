@@ -33,7 +33,7 @@ Table of Contents
 
 ## Introduction
 
-Pseudofinder is a Python3 script that detects [pseudogene candidates](https://en.wikipedia.org/wiki/Pseudogene) from annotated genbank files of bacterial and archaeal genomes.
+Pseudofinder is a bioinformatics tool that detects [pseudogene candidates](https://en.wikipedia.org/wiki/Pseudogene) from annotated genbank files of bacterial and archaeal genomes.
 
 It has been tested mostly on genbank (.gbf/.gbk) files annotated by [Prokka](https://github.com/tseemann/prokka) with the --compliant flag (i.e. including both /gene and /CDS annotations).
 
