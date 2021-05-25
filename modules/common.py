@@ -454,6 +454,16 @@ def get_args(module='None', **kwargs):
         'default': None,
         'type': str
     }
+
+    ref_gff = {
+        'short': '-rg',
+        'long': '--ref_gff',
+        'help': 'Reference GFF file.',
+        'required': True,
+        'default': None,
+        'type': str
+    }
+
     prots = {
         'short': '-a',
         'long': '--prots',
