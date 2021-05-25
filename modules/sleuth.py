@@ -1452,9 +1452,12 @@ def main():
             except AttributeError:
                 dndsNoMercy = "NA"
 
-            try:
-                dndsNoMercy = dnNoMercy / dsNoMercy
-            except ZeroDivisionError:
+            if dsNoMercy >= 0.001:
+                try:
+                    dndsNoMercy = dnNoMercy / dsNoMercy
+                except ZeroDivisionError:
+                    dndsNoMercy = "NA"
+            else:
                 dndsNoMercy = "NA"
 
             numInframeInserts = summaryDict[originalname]["numInframeInserts"]
