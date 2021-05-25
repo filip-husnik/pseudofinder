@@ -14,7 +14,7 @@ __version__ = "1.00"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
-errorMessage = "Options: " + common.bold("pseudofinder.py [ annotate | reannotate | visualize | selection | test | help ]\n")
+errorMessage = "Options: " + common.bold("pseudofinder.py [ annotate | reannotate | visualize | sleuth | test | help ]\n")
 
 try:
     module = argv[1]
@@ -29,8 +29,8 @@ try:
         reannotate.main()
     elif module == "visualize":
         visualize.main()
-    elif module == "selection":
-        selection.main()
+    elif module == "sleuth":
+        sleuth.main()
     elif module == "test":
         pseudofinder_test.main()
     elif module == "interactive":
@@ -40,7 +40,7 @@ try:
                      "\tpseudofinder.py reannotate: Begins the annotate pipeline post-BLAST.\n"
                      "\tpseudofinder.py visualize: Generates a 3D plot to visualize different combinations of "
                      "settings.\n"
-                     "\tpseudofinder.py selection: dN/dS analysis via pairwise comparison against a reference genome. "
+                     "\tpseudofinder.py sleuth: pairwise comparison against a reference genome."
                      "Pseudogenes inferred from relaxed selection.\n"
                      "\tpseudofinder.py test: Runs all commands on a test dataset and checks that the outputs "
                      "are as expected.\n")
