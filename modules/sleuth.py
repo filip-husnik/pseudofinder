@@ -894,8 +894,8 @@ def main():
 
     ref_genes = args.ref_genes
     ref_gff = args.ref_gff
-    target_genome = genome
-    out = args.outdir
+    target_genome = args.genome
+    outdir = args.outdir
     e = args.evalue
     threads = args.threads
 
@@ -909,13 +909,13 @@ def main():
     ctl = os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
 
     # MAKING DIRECTORIES
-    os.system("mkdir -p %s" % out)
-    os.system("mkdir -p %s/nuc_aln" % out)
+    os.system("mkdir -p %s" % outdir)
+    os.system("mkdir -p %s/nuc_aln" % outdir)
 
     # READING IN RRNA AND TRNA FROM GFF FILE (FOR EXCLUSION LATER ON)
     rRNAdict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
 
-    if args.gff != "NA":
+    if ref_gff != "NA":
         gff = open(args.ref_gff)
         for i in gff:
             if re.findall(r'FASTA', i):
@@ -923,8 +923,22 @@ def main():
             else:
                 if not re.match(r'#', i):
                     ls = i.rstrip().split("\t")
-                    if ls[2] == "rRNA":
-                        rRNAdict[ls[8].split("ID=")[1].split(";")[0]] = ls
+                    if ls[2] in ["rRNA", "tRNA"]:
+                        try:
+                            rRNAdict[ls[8].split("ID=")[1].split(";")[0]] = ls
+                        except IndexError:
+                            pass
+
+                        try:
+                            rRNAdict[ls[8].split("locus=")[1].split(";")[0]] = ls
+                        except IndexError:
+                            pass
+
+                        try:
+                            rRNAdict[ls[8].split("locus_tag=")[1].split(";")[0]] = ls
+                        except IndexError:
+                            pass
+
     else:
         out = open("%s/%s-fixed.ffn" % (args.outdir, allButTheLast(args.ref_ffn, ".")), "w")
         for i in ffn.keys():
@@ -948,23 +962,23 @@ def main():
     if count > 0:
 
         print("detected \'|\' characters in input fasta file. Creating a new version of the file %s-fixed.fna" % allButTheLast(args.genome, "."))
-        out = open("%s/%s-fixed.fna" % (args.outdir, allButTheLast(args.genome, ".")), "w")
+        out = open("%s/%s-fixed.fna" % (outdir, allButTheLast(args.genome, ".")), "w")
         for i in genome.keys():
             out.write(">" + remove(i, ["|"]) + "\n")
             out.write(genome[i] + "\n")
         out.close()
-        genome = open("%s/%s-fixed.fna" % (args.outdir, allButTheLast(target_genome, ".")))
+        genome = open("%s/%s-fixed.fna" % (outdir, allButTheLast(target_genome, ".")))
         genome = fasta2(genome)
 
         os.system("makeblastdb -dbtype nucl -in %s/%s-fixed.fna -out %s/%s-fixed.fna > /dev/null 2>&1" % (
-            args.outdir, allButTheLast(target_genome, "."), out, allButTheLast(target_genome, ".")))
+            outdir, allButTheLast(target_genome, "."), outdir, allButTheLast(target_genome, ".")))
         os.system("blastn -query %s -db %s/%s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s > /dev/null 2>&1" % (
-            ref_genes, out, allButTheLast(target_genome, "."), out, str(e)))
+            ref_genes, outdir, allButTheLast(target_genome, "."), outdir, str(e)))
 
     else:
         os.system("makeblastdb -dbtype nucl -in %s -out %s > /dev/null 2>&1" % (target_genome, target_genome))
         os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s > /dev/null 2>&1" % (
-        ref_genes, genome, out, e))
+        ref_genes, target_genome, outdir, e))
 
     print("Done with BLAST\n.")
     # PARSING THE BLAST OUTPUT AND WRITING SEQUENCE FILES FOR ALIGNMENT
@@ -972,7 +986,7 @@ def main():
     blastDict = defaultdict(list)
     blastDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     counter = 0
-    blast = open("%s/cds.genome.blast" % out)
+    blast = open("%s/cds.genome.blast" % outdir)
     for i in blast:
         ls = i.rstrip().split("\t")
         if ls[0] not in rRNAdict.keys():
@@ -1052,7 +1066,7 @@ def main():
 
     for i in blastDict2.keys():
         for j in blastDict2[i]:
-            out = open("%s/nuc_aln/%s.ffn" % (out, i + "__" + j), "w")
+            out = open("%s/nuc_aln/%s.ffn" % (outdir, i + "__" + j), "w")
             out.write(">" + i + "\n")
             out.write(ffn[i] + "\n")
             out.write(">" + j + "\n")
@@ -1062,14 +1076,14 @@ def main():
     # RUNNING MUSCLE ON NUCLEOTIDE PAIRS
     print("starting Muscle")
     count = 0
-    for file in (os.listdir(out + "/nuc_aln")):
+    for file in (os.listdir(outdir + "/nuc_aln")):
         if lastItem(file.split(".")) == "ffn":
             count += 1
     total = count
     count = 0
-    for file in os.listdir(out + "/nuc_aln"):
+    for file in os.listdir(outdir + "/nuc_aln"):
         if lastItem(file.split(".")) == "ffn":
-            os.system("muscle -in %s/nuc_aln/%s -out %s/nuc_aln/%s.fa > /dev/null 2>&1" % (out, file, out, allButTheLast(file, ".")))
+            os.system("muscle -in %s/nuc_aln/%s -out %s/nuc_aln/%s.fa > /dev/null 2>&1" % (outdir, file, outdir, allButTheLast(file, ".")))
             count += 1
             perc = (count / total) * 100
             sys.stdout.write("running Muscle: %d%%   \r" % (perc))
@@ -1078,7 +1092,7 @@ def main():
     # PARSING THE ALIGNMENT FILES FOR DEEP ANALYSIS OF PSEUDOGENIZATION
     count = 0
     summaryDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
-    alnDir = "%s/nuc_aln" % out
+    alnDir = "%s/nuc_aln" % outdir
     for i in os.listdir(alnDir):
         if re.findall(r'.fa', i):
             file = open("%s/%s" % (alnDir, i))
@@ -1338,7 +1352,7 @@ def main():
 
     # # RUNNING CODEML
     count = 0
-    for file in (os.listdir(out + "/nuc_aln")):
+    for file in (os.listdir(outdir + "/nuc_aln")):
         if re.findall(r'aln2-', file):
             if lastItem(file.split(".")) == "ffn":
                 count += 1
@@ -1366,7 +1380,7 @@ def main():
                 sys.stdout.flush()
     print("")
     count = 0
-    for file in (os.listdir(out + "/nuc_aln")):
+    for file in (os.listdir(outdir + "/nuc_aln")):
         if lastItem(file.split(".")) == "ctl":
             count += 1
     total = count
@@ -1382,7 +1396,7 @@ def main():
     print("done with codeml\n.")
     time.sleep(2)
     count = 0
-    alnDir = "%s/nuc_aln" % out
+    alnDir = "%s/nuc_aln" % outdir
     for i in os.listdir(alnDir):
         if re.findall(r'mlcTree_', i):
             count += 1
@@ -1392,8 +1406,8 @@ def main():
 
 
     # PARSING CODEML OUTPUT AND COMBINING WITH OTHER RESULTS
-    fastaOut = open(args.outdir + "/ref_based_cds_predictions.ffn", "w")
-    mainOut = open(args.outdir + "/sleuth_report.csv", "w")
+    fastaOut = open(outdir + "/ref_based_cds_predictions.ffn", "w")
+    mainOut = open(outdir + "/sleuth_report.csv", "w")
     mainOut.write("reference_locus,target_locus,AAI,aln_query_cov,start,"
 
                   "loss_of_preferred_start,gain_of_preferred_start_codon,stop_codon,internal_stops,first_stop_codon,"
@@ -1499,6 +1513,10 @@ def main():
     fastaOut.close()
 
     os.system("rm -f 2NG.t 2NG.dN 2NG.dS rst1 rst 2ML.t 2ML.dN 2ML.dS 4fold.nuc rub")
+    os.system("tar -cf %s/nuc_aln.tar %s/nuc_aln" % (outdir, outdir))
+    os.system("gzip %s/nuc_aln.tar" % outdir)
+    os.system("rm %s/nuc_aln" % outdir)
+    os.system("rm %s.n*" % target_genome)
 
 
 def full(args, file_dict, log_file_dict=None):
