@@ -2,6 +2,7 @@
 
 from sys import argv, stderr
 from modules import *
+from modules import sleuth
 
 """
 pseudofinder.py: A script to find pseudogene candidates in annotated genbank files.
