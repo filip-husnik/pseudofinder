@@ -972,19 +972,20 @@ def main():
 
         os.system("makeblastdb -dbtype nucl -in %s/%s-fixed.fna -out %s/%s-fixed.fna > /dev/null 2>&1" % (
             outdir, allButTheLast(target_genome, "."), outdir, allButTheLast(target_genome, ".")))
-        os.system("blastn -query %s -db %s/%s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s > /dev/null 2>&1" % (
-            ref_genes, outdir, allButTheLast(target_genome, "."), outdir, str(e)))
+        os.system("blastn -query %s -db %s/%s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s -perc_identity %s -qcov_hsp_perc %s -num_threads %s > /dev/null 2>&1" % (
+            ref_genes, outdir, allButTheLast(target_genome, "."), outdir, str(e), str(float(args.perc_id)*100), str(float(args.perc_cov)*100), args.threads))
 
     else:
         os.system("makeblastdb -dbtype nucl -in %s -out %s > /dev/null 2>&1" % (target_genome, target_genome))
-        os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s > /dev/null 2>&1" % (
-        ref_genes, target_genome, outdir, e))
+        os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s -perc_identity %s -qcov_hsp_perc %s -num_threads %s > /dev/null 2>&1" % (
+        ref_genes, target_genome, outdir, e, str(float(args.perc_id)*100), str(float(args.perc_cov)*100), args.threads))
 
     print("Done with BLAST\n.")
     # PARSING THE BLAST OUTPUT AND WRITING SEQUENCE FILES FOR ALIGNMENT
     diffList = []
     blastDict = defaultdict(list)
     blastDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+    aniDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     counter = 0
     blast = open("%s/cds.genome.blast" % outdir)
     for i in blast:
@@ -1015,49 +1016,50 @@ def main():
                     counter = 0
                     blastDict2.pop(key, None)
 
-                    if (len(blastDict[key])) == 3:
-                        firstLS = blastDict[key][0]
-                        secondLS = blastDict[key][1]
-                        thirdLS = blastDict[key][2]
-                        lengthQuery = len(ffn[key])
+                    lengthQuery = len(ffn[key])
+                    blastDict3 = defaultdict(list)
+                    for k in blastDict[key]:
+                        blastDict3[k[1]].append(k)
 
-                        clus = (cluster(sorted(
-                            [int(firstLS[8]), int(firstLS[9]), int(secondLS[8]), int(secondLS[9]), int(thirdLS[8]),
-                             int(thirdLS[9])]), lengthQuery))
-                        for j in clus:
-                            target = firstLS[1] + "-" + str(j[0]) + "-" + str(lastItem(j))
-                            start = int(firstLS[8])
-                            end = int(firstLS[9])
+                    for l in blastDict3.keys():
+                        if len(blastDict3[l]) > 1:
+                            coordList = []
+                            for m in blastDict3[l]:
+                                coordList.append(int(m[8]))
+                                coordList.append(int(m[9]))
+
+                            clus = (cluster(sorted(coordList), lengthQuery))
+                            for j in clus:
+                                target = l + "-" + str(j[0]) + "-" + str(lastItem(j))
+                                start = int(m[8])
+                                end = int(m[9])
+
+                                if start > end:
+                                    seq = reverseComplement(
+                                        genome[l][j[0] - 1 - slack:lastItem(j) - 1 + slack])
+                                else:
+                                    seq = genome[l][j[0] - 1 - slack:lastItem(j) + slack]
+
+                                blastDict2[key][target] = seq
+                                aniDict[key][target] = ls[2]
+                        else:
+                            target = l + "-" + str(blastDict3[l][0][8]) + "-" + str(blastDict3[l][0][9])
+                            start = int(blastDict3[l][0][8])
+                            end = int(blastDict3[l][0][9])
+
                             if start > end:
                                 seq = reverseComplement(
-                                    genome[firstLS[1]][j[0] - 1 - slack:lastItem(j) - 1 + slack])
+                                    genome[l][end - 1 - slack:start - 1 + slack])
                             else:
-                                seq = genome[firstLS[1]][j[0] - 1 - slack:lastItem(j) + slack]
-                            blastDict2[key][target] = seq
-
-                    if (len(blastDict[key])) == 2:
-                        firstLS = blastDict[key][0]
-                        secondLS = blastDict[key][1]
-                        lengthQuery = len(ffn[key])
-
-                        clus = (
-                        cluster(sorted([int(firstLS[8]), int(firstLS[9]), int(secondLS[8]), int(secondLS[9])]),
-                                lengthQuery))
-                        for j in clus:
-                            target = firstLS[1] + "-" + str(j[0]) + "-" + str(lastItem(j))
-                            start = int(firstLS[8])
-                            end = int(firstLS[9])
-                            if start > end:
-                                seq = reverseComplement(
-                                    genome[firstLS[1]][j[0] - 1 - slack:lastItem(j) - 1 + slack])
-                            else:
-                                seq = genome[firstLS[1]][j[0] - 1 - slack:lastItem(j) + slack]
+                                seq = genome[l][start - 1 - slack:end + slack]
 
                             blastDict2[key][target] = seq
+                            aniDict[key][target] = ls[2]
 
                 else:
                     target = ls[1] + "-" + ls[8] + "-" + ls[9]
                     blastDict2[ls[0]][target] = seq
+                    aniDict[ls[0]][target] = ls[2]
 
             else:
                 counter += 1
@@ -1408,13 +1410,13 @@ def main():
     # PARSING CODEML OUTPUT AND COMBINING WITH OTHER RESULTS
     fastaOut = open(outdir + "/ref_based_cds_predictions.ffn", "w")
     mainOut = open(outdir + "/sleuth_report.csv", "w")
-    mainOut.write("reference_locus,target_locus,AAI,aln_query_cov,start,"
+    mainOut.write("reference_locus,target_locus,ANI,AAI,ref_length,aln_query_cov,start,"
 
                   "loss_of_preferred_start,gain_of_preferred_start_codon,stop_codon,internal_stops,first_stop_codon,"
 
                   "out_of_frame_inserts,out_of_frame_dels,inframe_inserts,inframe_dels,total_inserts,total_deleted_bases,"
 
-                  "ds,dnds,ds_no_mercy,dnds_no_mercy,"
+                  "ds,ds_no_mercy,dsds,delta_ds,dnds,dnds_no_mercy,"
 
                   "full_seq,mercy_aln,no_mercy_aln,full_ref_seq,mercy_aln_ref,no_mercy_aln_ref\n")
 
@@ -1429,6 +1431,9 @@ def main():
             target = (list(file.keys())[1])
             targetSeq = file[target]
 
+            ANI = aniDict[ref][target]
+
+            ###############################################
             mlc = open("%s/%s" % (alnDir, i))
             for line in mlc:
                 if not re.match(r'^ ', line):
@@ -1438,6 +1443,7 @@ def main():
                     except IndexError:
                         pass
 
+            ###############################################
             try:
                 dn = float(dn.split(" ")[0])
                 ds = float(ds.split(" ")[0])
@@ -1449,6 +1455,7 @@ def main():
             else:
                 dnds = "NA"
 
+            ###############################################
             print("%s/mlcTree2_%s" % (alnDir, i.split("Tree_")[1]))
             mlcNoMercy = open("%s/mlcTree2_%s" % (alnDir, i.split("Tree_")[1]))
             for line in mlcNoMercy:
@@ -1460,12 +1467,14 @@ def main():
                     except IndexError:
                         pass
 
+            ###############################################
             try:
                 dnNoMercy = float(dnNoMercy.split(" ")[0])
                 dsNoMercy = float(dsNoMercy.split(" ")[0])
             except AttributeError:
                 dndsNoMercy = "NA"
 
+            #########################################
             if dsNoMercy >= 0.001:
                 try:
                     dndsNoMercy = dnNoMercy / dsNoMercy
@@ -1473,6 +1482,14 @@ def main():
                     dndsNoMercy = "NA"
             else:
                 dndsNoMercy = "NA"
+
+            #########################################
+            if ds > 0.001:
+                dsds = dsNoMercy / ds
+                deltads = dsNoMercy - ds
+            else:
+                dsds = "NA"
+                deltads = dsNoMercy - ds
 
             numInframeInserts = summaryDict[originalname]["numInframeInserts"]
             numOutframeInserts = summaryDict[originalname]["numOutframeInserts"]
@@ -1499,15 +1516,17 @@ def main():
 
             fastaOut.write(">" + target + "\n")
             fastaOut.write(targetStraightDegapRaw + "\n")
-            mainOut.write(ref + "," + target + "," + str(aai) + "," + str(lengthDiff) + "," +
-                          startcodon + "," + preferredStartLoss + "," + preferredStartGain + "," + stopcodon + "," + str(
-                stops) + "," + str(severity) + "," +
-                          str(numOutframeInserts) + "," + str(numOutframeDels) + "," + str(
-                numInframeInserts) + "," +
-                          str(numInframeDels) + "," + str(totalInserts) + "," + str(totalDels) + "," +
-                          str(ds) + "," + str(dnds) + "," + str(dsNoMercy) + "," + str(
-                dndsNoMercy) + "," + targetAbridged2 +
-                          "," + targetDegap2 + "," + targetNoMercy + "," + refAbridged2 + "," + refDegap2 + "," + refNoMercy + "\n")
+            mainOut.write(
+                ref + "," + target + "," + str(ANI) + "," + str(aai) + "," + str(len(refAbridged2)) + "," + str(
+                    lengthDiff) + "," +
+                startcodon + "," + preferredStartLoss + "," + preferredStartGain + "," + stopcodon + "," + str(
+                    stops) + "," + str(severity) + "," +
+                str(numOutframeInserts) + "," + str(numOutframeDels) + "," + str(
+                    numInframeInserts) + "," +
+                str(numInframeDels) + "," + str(totalInserts) + "," + str(totalDels) + "," +
+                str(ds) + "," + str(dsNoMercy) + "," + str(dsds) + "," + str(deltads) + "," + str(dnds) + "," + str(
+                    dndsNoMercy) + "," + targetAbridged2 +
+                "," + targetDegap2 + "," + targetNoMercy + "," + refAbridged2 + "," + refDegap2 + "," + refNoMercy + "\n")
 
     mainOut.close()
     fastaOut.close()
@@ -1515,7 +1534,7 @@ def main():
     os.system("rm -f 2NG.t 2NG.dN 2NG.dS rst1 rst 2ML.t 2ML.dN 2ML.dS 4fold.nuc rub")
     os.system("tar -cf %s/nuc_aln.tar %s/nuc_aln" % (outdir, outdir))
     os.system("gzip %s/nuc_aln.tar" % outdir)
-    os.system("rm %s/nuc_aln" % outdir)
+    os.system("rm -r %s/nuc_aln" % outdir)
     os.system("rm %s.n*" % target_genome)
 
 
@@ -1557,14 +1576,14 @@ def full(args, file_dict, log_file_dict=None):
 
         os.system("makeblastdb -dbtype nucl -in %s/%s-fixed.fna -out %s/%s-fixed.fna > /dev/null 2>&1" % (
             out, allButTheLast(target_genome, "."), out, allButTheLast(target_genome, ".")))
-        os.system("blastn -query %s -db %s/%s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s -num_threads %s > /dev/null 2>&1" % (
-            ref_ffn, out, allButTheLast(target_genome, "."), out, str(e), str(threads)))
+        os.system("blastn -query %s -db %s/%s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s -num_threads %s -perc_identity %s -qcov_hsp_perc %s > /dev/null 2>&1" % (
+            ref_ffn, out, allButTheLast(target_genome, "."), out, str(e), str(threads), str(float(args.perc_id)*100), str(float(args.perc_cov)*100)))
 
     else:
         os.system("makeblastdb -dbtype nucl -in %s -out %s > /dev/null 2>&1" %
                   (target_genome, target_genome))
-        os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s -num_threads %s > /dev/null 2>&1" %
-                  (ref_ffn, target_genome, out, e, str(threads)))
+        os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s -num_threads %s -perc_identity %s -qcov_hsp_perc %s > /dev/null 2>&1" %
+                  (ref_ffn, target_genome, out, e, str(threads), str(float(args.perc_id)*100), str(float(args.perc_cov)*100)))
 
     print("Done with BLAST\n.")
     # print("Processing...")
@@ -1573,6 +1592,7 @@ def full(args, file_dict, log_file_dict=None):
     diffList = []
     blastDict = defaultdict(list)
     blastDict2 = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
+    aniDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     counter = 0
     blast = open("%s/cds.genome.blast" % out)
     for i in blast:
@@ -1602,49 +1622,50 @@ def full(args, file_dict, log_file_dict=None):
                 counter = 0
                 blastDict2.pop(key, None)
 
-                if (len(blastDict[key])) == 3:
-                    firstLS = blastDict[key][0]
-                    secondLS = blastDict[key][1]
-                    thirdLS = blastDict[key][2]
-                    lengthQuery = len(ffn[key])
+                lengthQuery = len(ffn[key])
+                blastDict3 = defaultdict(list)
+                for k in blastDict[key]:
+                    blastDict3[k[1]].append(k)
 
-                    clus = (cluster(sorted(
-                        [int(firstLS[8]), int(firstLS[9]), int(secondLS[8]), int(secondLS[9]), int(thirdLS[8]),
-                         int(thirdLS[9])]), lengthQuery))
-                    for j in clus:
-                        target = firstLS[1] + "-" + str(j[0]) + "-" + str(lastItem(j))
-                        start = int(firstLS[8])
-                        end = int(firstLS[9])
+                for l in blastDict3.keys():
+                    if len(blastDict3[l]) > 1:
+                        coordList = []
+                        for m in blastDict3[l]:
+                            coordList.append(int(m[8]))
+                            coordList.append(int(m[9]))
+
+                        clus = (cluster(sorted(coordList), lengthQuery))
+                        for j in clus:
+                            target = l + "-" + str(j[0]) + "-" + str(lastItem(j))
+                            start = int(m[8])
+                            end = int(m[9])
+
+                            if start > end:
+                                seq = reverseComplement(
+                                    genome[l][j[0] - 1 - slack:lastItem(j) - 1 + slack])
+                            else:
+                                seq = genome[l][j[0] - 1 - slack:lastItem(j) + slack]
+
+                            blastDict2[key][target] = seq
+                            aniDict[key][target] = ls[2]
+                    else:
+                        target = l + "-" + str(blastDict3[l][0][8]) + "-" + str(blastDict3[l][0][9])
+                        start = int(blastDict3[l][0][8])
+                        end = int(blastDict3[l][0][9])
+
                         if start > end:
                             seq = reverseComplement(
-                                genome[firstLS[1]][j[0] - 1 - slack:lastItem(j) - 1 + slack])
+                                genome[l][j[0] - 1 - slack:lastItem(j) - 1 + slack])
                         else:
-                            seq = genome[firstLS[1]][j[0] - 1 - slack:lastItem(j) + slack]
-                        blastDict2[key][target] = seq
-
-                if (len(blastDict[key])) == 2:
-                    firstLS = blastDict[key][0]
-                    secondLS = blastDict[key][1]
-                    lengthQuery = len(ffn[key])
-
-                    clus = (
-                        cluster(sorted([int(firstLS[8]), int(firstLS[9]), int(secondLS[8]), int(secondLS[9])]),
-                                lengthQuery))
-                    for j in clus:
-                        target = firstLS[1] + "-" + str(j[0]) + "-" + str(lastItem(j))
-                        start = int(firstLS[8])
-                        end = int(firstLS[9])
-                        if start > end:
-                            seq = reverseComplement(
-                                genome[firstLS[1]][j[0] - 1 - slack:lastItem(j) - 1 + slack])
-                        else:
-                            seq = genome[firstLS[1]][j[0] - 1 - slack:lastItem(j) + slack]
+                            seq = genome[l][j[0] - 1 - slack:lastItem(j) + slack]
 
                         blastDict2[key][target] = seq
+                        aniDict[key][target] = ls[2]
 
             else:
                 target = ls[1] + "-" + ls[8] + "-" + ls[9]
                 blastDict2[ls[0]][target] = seq
+                aniDict[ls[0]][target] = ls[2]
 
         else:
             counter += 1
@@ -2007,13 +2028,13 @@ def full(args, file_dict, log_file_dict=None):
     # PARSING CODEML OUTPUT AND COMBINING WITH OTHER RESULTS
     fastaOut = open(out + "/ref_based_cds_predictions.ffn", "w")
     mainOut = open(out + "/sleuth_report.csv", "w")
-    mainOut.write("reference_locus,target_locus,AAI,aln_query_cov,start,"
+    mainOut.write("reference_locus,target_locus,ANI,AAI,ref_length,aln_query_cov,start,"
                   
                   "loss_of_preferred_start,gain_of_preferred_start_codon,stop_codon,internal_stops,first_stop_codon,"
                   
                   "out_of_frame_inserts,out_of_frame_dels,inframe_inserts,inframe_dels,total_inserts,total_deleted_bases,"
                   
-                  "ds,dnds,ds_no_mercy,dnds_no_mercy,"
+                  "ds,ds_no_mercy,dsds,delta_ds,dnds,dnds_no_mercy,"
                   
                   "full_seq,mercy_aln,no_mercy_aln,full_ref_seq,mercy_aln_ref,no_mercy_aln_ref\n")
 
@@ -2028,6 +2049,10 @@ def full(args, file_dict, log_file_dict=None):
             target = (list(file.keys())[1])
             targetSeq = file[target]
 
+            ANI = aniDict[ref][target]
+
+            #####################################################
+            #####################################################
             mlc = open("%s/%s" % (alnDir, i))
             for line in mlc:
                 if not re.match(r'^ ', line):
@@ -2037,18 +2062,21 @@ def full(args, file_dict, log_file_dict=None):
                     except IndexError:
                         pass
 
+            ######################################
             try:
                 dn = float(dn.split(" ")[0])
                 ds = float(ds.split(" ")[0])
             except AttributeError:
                 dnds = "NA"
 
+            ############################################
             if ds >= 0.001:
                 dnds = dn / ds
             else:
                 dnds = "NA"
 
-            # print("%s/mlcTree2_%s" % (alnDir, i.split("Tree_")[1]))
+            ####################################################
+            ####################################################
             mlcNoMercy = open("%s/mlcTree2_%s" % (alnDir, i.split("Tree_")[1]))
             for line in mlcNoMercy:
                 if not re.match(r'^ ', line):
@@ -2059,12 +2087,14 @@ def full(args, file_dict, log_file_dict=None):
                     except IndexError:
                         pass
 
+            #####################################
             try:
                 dnNoMercy = float(dnNoMercy.split(" ")[0])
                 dsNoMercy = float(dsNoMercy.split(" ")[0])
             except AttributeError:
                 dndsNoMercy = "NA"
 
+            #########################################
             if dsNoMercy >= 0.001:
                 try:
                     dndsNoMercy = dnNoMercy / dsNoMercy
@@ -2072,6 +2102,14 @@ def full(args, file_dict, log_file_dict=None):
                     dndsNoMercy = "NA"
             else:
                 dndsNoMercy = "NA"
+
+            #########################################
+            if ds > 0.001:
+                dsds = dsNoMercy / ds
+                deltads = dsNoMercy - ds
+            else:
+                dsds = "NA"
+                deltads = dsNoMercy - ds
 
             numInframeInserts = summaryDict[originalname]["numInframeInserts"]
             numOutframeInserts = summaryDict[originalname]["numOutframeInserts"]
@@ -2098,14 +2136,13 @@ def full(args, file_dict, log_file_dict=None):
 
             fastaOut.write(">" + target + "\n")
             fastaOut.write(targetStraightDegapRaw + "\n")
-            mainOut.write(ref + "," + target + "," + str(aai) + "," + str(lengthDiff) + "," +
+            mainOut.write(ref + "," + target + "," + str(ANI) + "," + str(aai) + "," + str(len(refAbridged2)) + "," + str(lengthDiff) + "," +
                           startcodon + "," + preferredStartLoss + "," + preferredStartGain + "," + stopcodon + "," + str(
                 stops) + "," + str(severity) + "," +
                           str(numOutframeInserts) + "," + str(numOutframeDels) + "," + str(
                 numInframeInserts) + "," +
                           str(numInframeDels) + "," + str(totalInserts) + "," + str(totalDels) + "," +
-                          str(ds) + "," + str(dnds) + "," + str(dsNoMercy) + "," + str(
-                dndsNoMercy) + "," + targetAbridged2 +
+                          str(ds) + "," + str(dsNoMercy) + "," + str(dsds) + "," + str(deltads) + "," + str(dnds) + "," + str(dndsNoMercy) + "," + targetAbridged2 +
                           "," + targetDegap2 + "," + targetNoMercy + "," + refAbridged2 + "," + refDegap2 + "," + refNoMercy + "\n")
 
     mainOut.close()
