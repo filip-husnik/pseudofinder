@@ -940,17 +940,17 @@ def main():
                             pass
 
     else:
-        out = open("%s/%s-fixed.ffn" % (args.outdir, allButTheLast(args.ref_ffn, ".")), "w")
+        out = open("%s-fixed.ffn" % (allButTheLast(args.ref_ffn, ".")), "w")
         for i in ffn.keys():
             if not re.findall(r'tRNA-\.\.\.\(', i) and not re.findall(r'S ribosomal RNA', i):
                 out.write(">" + i + "\n")
                 out.write(ffn[i] + "\n")
         out.close()
 
-        ffn = open("%s/%s-fixed.ffn" % (args.outdir, allButTheLast(args.ref_ffn, ".")))
+        ffn = open("%s-fixed.ffn" % (allButTheLast(args.ref_ffn, ".")))
         ffn = fasta2(ffn)
 
-        ref_genes = "%s/%s-fixed.ffn" % (args.outdir, allButTheLast(args.ref_ffn, "."))
+        ref_genes = "%s-fixed.ffn" % (allButTheLast(args.ref_ffn, "."))
 
 
     # RUNNING BLAST
@@ -962,18 +962,17 @@ def main():
     if count > 0:
 
         print("detected \'|\' characters in input fasta file. Creating a new version of the file %s-fixed.fna" % allButTheLast(args.genome, "."))
-        out = open("%s/%s-fixed.fna" % (outdir, allButTheLast(args.genome, ".")), "w")
+        out = open("%s-fixed.fna" % (allButTheLast(args.genome, ".")), "w")
         for i in genome.keys():
             out.write(">" + remove(i, ["|"]) + "\n")
             out.write(genome[i] + "\n")
         out.close()
-        genome = open("%s/%s-fixed.fna" % (outdir, allButTheLast(target_genome, ".")))
+        genome = open("%s-fixed.fna" % (allButTheLast(target_genome, ".")))
         genome = fasta2(genome)
 
-        os.system("makeblastdb -dbtype nucl -in %s/%s-fixed.fna -out %s/%s-fixed.fna > /dev/null 2>&1" % (
-            outdir, allButTheLast(target_genome, "."), outdir, allButTheLast(target_genome, ".")))
-        os.system("blastn -query %s -db %s/%s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s -perc_identity %s -qcov_hsp_perc %s -num_threads %s > /dev/null 2>&1" % (
-            ref_genes, outdir, allButTheLast(target_genome, "."), outdir, str(e), str(float(args.perc_id)*100), str(float(args.perc_cov)*100), args.threads))
+        os.system("makeblastdb -dbtype nucl -in %s-fixed.fna -out %s-fixed.fna > /dev/null 2>&1" % (allButTheLast(target_genome, "."), allButTheLast(target_genome, ".")))
+        os.system("blastn -query %s -db %s-fixed.fna -outfmt 6 -out %s/cds.genome.blast -evalue %s -perc_identity %s -qcov_hsp_perc %s -num_threads %s > /dev/null 2>&1" % (
+            ref_genes, allButTheLast(target_genome, "."), outdir, str(e), str(float(args.perc_id)*100), str(float(args.perc_cov)*100), args.threads))
 
     else:
         os.system("makeblastdb -dbtype nucl -in %s -out %s > /dev/null 2>&1" % (target_genome, target_genome))
@@ -1024,15 +1023,18 @@ def main():
                     for l in blastDict3.keys():
                         if len(blastDict3[l]) > 1:
                             coordList = []
+                            coordDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
                             for m in blastDict3[l]:
                                 coordList.append(int(m[8]))
                                 coordList.append(int(m[9]))
+                                coordDict[int(m[8])] = m
+                                coordDict[int(m[9])] = m
 
                             clus = (cluster(sorted(coordList), lengthQuery))
                             for j in clus:
                                 target = l + "-" + str(j[0]) + "-" + str(lastItem(j))
-                                start = int(m[8])
-                                end = int(m[9])
+                                start = int(coordDict[j[0]][8])
+                                end = int(coordDict[j[0]][9])
 
                                 if start > end:
                                     seq = reverseComplement(
@@ -1040,8 +1042,12 @@ def main():
                                 else:
                                     seq = genome[l][j[0] - 1 - slack:lastItem(j) + slack]
 
+                                aniList = []
+                                for n in j:
+                                    aniList.append(float(coordDict[n][2]))
+                                ANI = statistics.mean(aniList)
                                 blastDict2[key][target] = seq
-                                aniDict[key][target] = ls[2]
+                                aniDict[key][target] = ANI
                         else:
                             target = l + "-" + str(blastDict3[l][0][8]) + "-" + str(blastDict3[l][0][9])
                             start = int(blastDict3[l][0][8])
@@ -1054,7 +1060,7 @@ def main():
                                 seq = genome[l][start - 1 - slack:end + slack]
 
                             blastDict2[key][target] = seq
-                            aniDict[key][target] = ls[2]
+                            aniDict[key][target] = str(blastDict3[l][0][2])
 
                 else:
                     target = ls[1] + "-" + ls[8] + "-" + ls[9]
@@ -1630,15 +1636,21 @@ def full(args, file_dict, log_file_dict=None):
                 for l in blastDict3.keys():
                     if len(blastDict3[l]) > 1:
                         coordList = []
+                        coordDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
                         for m in blastDict3[l]:
                             coordList.append(int(m[8]))
                             coordList.append(int(m[9]))
+                            coordDict[int(m[8])] = m
+                            coordDict[int(m[9])] = m
 
                         clus = (cluster(sorted(coordList), lengthQuery))
+                        # frag = 0
                         for j in clus:
+                            # if len(j) > 2:
+                            #     frag = 1
                             target = l + "-" + str(j[0]) + "-" + str(lastItem(j))
-                            start = int(m[8])
-                            end = int(m[9])
+                            start = int(coordDict[j[0]][8])
+                            end = int(coordDict[j[0]][9])
 
                             if start > end:
                                 seq = reverseComplement(
@@ -1646,8 +1658,12 @@ def full(args, file_dict, log_file_dict=None):
                             else:
                                 seq = genome[l][j[0] - 1 - slack:lastItem(j) + slack]
 
+                            aniList = []
+                            for n in j:
+                                aniList.append(float(coordDict[n][2]))
+                            ANI = statistics.mean(aniList)
                             blastDict2[key][target] = seq
-                            aniDict[key][target] = ls[2]
+                            aniDict[key][target] = ANI
                     else:
                         target = l + "-" + str(blastDict3[l][0][8]) + "-" + str(blastDict3[l][0][9])
                         start = int(blastDict3[l][0][8])
@@ -1660,7 +1676,7 @@ def full(args, file_dict, log_file_dict=None):
                             seq = genome[l][j[0] - 1 - slack:lastItem(j) + slack]
 
                         blastDict2[key][target] = seq
-                        aniDict[key][target] = ls[2]
+                        aniDict[key][target] = str(blastDict3[l][0][2])
 
             else:
                 target = ls[1] + "-" + ls[8] + "-" + ls[9]
