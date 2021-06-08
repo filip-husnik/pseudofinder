@@ -2200,44 +2200,89 @@ def merge(args, file_dict, log_file_dict=None):
             fsIn = int(ls[10])
             fsDel = int(ls[11])
 
-            ds = float(ls[16])
-            dsNoMercy = float(ls[18])
-            dnds = (ls[17])
-            try:
-                bias = sorted([ds, dsNoMercy])[1] / sorted([ds, dsNoMercy])[0]
-            except ZeroDivisionError:
-                bias = sorted([ds, dsNoMercy])[1]
-
-            if fsIn + fsDel > 0:
-                if bias > 1.25:
-                    string = str(round(fsIn + fsDel)) + " significant frameshift-inducing indel(s)."
-                    pseudoDict[ls[1]].append(string)
-
-            if instop > 0:
-                if stopSeverity < args.length_pseudo:
-                    string = "Internal stop codon at " + str(round(stopSeverity * 100)) + "% expected length."
-                    pseudoDict[ls[1]].append(string)
-
-            if dnds != "NA":
-                dnds = float(dnds)
-                if dnds > args.max_dnds:
+            #dN/dS
+            if ls[22] != "NA":
+                dnds = float(ls[22])
+                if dnds > 0.3:
                     if dnds < 3:
                         string = "Elevated dN/dS: " + str(round(dnds, 4)) + "."
                         pseudoDict[ls[1]].append(string)
                     else:
-                        string = "Elevated dN/dS: " + str(round(dnds, 4)) + " (this exceptionally high dN/dS is likely caused by a poor alignment, which may be indiciative of a true pseudogene, or a false positive BLAST hit)."
+                        string = "Elevated dN/dS: " + str(round(dnds, 4)) + " (this exceptionally high dN/dS is likely " \
+                                                                            "caused by a poor alignment, which may be " \
+                                                                            "indiciative of a true pseudogene, or a false " \
+                                                                            "positive BLAST hit)."
                         pseudoDict[ls[1]].append(string)
 
-            if bias < 1.10:
-                if stopSeverity > 0.95:
-                    if cov > args.length_pseudo:
-                        if dnds != "NA":
-                            dnds = float(dnds)
-                            if dnds < 0.1:
-                                intactDict[ls[1]] = ls
-                        else:
-                            intactDict[ls[1]] = ls
-            pseudoSeqDict[ls[1]] = ls[20]
+            # dS/dS
+            if ls[20] != "NA":
+                dsds = float(ls[20])
+                if dsds > 15:
+                    string = str(round(fsIn + fsDel)) + " significant frameshift-inducing indel(s)."
+                    pseudoDict[ls[1]].append(string)
+            else:
+                deltaDS = float(ls[21])
+                if deltaDS > 0.1:
+                    string = str(round(fsIn + fsDel)) + " significant frameshift-inducing indel(s)."
+                    pseudoDict[ls[1]].append(string)
+
+            # START
+            start = ls[6]
+            if start == "n":
+                string = "Missing start codon."
+                pseudoDict[ls[1]].append(string)
+
+            # STOP
+            stop = ls[9]
+            internal = int(ls[10])
+            position = float(ls[11])
+            if stop == "n" and internal == 0:
+                string = "Missing stop codon."
+                pseudoDict[ls[1]].append(string)
+
+            if internal != 0 and position < 0.75:
+                string = "Internal stop codon at " + str(round(position * 100)) + "% expected length."
+                pseudoDict[ls[1]].append(string)
+
+
+            # ds = float(ls[16])
+            # dsNoMercy = float(ls[18])
+            # dnds = (ls[17])
+            # try:
+            #     bias = sorted([ds, dsNoMercy])[1] / sorted([ds, dsNoMercy])[0]
+            # except ZeroDivisionError:
+            #     bias = sorted([ds, dsNoMercy])[1]
+            #
+            # if fsIn + fsDel > 0:
+            #     if bias > 1.25:
+            #         string = str(round(fsIn + fsDel)) + " significant frameshift-inducing indel(s)."
+            #         pseudoDict[ls[1]].append(string)
+            #
+            # if instop > 0:
+            #     if stopSeverity < args.length_pseudo:
+            #         string = "Internal stop codon at " + str(round(stopSeverity * 100)) + "% expected length."
+            #         pseudoDict[ls[1]].append(string)
+            #
+            # if dnds != "NA":
+            #     dnds = float(dnds)
+            #     if dnds > args.max_dnds:
+            #         if dnds < 3:
+            #             string = "Elevated dN/dS: " + str(round(dnds, 4)) + "."
+            #             pseudoDict[ls[1]].append(string)
+            #         else:
+            #             string = "Elevated dN/dS: " + str(round(dnds, 4)) + " (this exceptionally high dN/dS is likely caused by a poor alignment, which may be indiciative of a true pseudogene, or a false positive BLAST hit)."
+            #             pseudoDict[ls[1]].append(string)
+            #
+            # if bias < 1.10:
+            #     if stopSeverity > 0.95:
+            #         if cov > args.length_pseudo:
+            #             if dnds != "NA":
+            #                 dnds = float(dnds)
+            #                 if dnds < 0.1:
+            #                     intactDict[ls[1]] = ls
+            #             else:
+            #                 intactDict[ls[1]] = ls
+            # pseudoSeqDict[ls[1]] = ls[20]
 
     count = 0
     cds = open(file_dict["cds_filename"])
