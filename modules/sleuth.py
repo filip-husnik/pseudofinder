@@ -2245,6 +2245,8 @@ def merge(args, file_dict, log_file_dict=None):
                 string = "Internal stop codon at " + str(round(position * 100)) + "% expected length."
                 pseudoDict[ls[1]].append(string)
 
+            pseudoSeqDict[ls[1]] = ls[24]
+
 
             # ds = float(ls[16])
             # dsNoMercy = float(ls[18])
