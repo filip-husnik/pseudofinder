@@ -2192,14 +2192,14 @@ def merge(args, file_dict, log_file_dict=None):
     for i in summary:
         ls = i.rstrip().split(",")
         if ls[2] != "ANI":
-            aai = float(ls[2])
-            cov = float(ls[3])
-            start = (ls[4])
-            stop = (ls[7])
-            instop = int(ls[8])
-            stopSeverity = float(ls[9])
-            fsIn = int(ls[10])
-            fsDel = int(ls[11])
+            aai = float(ls[3])
+            cov = float(ls[5])
+            start = (ls[6])
+            stop = (ls[9])
+            instop = int(ls[10])
+            stopSeverity = float(ls[11])
+            fsIn = int(ls[12])
+            fsDel = int(ls[13])
 
             #dN/dS
             if ls[22] != "NA":
