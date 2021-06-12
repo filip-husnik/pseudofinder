@@ -894,6 +894,7 @@ def main():
 
     ref_genes = args.ref_genes
     ref_gff = args.ref_gff
+    print(ref_gff)
     target_genome = args.genome
     outdir = args.outdir
     e = args.evalue
@@ -915,7 +916,7 @@ def main():
     # READING IN RRNA AND TRNA FROM GFF FILE (FOR EXCLUSION LATER ON)
     rRNAdict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
 
-    if ref_gff != "NA":
+    if ref_gff:
         gff = open(args.ref_gff)
         for i in gff:
             if re.findall(r'FASTA', i):
@@ -940,17 +941,17 @@ def main():
                             pass
 
     else:
-        out = open("%s-fixed.ffn" % (allButTheLast(args.ref_ffn, ".")), "w")
+        out = open("%s-fixed.ffn" % (allButTheLast(args.ref_genes, ".")), "w")
         for i in ffn.keys():
             if not re.findall(r'tRNA-\.\.\.\(', i) and not re.findall(r'S ribosomal RNA', i):
                 out.write(">" + i + "\n")
                 out.write(ffn[i] + "\n")
         out.close()
 
-        ffn = open("%s-fixed.ffn" % (allButTheLast(args.ref_ffn, ".")))
+        ffn = open("%s-fixed.ffn" % (allButTheLast(args.ref_genes, ".")))
         ffn = fasta2(ffn)
 
-        ref_genes = "%s-fixed.ffn" % (allButTheLast(args.ref_ffn, "."))
+        ref_genes = "%s-fixed.ffn" % (allButTheLast(args.ref_genes, "."))
 
 
     # RUNNING BLAST
@@ -2190,7 +2191,7 @@ def merge(args, file_dict, log_file_dict=None):
     summary = open("%s/sleuth_report.csv" % out)
     for i in summary:
         ls = i.rstrip().split(",")
-        if ls[2] != "AAI":
+        if ls[2] != "ANI":
             aai = float(ls[2])
             cov = float(ls[3])
             start = (ls[4])
