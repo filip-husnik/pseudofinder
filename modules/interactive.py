@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from . import common, annotate
+from . import common, annotate, data_structures
+from .data_structures import PseudoType
 import statistics
 from Bio import SeqIO
 import numpy as np
@@ -52,17 +53,20 @@ class Entry:
 
     def retrieve_feature_type(self):
         if self.feature.type == 'pseudogene':
-            if isinstance(self.feature.qualifiers['pseudo_type'], annotate.PseudoType):
-                return str(self.feature.qualifiers['pseudo_type'])
-            else:
-                return str(self.feature.qualifiers['pseudo_type'][0])
+            return self.feature.qualifiers['pseudo_type']
+            # if isinstance(self.feature.qualifiers['pseudo_type'], data_structures.PseudoType):
+            #     return str(self.feature.qualifiers['pseudo_type'])
+            # else:
+            #     print(self.feature.qualifiers['pseudo_type'])
+            #     exit()
+            #     return str(self.feature.qualifiers['pseudo_type'][0])
         else:
             return self.feature.type
 
     def retrieve_gene_annotation(self):
         if self.feature_type == 'intergenic':
             annotation = 'Intergenic'
-        elif self.feature_type == 'PseudoType.intergenic':
+        elif self.feature_type == PseudoType.Blast.intergenic:
             annotation = 'Intergenic pseudo'
         else:
             try:
@@ -127,16 +131,24 @@ class Figure:
         plot(self.fig, filename=self.filename, auto_open=False)
 
     def bar_colours(self, dataset):
+        general_pseudo = "#E5446D"
+        sleuth = "#6E269E"
+        intergenic = "#BAC2C9"
+        no_info = "#465362"
+        default = "#70A0FF"
+
         colours = []
         for entry in dataset:
-            if "Pseudo" in str(entry.feature_type):
-                colours.append("#E5446D")
+            if "Input" in str(entry.feature_type) or "Blast" in str(entry.feature_type):
+                colours.append(general_pseudo)
+            elif "Sleuth" in str(entry.feature_type):
+                colours.append(sleuth)
             elif entry.feature_type == 'intergenic':
-                colours.append("#BAC2C9")
+                colours.append(intergenic)
             elif len(entry.blast_lengths) == 0:
-                colours.append("#465362")
+                colours.append(no_info)
             else:
-                colours.append("#70A0FF")
+                colours.append(default)
         return colours
 
     def hovertext(self, dataset, object_type):
@@ -146,7 +158,7 @@ class Figure:
                        "Locus: %s %s<br>" \
                        "Annotation: %s<br>" % (entry.contig, entry.locus, str(entry.position), entry.annotation)
 
-            if 'pseudo' in entry.feature_type.lower():
+            if type(entry.feature_type) in (PseudoType.Input, PseudoType.Sleuth, PseudoType.Blast):
                 bar_text = bar_text + "Pseudo call: %s" % entry.feature_type
 
             scatter_text = "%s blast hits." % len(entry.blast_lengths)

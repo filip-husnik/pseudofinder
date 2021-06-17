@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from Bio import SeqIO
 
 
+
 def bold(x):
     start_bold = '\033[1m'
     end_bold = '\033[0m'
@@ -68,11 +69,11 @@ def literal_eval(x: str):
         Str
     """
 
-    if x == 'None':
+    if x == 'None' or x == 'NA':
         return None
-    elif x == 'True':
+    elif x == 'True' or x == 'y':
         return True
-    elif x == 'False':
+    elif x == 'False' or x == 'n':
         return False
     elif is_int(x):
         return int(x)
@@ -310,7 +311,7 @@ def get_args(module='None', **kwargs):
     max_dnds = {
         'short': '-dnds',
         'long': '--max_dnds',
-        'help': 'maximum dN/dS value for gene too be considered \'intact\'. Default is %(default)s.',
+        'help': 'maximum dN/dS value for gene to be considered \'intact\'. Default is %(default)s.',
         'required': False,
         'default': 0.30,
         'type': float
@@ -533,7 +534,7 @@ def get_args(module='None', **kwargs):
     elif module == 'reannotate':
         required_args = [genome, logfile, outprefix]
         optional_args = [length_pseudo, shared_hits, intergenic_threshold, max_dnds, max_ds, min_ds, dnds_out,
-                         no_bidirectional_length, use_alignment, perc_id, perc_cov, evalue, max_dnds]
+                         no_bidirectional_length, use_alignment, perc_id, perc_cov, evalue]
         deprecated_args = [distance]
 
     elif module == 'selection':
@@ -646,9 +647,14 @@ def file_dict(args, **kwargs):
     if not base_outfile_name.endswith('_'):
         base_outfile_name += '_'
 
+    sleuth_dir = base_outfile_name + "sleuth"
+    temp_dir = base_outfile_name + "temp"
+
     file_dict = {
         'base_filename': base_outfile_name,
+        'temp_dir': temp_dir,
         'cds_filename': base_outfile_name + "cds.fasta",
+        'cds_predictions': sleuth_dir + "/ref_based_cds_predictions.ffn",
         'contigs_filename': base_outfile_name + "contigs.fasta",
         'ref_cds_filename': base_outfile_name + "ref_cds.fasta",
         'proteome_filename': base_outfile_name + "proteome.faa",
@@ -674,7 +680,8 @@ def file_dict(args, **kwargs):
         'gbk_out': base_outfile_name[:-1] + ".gbk",
         'dnds_out': base_outfile_name + "dnds",
         'log': base_outfile_name + "log.txt",
-        'sleuthDir': base_outfile_name + "sleuth",
+        'sleuthDir': sleuth_dir,
+        'sleuth_report': sleuth_dir + "/sleuth_report.csv",
         'ctl': os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
     }
     return file_dict

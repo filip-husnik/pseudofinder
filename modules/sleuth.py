@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 from collections import defaultdict
-from . import common
+from . import common, data_structures
 import re
 import os
 import numpy as np
 import sys
 import statistics
 import time
-
+from Bio.Blast.Applications import NcbiblastnCommandline, NcbimakeblastdbCommandline
 
 def alnCheckN(seq1, seq2, slack):
     count = 0
@@ -1417,15 +1417,16 @@ def main():
     # PARSING CODEML OUTPUT AND COMBINING WITH OTHER RESULTS
     fastaOut = open(outdir + "/ref_based_cds_predictions.ffn", "w")
     mainOut = open(outdir + "/sleuth_report.csv", "w")
-    mainOut.write("reference_locus,target_locus,ANI,AAI,ref_length,aln_query_cov,start,"
-
-                  "loss_of_preferred_start,gain_of_preferred_start_codon,stop_codon,internal_stops,first_stop_codon,"
-
-                  "out_of_frame_inserts,out_of_frame_dels,inframe_inserts,inframe_dels,total_inserts,total_deleted_bases,"
-
-                  "ds,ds_no_mercy,dsds,delta_ds,dnds,dnds_no_mercy,"
-
-                  "full_seq,mercy_aln,no_mercy_aln,full_ref_seq,mercy_aln_ref,no_mercy_aln_ref\n")
+    mainOut.write(",".join(data_structures.SleuthData._fields) + "\n")
+    # mainOut.write("reference_locus,target_locus,ANI,AAI,ref_length,aln_query_cov,start,"
+    #
+    #               "loss_of_preferred_start,gain_of_preferred_start_codon,stop_codon,internal_stops,first_stop_codon,"
+    #
+    #               "out_of_frame_inserts,out_of_frame_dels,inframe_inserts,inframe_dels,total_inserts,total_deleted_bases,"
+    #
+    #               "ds,ds_no_mercy,dsds,delta_ds,dnds,dnds_no_mercy,"
+    #
+    #               "full_seq,mercy_aln,no_mercy_aln,full_ref_seq,mercy_aln_ref,no_mercy_aln_ref\n")
 
     for i in os.listdir(alnDir):
         if re.findall(r'mlcTree_', i):
@@ -1550,6 +1551,7 @@ def full(args, file_dict, log_file_dict=None):
     print("Sleuth branch:")
     ref_ffn = file_dict['ref_cds_filename']
     target_genome = file_dict['contigs_filename']
+    target_genome_blastdb = file_dict['temp_dir'] + "/target_contigs.fasta"
     ctl = file_dict['ctl']
     out = file_dict['sleuthDir']
     e = args.evalue
@@ -1588,9 +1590,9 @@ def full(args, file_dict, log_file_dict=None):
 
     else:
         os.system("makeblastdb -dbtype nucl -in %s -out %s > /dev/null 2>&1" %
-                  (target_genome, target_genome))
+                  (target_genome, target_genome_blastdb))
         os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s -num_threads %s -perc_identity %s -qcov_hsp_perc %s > /dev/null 2>&1" %
-                  (ref_ffn, target_genome, out, e, str(threads), str(float(args.perc_id)*100), str(float(args.perc_cov)*100)))
+                  (ref_ffn, target_genome_blastdb, out, e, str(threads), str(float(args.perc_id)*100), str(float(args.perc_cov)*100)))
 
     print("Done with BLAST\n.")
     # print("Processing...")
@@ -2045,15 +2047,16 @@ def full(args, file_dict, log_file_dict=None):
     # PARSING CODEML OUTPUT AND COMBINING WITH OTHER RESULTS
     fastaOut = open(out + "/ref_based_cds_predictions.ffn", "w")
     mainOut = open(out + "/sleuth_report.csv", "w")
-    mainOut.write("reference_locus,target_locus,ANI,AAI,ref_length,aln_query_cov,start,"
-                  
-                  "loss_of_preferred_start,gain_of_preferred_start_codon,stop_codon,internal_stops,first_stop_codon,"
-                  
-                  "out_of_frame_inserts,out_of_frame_dels,inframe_inserts,inframe_dels,total_inserts,total_deleted_bases,"
-                  
-                  "ds,ds_no_mercy,dsds,delta_ds,dnds,dnds_no_mercy,"
-                  
-                  "full_seq,mercy_aln,no_mercy_aln,full_ref_seq,mercy_aln_ref,no_mercy_aln_ref\n")
+    mainOut.write(",".join(data_structures.SleuthData._fields) + "\n")
+    # mainOut.write("reference_locus,target_locus,ANI,AAI,ref_length,aln_query_cov,start,"
+    #
+    #               "loss_of_preferred_start,gain_of_preferred_start_codon,stop_codon,internal_stops,first_stop_codon,"
+    #
+    #               "out_of_frame_inserts,out_of_frame_dels,inframe_inserts,inframe_dels,total_inserts,total_deleted_bases,"
+    #
+    #               "ds,ds_no_mercy,dsds,delta_ds,dnds,dnds_no_mercy,"
+    #
+    #               "full_seq,mercy_aln,no_mercy_aln,full_ref_seq,mercy_aln_ref,no_mercy_aln_ref\n")
 
     for i in os.listdir(alnDir):
         if re.findall(r'mlcTree_', i):
@@ -2167,6 +2170,57 @@ def full(args, file_dict, log_file_dict=None):
     print("done")
 
     os.system("rm -f 2NG.t 2NG.dN 2NG.dS rst1 rst 2ML.t 2ML.dN 2ML.dS 4fold.nuc rub")
+
+
+def relate_sleuth_data_to_locus_tags(args, file_dict: dict) -> dict:
+    """
+    Compares sleuth_data.full_seq to file_dict['cds_filename'] via blast, creating a link between the two data types.
+    Returns a dictionary, where the keys are locus tags and the values are annotate.sleuth_data NamedTuples.
+    """
+    sleuth_data = sleuth_report_reader(file_dict['sleuth_report'])
+    cds_annotations = file_dict['cds_filename']
+    cds_predictions = file_dict['cds_predictions']
+    db_name = file_dict['temp_dir'] + '/cds_db'
+    blast_out = file_dict['sleuthDir'] + '/sleuth.finder.blast'
+
+    makeblastdb_dict = {'dbtype': 'nucl',
+                        'input_file': cds_annotations,
+                        'out': db_name}
+
+    blastn_dict = {'query': cds_predictions,
+                   'db': db_name,
+                   'outfmt': 6,
+                   'out': blast_out,
+                   'num_threads': args.threads,
+                   'perc_identity': 99.9,
+                   'evalue': args.evalue}
+
+    NcbimakeblastdbCommandline(**makeblastdb_dict)()
+    NcbiblastnCommandline(**blastn_dict)()
+
+    blastdict = dict()
+    with open(blast_out, 'r') as blast_out:
+        for line in blast_out.readlines():
+            fields = line.split("\t")
+            query, ref = fields[0], fields[1]
+            blastdict[ref] = sleuth_data[query]
+
+    return blastdict
+
+
+def sleuth_report_reader(sleuth_report: str) -> dict:
+    """
+    Reads in the sleuth report csv file and returns a dictionary, where the keys are sleuth_data.target_locus and the values are
+    annotate.sleuth_data NamedTuples.
+    """
+    sleuthDict = dict()
+    with open(sleuth_report, 'r') as sleuth_report:
+        for line in sleuth_report.readlines()[1:]:  # Read each line, skipping the first (header line)
+            fields = [common.literal_eval(x.rstrip()) for x in line.split(sep=',')]  # Convert each field from string to appropriate atomic data type
+            data = data_structures.SleuthData(*fields)    # Unpack the list of fields into the sleuth_data NamedTuple
+            sleuthDict[data.target_locus] = data    # Add to dictionary
+
+    return sleuthDict
 
 
 def merge(args, file_dict, log_file_dict=None):

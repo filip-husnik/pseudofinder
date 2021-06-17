@@ -80,9 +80,6 @@ def main():
     command_dict['Visualize'] = "python3 %s visualize -g %s -op %s -p %s -x %s -log %s" % (
         path_to_pseudofinder, args.genome, output_prefix, blastp_file, blastx_file, log_file)
 
-    # command_dict['dnds'] = "python3 %s dnds -ra %s -rn %s -a %s -n %s -ctl %s -out %s" % (
-    #     path_to_pseudofinder, ref_pep, ref_nuc, pep, nuc, ctl_full_path, dndsOutput)
-
     for command in command_dict:
         test_command(command_name=command, full_command=command_dict[command])
 

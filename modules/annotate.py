@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 from . import common
+from .data_structures import PseudoType, BlastHit, StatisticsDict
 import re
 import os
+import shutil
 from copy import deepcopy
-from enum import Enum
-from typing import NamedTuple
 from pandas.core.common import flatten
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
 from Bio.SeqRecord import SeqRecord
@@ -30,73 +30,6 @@ try:
     from . import interactive
 except ImportError:
     pass
-
-# Data definitions
-# An individual blast hit to a region.
-BlastHit = NamedTuple('BlastHit', [('blast_type', str),
-                                   ('query', str),
-                                   ('subject_accession', str),
-                                   ('percent_ident', float),
-                                   ('length', int), #reported in aa for blastp and nt for blastx. see blasthit_length()
-                                   ('mismatch', int),
-                                   ('gapopen', int),
-                                   ('q_start', int),
-                                   ('q_end', int),
-                                   ('s_start', int),
-                                   ('s_end', int),
-                                   ('evalue', float),
-                                   ('bitscore', float),
-                                   ('stitle', str)])
-
-dnds_data = NamedTuple('dnds_data', [('locus_tag', str),
-                                     ('reference_tag', str),
-                                     ('amino_acid_identity', float),
-                                     ('dn', float),
-                                     ('ds', float),
-                                     ('dnds', float)])
-
-
-# dnds_data = NamedTuple('dnds_data', [('reference_locus', str),
-#                                      ('target_locus', str),
-#                                      ('AAI', float),
-#                                      ('aln_query_cov', float),
-#                                      ('start', float),
-#                                      ('loss_of_preferred_start', float),
-#                                      ('')])
-
-# sleuth fields
-"reference_locus	target_locus	AAI	aln_query_cov	start	loss_of_preferred_start	gain_of_preferred_start	stop	" \
-"internal_stops	stop_severity	out_of_frame_inserts	out_of_frame_dels	inframe_inserts	inframe_dels	" \
-"proportion_inserted	proportion_deleted	ds	dnds	ds_no_mercy	dnds_no_mercy	full_seq	mercy_aln	" \
-"no_mercy_aln	full_ref_seq	mercy_aln_ref	no_mercy_aln_ref"
-
-PseudoType = Enum('PseudoType', ['truncated',   # Pseudo based on length length relative to blast hits
-                                 'short_alignment',  # Pseudo based on alignment length relative to blast hits
-                                 'long',    # Pseudo based on length length relative to blast hits
-                                 'fragmented',  # Pseudo composed of multiple input features
-                                 'intergenic',  # Pseudo recovered from intergenic space
-                                 'consumed',    # If feature has been combined with another feature
-                                 'dnds',    # Pseudo based on elevated dnds
-                                 'input_general',  # If input gbk feature.type == 'pseudo' but we don't have a reason why
-                                 'input_indel',  # if input feature.seq is not a multiple of 3
-                                 'input_internalstop'])  # If * is present in input feature.seq
-
-# Global dictionary, which will be called to write the log file
-StatisticsDict = {
-                    'BlastpFilename': '',
-                    'BlastxFilename': '',
-                    'NumberOfContigs': 0,
-                    'ProteomeOrfs': 0,
-                    'FragmentedOrfs': 0,
-                    'PseudogenesInput': 0,
-                    'PseudogenesTotal': 0,
-                    'PseudogenesShort': 0,
-                    'PseudogenesFragmented': 0,
-                    'PseudogenesIntergenic': 0,
-                    'OutputFiles': [],
-                    'dnds': 0,
-                    'IntactORFs': 0
-                  }
 
 
 def add_intergenic_to_seqrecord(args, seqrecord):
@@ -160,26 +93,27 @@ def add_qualifiers_to_features(args, seqrecord):
     for feature in seqrecord.features:
         if feature.type == 'CDS' and feature.qualifiers.get('pseudo'):    # Finds CDS that are already annotated as pseudogenes
             feature.type = 'pseudogene'
-            feature.qualifiers['pseudo_type'] = PseudoType.input_general
-            feature.qualifiers['note'] = 'Annotated as pseudogene in input genbank file.'
+            feature.qualifiers['sleuth'] = []
+            feature.qualifiers['pseudo_type'] = PseudoType.Input.general
+            feature.qualifiers['pseudo_reasons'] = ['Annotated as pseudogene in input genbank file.']
             feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
 
         if feature.type == 'CDS':
-            feature.qualifiers['dnds'] = []
+            feature.qualifiers['sleuth'] = []
             nt_seq = feature.extract(seqrecord.seq)
             translate_cds(args, feature, seqrecord)
             translation = feature.qualifiers['translation'][0]
 
             if len(nt_seq) % 3 != 0:    # this code block checks if the nucleotide sequence is not a multiple of 3 and flags as input pseudo
                 feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.input_indel
-                feature.qualifiers['note'] = 'Nucleotide sequence is not a multiple of 3.'
+                feature.qualifiers['pseudo_type'] = PseudoType.Input.value.indel
+                feature.qualifiers['pseudo_reasons'] = ['Nucleotide sequence is not a multiple of 3.']
                 feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
 
             if '*' in translation[:-1]:  # this code block checks for internal stop codons and flags as input pseudo if they exist.
                 feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.input_internalstop
-                feature.qualifiers['note'] = 'Translation qualifier contains 1 or more internal stop codons.'
+                feature.qualifiers['pseudo_type'] = PseudoType.Input.internalstop
+                feature.qualifiers['pseudo_reasons'] = ['Translation qualifier contains 1 or more internal stop codons.']
                 feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
 
         if feature.type == 'intergenic':    # Changes for only intergenic regions
@@ -190,10 +124,10 @@ def add_qualifiers_to_features(args, seqrecord):
             feature.qualifiers['nucleotide_seq'] = feature.extract(seqrecord.seq)
             feature.qualifiers['contig_id'] = seqrecord.name
             feature.qualifiers['hits'] = []
+            feature.qualifiers['pseudo_candidate_reasons'] = []
 
         if feature.type == 'CDS' or feature.type == 'intergenic':
             feature.qualifiers['pseudo_type'] = None
-            feature.qualifiers['note'] = ''
             feature.qualifiers['parents'] = []
 
 
@@ -257,6 +191,9 @@ def write_fasta(seqs: list, outfile: str, seq_type='nt', in_type='features') -> 
     """Takes a list of sequences in seq_feature format and writes them to fasta file"""
 
     with open(outfile, "w") as output_handle:
+        if in_type == 'dict':  # If input is a dictionary, convert it to an iterable
+            seqs = seqs.items()
+
         for seq in seqs:
             if in_type == 'features':
                 if seq_type == 'nt':
@@ -273,6 +210,9 @@ def write_fasta(seqs: list, outfile: str, seq_type='nt', in_type='features') -> 
                                                          seq_string))
             elif in_type == 'records':
                 output_handle.write(">%s\n%s\n" % (seq.name, seq.seq))
+
+            elif in_type == 'dict':
+                output_handle.write(">%s\n%s\n" % (seq[0], seq[1]))
 
 
 def gff_entry(seq_id, source, feature_type, feature_start, feature_end, score, strand, phase, attributes):
@@ -305,8 +245,13 @@ def attribute_string(feature):
     """Generates a string to fill attribute section of a GFF file."""
     list = []
 
-    if feature.qualifiers['note']:
-        list.append("note=" + feature.qualifiers['note'])
+    if feature.qualifiers.get('pseudo_reasons'):
+        pseudo_string = 'Pseudogene. Reason(s):' + ', '.join(feature.qualifiers['pseudo_candidate_reasons'] + feature.qualifiers['pseudo_candidate_reasons'])
+        list.append("note=" + pseudo_string)
+
+    elif len(feature.qualifiers['pseudo_candidate_reasons']) > 0:
+        pseudo_string = 'Pseudogene candidate. Reason(s):' + ', '.join(feature.qualifiers['pseudo_candidate_reasons'])
+        list.append("note=" + pseudo_string)
 
     list.append("locus_tag=" + feature.qualifiers['locus_tag'][0])
 
@@ -485,6 +430,18 @@ def add_blasthits_to_genome(args, genome, blast_file, blast_type):
             exit()
 
 
+def add_sleuth_data_to_genome(args, genome, sleuth_data):
+    """
+    Adds sleuth_data to relevant features using the sleuth_data dictionary, which is built with locus tags as keys and
+    sleuth_data NamedTuple as values.
+    """
+    relevant_features = [f for f in features_with_locus_tags(genome) if f.type == 'CDS' or f.type == 'intergenic' or 'pseudo' in f.type.lower()]
+    feature_dict = {feature.qualifiers['locus_tag'][0]: feature for feature in relevant_features}
+    for locus_tag, data_tuple in sleuth_data.items():
+        feature_dict[locus_tag].qualifiers['sleuth'].append(data_tuple)
+
+
+
 def convert_csv_to_dnds(dnds_file):
     """
     Reads values from the dNdS csv file and converts each row into a dnds_data entry.
@@ -544,6 +501,61 @@ def feature_length_relative_to_hits(feature, alignment=False) -> float:
         return len(feature) / average_db_len
 
 
+def check_dnds(feature):
+    sleuth_data = feature.qualifiers['sleuth'][0]
+    if sleuth_data.dnds is not None:
+        if sleuth_data.dnds > 0.3:
+            feature.type = 'pseudogene'
+            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.dnds
+            reason = "Elevated dN/dS: %s." % (round(sleuth_data.dnds, 4))
+
+            if sleuth_data.dnds > 3:
+                reason = reason[:-1] + " (this exceptionally high dN/dS is likely caused by a poor alignment," \
+                                       " which may be indiciative of a true pseudogene, or a false positive " \
+                                       "BLAST hit)."
+
+            feature.qualifiers['pseudo_candidate_reasons'].append(reason)
+            feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+
+
+def check_dsds(feature):
+    sleuth_data = feature.qualifiers['sleuth'][0]
+    if sleuth_data.dsds is not None:
+        if sleuth_data.dsds > 15 or sleuth_data.delta_ds > 0.1:
+            feature.type = 'pseudogene'
+            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.frameshift
+            reason = str(sleuth_data.out_of_frame_inserts + sleuth_data.out_of_frame_dels) + " significant frameshift-inducing indel(s)."
+            feature.qualifiers['pseudo_candidate_reasons'].append(reason)
+            feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+
+
+def check_start_codon(feature):
+    sleuth_data = feature.qualifiers['sleuth'][0]
+    if sleuth_data.start is False:
+        feature.type = 'pseudogene'
+        feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.start_codon
+        reason = "Missing start codon."
+        feature.qualifiers['pseudo_candidate_reasons'].append(reason)
+        feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+
+
+def check_stop_codon(feature):
+    sleuth_data = feature.qualifiers['sleuth'][0]
+    if sleuth_data.stop_codon is False and sleuth_data.internal_stops == 0:
+        feature.type = 'pseudogene'
+        feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.stop_codon
+        reason = "Missing stop codon."
+        feature.qualifiers['pseudo_candidate_reasons'].append(reason)
+        feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+
+    elif sleuth_data.internal_stops > 0 and sleuth_data.first_stop_codon < 0.75:
+        feature.type = 'pseudogene'
+        feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.internal_stop
+        reason = "Internal stop codon at " + str(round(sleuth_data.first_stop_codon * 100)) + "% expected length."
+        feature.qualifiers['pseudo_candidate_reasons'].append(reason)
+        feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+
+
 def find_individual_pseudos(args, seqrecord):
 
     for feature in seqrecord.features:
@@ -551,45 +563,43 @@ def find_individual_pseudos(args, seqrecord):
         if feature.type == 'pseudogene':
             pass
 
-        # Option 1: DNDS pseudogene
-        if feature.type == 'CDS' and len(feature.qualifiers['dnds']) > 0:
-            dnds_val = feature.qualifiers['dnds'][0].dnds
-
-            if dnds_val >= args.max_dnds:
-                feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.dnds
-                feature.qualifiers['note'] = 'Pseudogene candidate. Reason: Elevated dN/dS (%s).' % round(dnds_val, 3)
-                feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+        # Option 1: sleuth pseudogene
+        if feature.type == 'CDS' and len(feature.qualifiers['sleuth']) > 0:
+            check_dnds(feature)
+            check_dsds(feature)
+            check_start_codon(feature)
+            check_stop_codon(feature)
 
         # Option 2: Length-based pseudogenes
         if feature.type == 'CDS' and len(feature.qualifiers['hits']) > 0:
             if feature_length_relative_to_hits(feature) <= args.length_pseudo:
                 feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.truncated
+                feature.qualifiers['pseudo_type'] = PseudoType.Blast.truncated
 
             elif feature_length_relative_to_hits(feature) >= 2 - args.length_pseudo:
                 if args.no_bidirectional_length:
                     pass
                 else:
                     feature.type = 'pseudogene'
-                    feature.qualifiers['pseudo_type'] = PseudoType.long
+                    feature.qualifiers['pseudo_type'] = PseudoType.Blast.long
 
             elif feature_length_relative_to_hits(feature, alignment=True) <= args.length_pseudo:
                 if args.use_alignment:
                     feature.type = 'pseudogene'
-                    feature.qualifiers['pseudo_type'] = PseudoType.short_alignment
+                    feature.qualifiers['pseudo_type'] = PseudoType.Blast.short_alignment
 
             if feature.type == 'pseudogene':
-                feature.qualifiers['note'] = 'Pseudogene candidate. Reason: ORF is %s%% of the average length of ' \
-                                             'hits to this gene.' % (round(feature_length_relative_to_hits(feature)*100, 1))
+                reason = 'ORF is %s%% of the average length of hits to this gene.' % (round(feature_length_relative_to_hits(feature)*100, 1))
+                feature.qualifiers['pseudo_candidate_reasons'].append(reason)
                 feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
 
         # Option 3: Intergenic pseudogene
         if feature.type == 'intergenic':
             if len(feature.qualifiers['hits']) / args.hitcap >= args.intergenic_threshold:
                 feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.intergenic
-                feature.qualifiers['note'] = 'Pseudogene candidate. Reason: Intergenic region with %s blast hits.' % len(feature.qualifiers['hits'])
+                feature.qualifiers['pseudo_type'] = PseudoType.Blast.intergenic
+                reason = 'Intergenic region with %s blast hits.' % len(feature.qualifiers['hits'])
+                feature.qualifiers['pseudo_candidate_reasons'].append(reason)
                 feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
         else:
             pass
@@ -667,7 +677,6 @@ def adjacent_fragments_proximity(f1, f2):
     return False # stub
 
 
-
 def adjacent_fragments_match(args, f1, f2):
     """Checks if features are fragments of a single pseudogene"""
 
@@ -734,9 +743,18 @@ def create_fragmented_pseudo(args, fragments, seqrecord):
     pseudo.qualifiers['hits'] = hits
     pseudo.qualifiers['locus_tag'] = ''
     pseudo.qualifiers['parents'] = parents
-    pseudo.qualifiers['pseudo_type'] = PseudoType.fragmented
-    pseudo.qualifiers['note'] = "Pseudogene candidate. Reason: Predicted fragmentation of a single gene."
+    pseudo.qualifiers['pseudo_type'] = PseudoType.Blast.fragmented
 
+    try:
+        reason = 'Predicted fragmentation of a single gene.'
+        pseudo.qualifiers['pseudo_candidate_reasons'] = [reason]
+
+    except KeyError:
+        print(pseudo)
+        for f in fragments:
+            print(f)
+
+        exit()
     seqrecord.features.append(pseudo)
 
 
@@ -746,7 +764,7 @@ def manage_parent_fragments(fragments):
     """
     for feature in fragments:
         feature.type = 'consumed'
-        feature.qualifiers['pseudo_type'] = PseudoType.consumed
+        feature.qualifiers['pseudo_type'] = PseudoType.NotPseudo.consumed
 
 
 def find_fragmented_pseudos(args, seqrecord):
@@ -777,7 +795,7 @@ def find_fragmented_pseudos(args, seqrecord):
                 i += 1
                 continue
 
-            features = [feature for feature in features if feature.qualifiers.get('pseudo_type') is not PseudoType.consumed]
+            features = [feature for feature in features if feature.qualifiers.get('pseudo_type') is not PseudoType.NotPseudo.consumed]
             features = sorted(features, key=lambda x: x.location.start)
 
         # final sort when finished
@@ -802,11 +820,12 @@ def find_pseudos_on_genome(args, genome):
 
     for i, seqrecord in enumerate(genome):
         common.print_with_time("Checking contig %s / %s for pseudogenes." % (i+1, len(genome)))
+        num_ORFs = len(parse_features_from_record(seqrecord, 'CDS'))
+
         find_individual_pseudos(args, seqrecord)
         find_fragmented_pseudos(args, seqrecord)
 
-        num_ORFs = len(parse_features_from_record(seqrecord, 'CDS'))
-        pseudos = [x for x in parse_features_from_record(seqrecord, 'pseudogene') if x.qualifiers.get("pseudo_type") != PseudoType.consumed]
+        pseudos = [x for x in parse_features_from_record(seqrecord, 'pseudogene') if x.qualifiers.get("pseudo_type") != PseudoType.NotPseudo.consumed]
         num_pseudos = len(pseudos)
 
         common.print_with_time("Number of ORFs on this contig: %s\n"
@@ -905,7 +924,7 @@ def write_all_outputs(args, genome, file_dict, visualize=False):
         genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
         write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
 
-# TODO: when finished making changes to algorithm, update the nomenclature etc.
+
 def analysis_statistics(args, genome):
     """Adds statistics to the main dictionary about the run."""
 
@@ -914,13 +933,13 @@ def analysis_statistics(args, genome):
 
     # pseudos
     pseudos = extract_features_from_genome(args, genome, 'pseudogene')
-    total = len([x for x in pseudos if x.qualifiers.get('pseudo_type') != PseudoType.consumed])
+    total = len([x for x in pseudos if x.qualifiers.get('pseudo_type') != PseudoType.NotPseudo.consumed])
     total = total + StatisticsDict["dnds"]
-    short = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.truncated])
-    fragmented = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.fragmented])
-    intergenic = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.intergenic])
+    short = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.truncated])
+    fragmented = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.fragmented])
+    intergenic = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.intergenic])
     fragments = len(extract_features_from_genome(args, genome, 'consumed'))
-    dnds = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.dnds])
+    dnds = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Sleuth.dnds])
 
     StatisticsDict['PseudogenesTotal'] = total
     StatisticsDict['PseudogenesShort'] = short
@@ -958,21 +977,22 @@ def main():
     args = common.get_args('annotate')
     file_dict = common.file_dict(args)  # Declare filenames used throughout the rest of the program
 
+    # Collect / categorize features
     genome = gbk_to_seqrecord_list(args, args.genome)
-    write_fasta(seqs=genome, outfile=file_dict['contigs_filename'], in_type='records')
-
     proteome = extract_features_from_genome(args, genome, 'CDS')
+    intergenic = extract_features_from_genome(args, genome, 'intergenic')
+    input_pseudos = extract_features_from_genome(args, genome, 'pseudogene')
+
+    # Write initial files
+    write_fasta(seqs=genome, outfile=file_dict['contigs_filename'], in_type='records')
     write_fasta(seqs=proteome, outfile=file_dict['cds_filename'], seq_type='nt')
     write_fasta(seqs=proteome, outfile=file_dict['proteome_filename'], seq_type='aa')
     common.print_with_time("CDS extracted from:\t\t\t%s\n"
                            "Written to file:\t\t\t%s." % (args.genome, file_dict['cds_filename']))
-
-    intergenic = extract_features_from_genome(args, genome, 'intergenic')
     write_fasta(seqs=intergenic, outfile=file_dict['intergenic_filename'], seq_type='nt')
     common.print_with_time("Intergenic regions extracted from:\t%s\n"
                            "Written to file:\t\t\t%s." % (args.genome, file_dict['intergenic_filename']))
 
-    input_pseudos = extract_features_from_genome(args, genome, 'pseudogene')
     if len(input_pseudos) > 0:
         write_fasta(seqs=input_pseudos, outfile=file_dict['input_pseudos_filename'], seq_type='nt')
         common.print_with_time("%s pseudogenes found in genbank file:\t%s\n"
@@ -981,7 +1001,6 @@ def main():
     StatisticsDict['NumberOfContigs'] = len(genome)
     StatisticsDict['ProteomeOrfs'] = len(proteome)
     StatisticsDict['PseudogenesInput'] = len(input_pseudos)
-
 
     if args.diamond:  # run diamond
         if not args.skip_makedb:
@@ -1011,23 +1030,23 @@ def main():
     if len(input_pseudos) > 0:
         add_blasthits_to_genome(args, genome, file_dict['blastx_pseudos_filename'], 'blastx')
 
-    update_intergenic_locations(args, genome)
-    find_pseudos_on_genome(args, genome)
-    common.print_with_time("Collecting run statistics and writing output files.")
-    analysis_statistics(args, genome)
-    write_all_outputs(args, genome, file_dict)
-
-    if args.reference:  # #########################################################################################
+    if args.reference:
         common.print_with_time("Starting Sleuth...")
         ref_genome = gbk_to_seqrecord_list(args, args.reference)
         ref_proteome = extract_features_from_genome(args, ref_genome, 'CDS')
         write_fasta(seqs=ref_proteome, outfile=file_dict['ref_cds_filename'], seq_type='nt')
         write_fasta(seqs=ref_proteome, outfile=file_dict['ref_proteome_filename'], seq_type='aa')
-        # selection.full(args, file_dict)
-        # add_dnds_info_to_genome(args, genome, file_dict['dnds_out'])
 
         sleuth.full(args, file_dict)
-        sleuth.merge(args, file_dict)
+        sleuth_dict = sleuth.relate_sleuth_data_to_locus_tags(args, file_dict)
+        add_sleuth_data_to_genome(args, genome, sleuth_dict)
+        shutil.rmtree(file_dict['temp_dir'])  # Delete temp directory now that we are done.
+
+    update_intergenic_locations(args, genome)
+    find_pseudos_on_genome(args, genome)
+    common.print_with_time("Collecting run statistics and writing output files.")
+    analysis_statistics(args, genome)
+    write_all_outputs(args, genome, file_dict)
 
 
 if __name__ == '__main__':
