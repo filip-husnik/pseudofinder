@@ -1674,9 +1674,9 @@ def full(args, file_dict, log_file_dict=None):
 
                         if start > end:
                             seq = reverseComplement(
-                                genome[l][j[0] - 1 - slack:lastItem(j) - 1 + slack])
+                                genome[l][end - 1 - slack:start - 1 + slack])
                         else:
-                            seq = genome[l][j[0] - 1 - slack:lastItem(j) + slack]
+                            seq = genome[l][start - 1 - slack:end + slack]
 
                         blastDict2[key][target] = seq
                         aniDict[key][target] = str(blastDict3[l][0][2])
