@@ -74,6 +74,10 @@ class PseudoType:  # Use this class to designate what kind of pseudogene a parti
         indel = "Input feature.seq is not a multiple of 3"
         internalstop = "Stop codon (*) is present in input feature.seq"
 
+    class MultiIssue(Enum):
+        general = "Pseudogene with multiple issues."
+        sleuth = "Pseudogene enriched with sleuth annotations"
+
     class Sleuth(Enum):  # Pseudogenes derived from the sleuth module
         dnds = "Pseudogene based on elevated dN/dS"
         frameshift = "Pseudogene based on significant frameshift-inducing indel(s)"

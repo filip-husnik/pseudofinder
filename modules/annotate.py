@@ -85,6 +85,58 @@ def translate_cds(args, feature, seqrecord):
             exit()
 
 
+def assign_pseudotype(feature, pseudotype):
+    """
+    Fully replaceable pseudotypes:
+        - Input.general
+        - NotPseudo.intact
+
+    Fully irreplaceable pseudotypes:
+        - NotPseudo.consumed
+        - MultiIssue.sleuth
+
+    Pseudotypes that can be combined to create a MultiIssue.general pseudotype:
+        - Input.indel
+        - Input.internalstop
+        - any single Blast pseudotype
+
+    Blast PseudoType logic:
+        - Blast.fragment will replace any of the following:
+            - truncated
+            - truncated + short alignment
+            - truncated + intergenic
+            - intergenic
+            -
+
+
+    Pseudotypes that will create MultiIssue.sleuth pseudotype if they are combined with anything else:
+        - Any sleuth pseudotype
+    """
+    current_pseudotype = feature.qualifiers['pseudo_type']
+    assigned_pseudotype = pseudotype
+
+    # If the feature is assigned to no longer be a pseudogene, that takes absolute precendence
+    if type(assigned_pseudotype) is PseudoType.NotPseudo:
+        feature.qualifiers['pseudo_type'] = assigned_pseudotype
+
+    # If the feature has been consumed, do not act on it
+    elif current_pseudotype is PseudoType.NotPseudo.consumed:
+        pass
+
+    # Input pseudo refinement
+    elif type(current_pseudotype) is PseudoType.Input:
+        if current_pseudotype is PseudoType.Input.general:
+            feature.qualifiers['pseudo_type'] = assigned_pseudotype
+        else:
+            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.general
+
+
+
+
+
+    return False
+
+
 def add_qualifiers_to_features(args, seqrecord):
     """
     Adds additional qualifiers to each feature contained in the seqrecord, necessary for further analysis in the pipeline.
