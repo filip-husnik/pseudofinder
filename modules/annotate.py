@@ -297,22 +297,22 @@ def format_strand(strand, format='gff'):
 
 def attribute_string(feature):
     """Generates a string to fill attribute section of a GFF file."""
-    list = []
+    substrings = []
 
     if feature.qualifiers.get('pseudo_reasons'):
         pseudo_string = 'Pseudogene. Reason(s):' + ', '.join(feature.qualifiers['pseudo_candidate_reasons'] + feature.qualifiers['pseudo_candidate_reasons'])
-        list.append("note=" + pseudo_string)
+        substrings.append("note=" + pseudo_string)
 
     elif len(feature.qualifiers['pseudo_candidate_reasons']) > 0:
         pseudo_string = 'Pseudogene candidate. Reason(s):' + ', '.join(feature.qualifiers['pseudo_candidate_reasons'])
-        list.append("note=" + pseudo_string)
+        substrings.append("note=" + pseudo_string)
 
-    list.append("locus_tag=" + feature.qualifiers['locus_tag'][0])
+    substrings.append("locus_tag=" + feature.qualifiers['locus_tag'][0])
 
     if feature.type == 'pseudogene':
-        list.append("old_locus_tag=" + ",".join(feature.qualifiers['parents']))
+        substrings.append("old_locus_tag=" + ",".join(list(set(feature.qualifiers['parents']))))
 
-    return ";".join(list)
+    return ";".join(substrings)
 
 
 def write_gff(args, genome, outfile: str, seq_type):
