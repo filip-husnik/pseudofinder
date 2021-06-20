@@ -2170,6 +2170,8 @@ def full(args, file_dict, log_file_dict=None):
     print("done")
 
     os.system("rm -f 2NG.t 2NG.dN 2NG.dS rst1 rst 2ML.t 2ML.dN 2ML.dS 4fold.nuc rub")
+    os.system("tar -cf %s/nuc_aln.tar %s/nuc_aln" % (out, out))
+    os.system("gzip %s/nuc_aln.tar" % out)
 
 
 def relate_sleuth_data_to_locus_tags(args, file_dict: dict) -> dict:
