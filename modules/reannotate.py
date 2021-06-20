@@ -18,9 +18,17 @@ def prepare_data_for_analysis(args, file_dict, log_file_dict):
     StatisticsDict['NumberOfContigs'] = len(genome)
     StatisticsDict['ProteomeOrfs'] = len(proteome)
 
-    if args.dnds_out:
-        selection.full(args, file_dict, log_file_dict, skip=True)
-        annotate.add_dnds_info_to_genome(args, genome, file_dict['dnds_out'])
+    if args.reference:
+        common.print_with_time("Starting Sleuth...")
+        ref_genome = gbk_to_seqrecord_list(args, args.reference)
+        ref_proteome = extract_features_from_genome(args, ref_genome, 'CDS')
+        write_fasta(seqs=ref_proteome, outfile=file_dict['ref_cds_filename'], seq_type='nt')
+        write_fasta(seqs=ref_proteome, outfile=file_dict['ref_proteome_filename'], seq_type='aa')
+
+        sleuth.full(args, file_dict)
+        sleuth_dict = sleuth.relate_sleuth_data_to_locus_tags(args, file_dict)
+        add_sleuth_data_to_genome(args, genome, sleuth_dict)
+        shutil.rmtree(file_dict['temp_dir'])  # Delete temp directory now that we are done.
 
     annotate.add_blasthits_to_genome(args, genome, log_file_dict['blastp_filename'], 'blastp')
     annotate.add_blasthits_to_genome(args, genome, log_file_dict['blastx_filename'], 'blastx')

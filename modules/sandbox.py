@@ -985,3 +985,27 @@ def integrate_dnds(func_gff: str, pseudo_gff: str, dnds_out: str, func_faa: str,
     os.system("mv %s %s" % (newPseudoSeqs, pseudo_fasta))
     return len(newPseudosDict2.keys())
 
+
+def add_dnds_info_to_genome(args, genome, dnds_folder):
+    """Adds dN/dS info from analysis to genome"""
+
+    dnds_list = convert_csv_to_dnds(dnds_folder+"/dnds-summary.csv")
+    relevant_features = extract_features_from_genome(args, genome, 'CDS')
+    feature_dict = {feature.qualifiers['locus_tag'][0]: feature for feature in relevant_features} # list comprehension
+    for item in dnds_list:
+        feature_dict[item.locus_tag].qualifiers['dnds'].append(item)
+
+
+
+def convert_csv_to_dnds(dnds_file):
+    """
+    Reads values from the dNdS csv file and converts each row into a dnds_data entry.
+    Returns a list of dnds_data
+    """
+    dnds_list = []
+    with open(dnds_file, 'r') as csv:
+        next(csv)
+        for line in csv.readlines():
+            fields = [common.literal_eval(x) for x in re.split(",", line.rstrip("\n"))]
+            dnds_list.append(dnds_data(*fields[:-1])) # unpacking
+    return dnds_list
