@@ -682,7 +682,7 @@ def file_dict(args, **kwargs):
         'log': base_outfile_name + "log.txt",
         'sleuthDir': sleuth_dir,
         'sleuth_report': sleuth_dir + "/sleuth_report.csv",
-        'ctl': os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
+        'ctl': os.path.dirname(os.path.dirname(__file__)) + "/modules/codeml-2.ctl"
     }
     return file_dict
 

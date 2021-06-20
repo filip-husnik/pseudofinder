@@ -907,7 +907,7 @@ def main():
     genome = fasta2(genome)
 
     # SETTING LOCATION OF CODEML PARAMTER FILE
-    ctl = os.path.dirname(os.path.dirname(__file__)) + "/codeml-2.ctl"
+    ctl = os.path.dirname(os.path.dirname(__file__)) + "/modules/codeml-2.ctl"
 
     # MAKING DIRECTORIES
     os.system("mkdir -p %s" % outdir)
