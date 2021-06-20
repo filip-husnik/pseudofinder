@@ -145,13 +145,11 @@ def add_qualifiers_to_features(args, seqrecord):
     for feature in seqrecord.features:
         if feature.type == 'CDS' and feature.qualifiers.get('pseudo'):    # Finds CDS that are already annotated as pseudogenes
             feature.type = 'pseudogene'
-            feature.qualifiers['sleuth'] = []
             feature.qualifiers['pseudo_type'] = PseudoType.Input.general
             feature.qualifiers['pseudo_reasons'] = ['Annotated as pseudogene in input genbank file.']
             feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
 
         if feature.type == 'CDS':
-            feature.qualifiers['sleuth'] = []
             nt_seq = feature.extract(seqrecord.seq)
             translate_cds(args, feature, seqrecord)
             translation = feature.qualifiers['translation'][0]
@@ -176,6 +174,7 @@ def add_qualifiers_to_features(args, seqrecord):
             feature.qualifiers['nucleotide_seq'] = feature.extract(seqrecord.seq)
             feature.qualifiers['contig_id'] = seqrecord.name
             feature.qualifiers['hits'] = []
+            feature.qualifiers['sleuth'] = []
             feature.qualifiers['pseudo_candidate_reasons'] = []
 
         if feature.type == 'CDS' or feature.type == 'intergenic':
@@ -227,8 +226,11 @@ def extract_features_from_genome(args, genome, feature_type: list or str) -> lis
             feature_list.extend(extract_features_from_genome(args, genome, item))
 
     elif isinstance(feature_type, str):
-        for record in genome:
-            feature_list.extend(parse_features_from_record(record, feature_type))
+        if type(genome) is list:
+            for record in genome:
+                feature_list.extend(parse_features_from_record(record, feature_type))
+        else:
+            feature_list.extend(parse_features_from_record(genome, feature_type))
 
     else:
         raise TypeError("extract_features_from_genome() received invalid type: %s" % type(feature_type))
@@ -560,7 +562,10 @@ def check_start_codon(feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.start is False:
         feature.type = 'pseudogene'
-        feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.start_codon
+        if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
+            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
+        else:
+            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.start_codon
         reason = "Missing start codon."
         feature.qualifiers['pseudo_candidate_reasons'].append(reason)
         feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
@@ -570,14 +575,20 @@ def check_stop_codon(feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.stop_codon is False and sleuth_data.internal_stops == 0:
         feature.type = 'pseudogene'
-        feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.stop_codon
+        if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
+            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
+        else:
+            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.stop_codon
         reason = "Missing stop codon."
         feature.qualifiers['pseudo_candidate_reasons'].append(reason)
         feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
 
     elif sleuth_data.internal_stops > 0 and sleuth_data.first_stop_codon < 0.75:
         feature.type = 'pseudogene'
-        feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.internal_stop
+        if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
+            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
+        else:
+            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.internal_stop
         reason = "Internal stop codon at " + str(round(sleuth_data.first_stop_codon * 100)) + "% expected length."
         feature.qualifiers['pseudo_candidate_reasons'].append(reason)
         feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
@@ -585,37 +596,45 @@ def check_stop_codon(feature):
 
 def find_individual_pseudos(args, seqrecord):
 
-    for feature in seqrecord.features:
+    for feature in extract_features_from_genome(args, seqrecord, feature_type=['CDS', 'pseudogene', 'intergenic']):
         # Option 0: This will catch pseudogenes that were annotated as such in the input genbank file.
         if feature.type == 'pseudogene':
             pass
 
         # Option 1: sleuth pseudogene
-        if feature.type == 'CDS' and len(feature.qualifiers['sleuth']) > 0:
+        if len(feature.qualifiers['sleuth']) > 0:
             check_dnds(feature)
             check_dsds(feature)
             check_start_codon(feature)
             check_stop_codon(feature)
 
         # Option 2: Length-based pseudogenes
-        if feature.type == 'CDS' and len(feature.qualifiers['hits']) > 0:
+        if feature.type != 'intergenic' and len(feature.qualifiers['hits']) > 0:
             if feature_length_relative_to_hits(feature) <= args.length_pseudo:
                 feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.Blast.truncated
+                if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
+                    feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
+                else:
+                    feature.qualifiers['pseudo_type'] = PseudoType.Blast.truncated
 
             elif feature_length_relative_to_hits(feature) >= 2 - args.length_pseudo:
                 if args.no_bidirectional_length:
                     pass
                 else:
                     feature.type = 'pseudogene'
-                    feature.qualifiers['pseudo_type'] = PseudoType.Blast.long
+                    if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
+                        feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
+                    else:
+                        feature.qualifiers['pseudo_type'] = PseudoType.Blast.long
 
             elif feature_length_relative_to_hits(feature, alignment=True) <= args.length_pseudo:
                 if args.use_alignment:
                     feature.type = 'pseudogene'
+                    if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
+                        print("we made it bois 3")
                     feature.qualifiers['pseudo_type'] = PseudoType.Blast.short_alignment
 
-            if feature.type == 'pseudogene':
+            if type(feature.qualifiers['pseudo_type']) is PseudoType.Blast:
                 reason = 'ORF is %s%% of the average length of hits to this gene.' % (round(feature_length_relative_to_hits(feature)*100, 1))
                 feature.qualifiers['pseudo_candidate_reasons'].append(reason)
                 feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
@@ -770,18 +789,16 @@ def create_fragmented_pseudo(args, fragments, seqrecord):
     pseudo.qualifiers['hits'] = hits
     pseudo.qualifiers['locus_tag'] = ''
     pseudo.qualifiers['parents'] = parents
-    pseudo.qualifiers['pseudo_type'] = PseudoType.Blast.fragmented
 
-    try:
-        reason = 'Predicted fragmentation of a single gene.'
-        pseudo.qualifiers['pseudo_candidate_reasons'] = [reason]
+    for fragment in fragments:
+        if 'sleuth' in str(fragment.qualifiers['pseudo_type']).lower():
+            pseudo.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
+            break
+        else:
+            pseudo.qualifiers['pseudo_type'] = PseudoType.Blast.fragmented
 
-    except KeyError:
-        print(pseudo)
-        for f in fragments:
-            print(f)
-
-        exit()
+    reason = 'Predicted fragmentation of a single gene.'
+    pseudo.qualifiers['pseudo_candidate_reasons'] = [reason]
     seqrecord.features.append(pseudo)
 
 

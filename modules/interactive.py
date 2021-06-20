@@ -139,11 +139,12 @@ class Figure:
 
         colours = []
         for entry in dataset:
-            if "Input" in str(entry.feature_type) or "Blast" in str(entry.feature_type):
+            feature_type = str(entry.feature_type).lower()
+            if "input" in feature_type or "blast" in feature_type:
                 colours.append(general_pseudo)
-            elif "Sleuth" in str(entry.feature_type):
+            elif "sleuth" in feature_type:
                 colours.append(sleuth)
-            elif entry.feature_type == 'intergenic':
+            elif "intergenic" in feature_type:
                 colours.append(intergenic)
             elif len(entry.blast_lengths) == 0:
                 colours.append(no_info)
@@ -158,7 +159,7 @@ class Figure:
                        "Locus: %s %s<br>" \
                        "Annotation: %s<br>" % (entry.contig, entry.locus, str(entry.position), entry.annotation)
 
-            if type(entry.feature_type) in (PseudoType.Input, PseudoType.Sleuth, PseudoType.Blast):
+            if type(entry.feature_type) in (PseudoType.Input, PseudoType.Sleuth, PseudoType.Blast, PseudoType.MultiIssue):
                 bar_text = bar_text + "Pseudo call: %s" % entry.feature_type
 
             scatter_text = "%s blast hits." % len(entry.blast_lengths)
