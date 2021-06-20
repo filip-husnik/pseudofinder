@@ -116,7 +116,7 @@ Also to be considered is that while the pipeline runs using vanilla BlastP/Blast
 
 This flowchart shows all steps of the Pseudofinder pipeline.
 
-![alt text](https://github.com/filip-husnik/pseudofinder/blob/master/flowchart.png)
+![alt text](https://github.com/filip-husnik/pseudofinder/blob/master/wiki_images/flowchart.png)
 
 
 ## Commands
