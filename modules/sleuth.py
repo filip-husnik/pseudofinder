@@ -1170,14 +1170,14 @@ def main():
                 start = (startFinder(refSeq))
                 refAbridged = (refSeq[start:])
                 targetAbridged = (targetSeq[start:])
-                targetLeading = [targetSeq[0:start+(querylength*float(args.perc_cov))], targetSeq[start:start+(querylength*float(args.perc_cov))]]
+                targetLeading = [targetSeq[0:start+ round(querylength*float(args.perc_cov))], targetSeq[start:start+round(querylength*float(args.perc_cov))]]
 
                 # cutting off the trailing gaps after stop codon
                 refAbridged2 = (stopfinder(refAbridged)[0])
                 end = (stopfinder(refAbridged)[1])
                 targetAbridged2 = targetAbridged[0:len(targetAbridged) - end]
                 targetTrailing = [targetAbridged[len(targetAbridged)-end:len(targetAbridged)],
-                                  targetAbridged[len(targetAbridged) - end - (querylength*float(args.perc_cov)):len(targetAbridged)-end]]
+                                  targetAbridged[len(targetAbridged) - end - round(querylength*float(args.perc_cov)):len(targetAbridged)-end]]
 
                 NterminalStats = (alnCheckN(refAbridged2, targetAbridged2, round(slack)))
                 percIdentN = NterminalStats[0]
@@ -1818,8 +1818,8 @@ def full(args, file_dict, log_file_dict=None):
                 start = (startFinder(refSeq))
                 refAbridged = (refSeq[start:])
                 targetAbridged = (targetSeq[start:])
-                targetLeading = [targetSeq[0:start + (querylength * float(args.perc_cov))],
-                                 targetSeq[start:start + (querylength * float(args.perc_cov))]]
+                targetLeading = [targetSeq[0:start + round(querylength * float(args.perc_cov))],
+                                 targetSeq[start:start + round(querylength * float(args.perc_cov))]]
 
                 # cutting off the trailing gaps after stop codon
                 refAbridged2 = (stopfinder(refAbridged)[0])
@@ -1827,7 +1827,7 @@ def full(args, file_dict, log_file_dict=None):
                 targetAbridged2 = targetAbridged[0:len(targetAbridged) - end]
                 targetTrailing = [targetAbridged[len(targetAbridged) - end:len(targetAbridged)],
                                   targetAbridged[
-                                  len(targetAbridged) - end - (querylength * float(args.perc_cov)):len(targetAbridged) - end]]
+                                  len(targetAbridged) - end - round(querylength * float(args.perc_cov)):len(targetAbridged) - end]]
 
                 lengthDiff = len(remove(targetAbridged2, ["-"])) / len(remove(refAbridged2, ["-"]))
 
