@@ -13,11 +13,14 @@ def alnCheckN(seq1, seq2, slack):
     count = 0
     countGaps = 0
     for i in range(0, slack):
-        if "-" not in [seq1[i], seq2[i]]:
-            if seq1[i] == seq2[i]:
-                count += 1
-        else:
-            countGaps += 1
+        try:
+            if "-" not in [seq1[i], seq2[i]]:
+                if seq1[i] == seq2[i]:
+                    count += 1
+            else:
+                countGaps += 1
+        except IndexError:
+            break
     return count/slack, countGaps/slack
 
 
