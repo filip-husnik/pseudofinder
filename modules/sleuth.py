@@ -9,6 +9,49 @@ import statistics
 import time
 from Bio.Blast.Applications import NcbiblastnCommandline, NcbimakeblastdbCommandline
 
+
+def startScanPre(seq):
+    CODON = "n"
+    for i in range(len(seq), -3, -3):
+        if i != len(seq):
+            codon = seq[i:i+3]
+            if codon in ["ATG", "GTG", "TTG"]:
+                CODON = codon
+    return CODON
+
+
+def startScanPost(seq):
+    CODON = "n"
+    for i in range(0, len(seq), 3):
+        if i != len(seq):
+            codon = seq[i:i + 3]
+            if codon in ["ATG", "GTG", "TTG"]:
+                CODON = "y"
+                break
+    return CODON
+
+
+def stopScanPre(seq):
+    CODON = "n"
+    for i in range(len(seq), -3, -3):
+        if i != len(seq):
+            codon = seq[i:i+3]
+            if codon in ["TAG", "TAA", "TGA"]:
+                CODON = codon
+    return CODON
+
+
+def stopScanPost(seq):
+    CODON = "n"
+    for i in range(0, len(seq), 3):
+        if i != len(seq):
+            codon = seq[i:i + 3]
+            if codon in ["TAG", "TAA", "TGA"]:
+                CODON = codon
+                break
+    return CODON
+
+
 def alnCheckN(seq1, seq2, slack):
     count = 0
     countGaps = 0
@@ -1127,18 +1170,21 @@ def main():
                 start = (startFinder(refSeq))
                 refAbridged = (refSeq[start:])
                 targetAbridged = (targetSeq[start:])
+                targetLeading = [targetSeq[0:start+(querylength*args.perc_cov)], targetSeq[start:start+(querylength*args.perc_cov)]]
 
-                lengthDiff = len(remove(targetAbridged, ["-"])) / len(remove(refAbridged, ["-"]))
+                # cutting off the trailing gaps after stop codon
+                refAbridged2 = (stopfinder(refAbridged)[0])
+                end = (stopfinder(refAbridged)[1])
+                targetAbridged2 = targetAbridged[0:len(targetAbridged) - end]
+                targetTrailing = [targetAbridged[len(targetAbridged)-end:len(targetAbridged)],
+                                  targetAbridged[len(targetAbridged) - end - (querylength*args.perc_cov):len(targetAbridged)-end]]
 
+                NterminalStats = (alnCheckN(refAbridged2, targetAbridged2, round(slack)))
+                percIdentN = NterminalStats[0]
+                gapsN = NterminalStats[1]
+
+                lengthDiff = len(remove(targetAbridged2, ["-"])) / len(remove(refAbridged2, ["-"]))
                 if lengthDiff > float(args.perc_cov):
-                    # cutting off the trailing gaps after stop codon
-                    refAbridged2 = (stopfinder(refAbridged)[0])
-                    end = (stopfinder(refAbridged)[1])
-                    targetAbridged2 = targetAbridged[0:len(targetAbridged) - end]
-
-                    NterminalStats = (alnCheckN(refAbridged2, targetAbridged2, round(slack)))
-                    percIdentN = NterminalStats[0]
-                    gapsN = NterminalStats[1]
 
                     if gapsN < 0.25 and percIdentN > 0.5 and AAI(refAbridged2, targetAbridged2) > float(args.perc_id):
 
@@ -1249,14 +1295,27 @@ def main():
                                         preferredStartGain = "n"
 
                             else:
-                                startcodon = "NA"
-                                preferredStartGain = "NA"
-                                preferredStartLoss = "NA"
+                                anotherStartCodon = startScanPost(remove(targetLeading[1], ["-"]))
+                                if anotherStartCodon not in ["ATG", "TTG", "GTG"]:
+                                    anotherStartCodon = startScanPre(remove(targetLeading[0], ["-"]))
+                                    if anotherStartCodon not in ["ATG", "TTG", "GTG"]:
+                                        startcodon = "n"
+                                        preferredStartGain = "NA"
+                                        preferredStartLoss = "NA"
+                                    else:
+                                        startcodon = "y"
+                                        preferredStartGain = "NA"
+                                        preferredStartLoss = "NA"
+
+                                else:
+                                    startcodon = "y"
+                                    preferredStartGain = "NA"
+                                    preferredStartLoss = "NA"
 
                             # stop
+                            targetStraightDegapRaw = remove(targetAbridged2, ["-"])
                             if Cterm == "y":
                                 putativeStopCodon = ""
-                                targetStraightDegapRaw = remove(targetAbridged2, ["-"])
                                 for codon in range(0, len(targetStraightDegapRaw), 3):
                                     putativeStopCodon = targetStraightDegapRaw[codon:codon + 3]
 
@@ -1265,8 +1324,11 @@ def main():
                                 else:
                                     stopcodon = "n"
                             else:
-                                stopcodon = "NA"
-                                targetStraightDegapRaw = remove(targetAbridged2, ["-"])
+                                stopcodon = stopScanPost(remove(targetTrailing, ["-"]))
+                                if stopcodon != "n":
+                                    stopcodon = "y"
+                                else:
+                                    stopcodon = "n"
 
                             # removing gaps from both sequences based on presence of a gap in the reference sequence.
                             # in other words, positions with insertions in the query sequence will be removed,
@@ -1756,15 +1818,20 @@ def full(args, file_dict, log_file_dict=None):
                 start = (startFinder(refSeq))
                 refAbridged = (refSeq[start:])
                 targetAbridged = (targetSeq[start:])
+                targetLeading = [targetSeq[0:start + (querylength * args.perc_cov)],
+                                 targetSeq[start:start + (querylength * args.perc_cov)]]
 
-                lengthDiff = len(remove(targetAbridged, ["-"])) / len(remove(refAbridged, ["-"]))
+                # cutting off the trailing gaps after stop codon
+                refAbridged2 = (stopfinder(refAbridged)[0])
+                end = (stopfinder(refAbridged)[1])
+                targetAbridged2 = targetAbridged[0:len(targetAbridged) - end]
+                targetTrailing = [targetAbridged[len(targetAbridged) - end:len(targetAbridged)],
+                                  targetAbridged[
+                                  len(targetAbridged) - end - (querylength * args.perc_cov):len(targetAbridged) - end]]
+
+                lengthDiff = len(remove(targetAbridged2, ["-"])) / len(remove(refAbridged2, ["-"]))
 
                 if lengthDiff > float(args.perc_cov):
-                    # cutting off the trailing gaps after stop codon
-                    refAbridged2 = (stopfinder(refAbridged)[0])
-                    end = (stopfinder(refAbridged)[1])
-                    targetAbridged2 = targetAbridged[0:len(targetAbridged) - end]
-
                     NterminalStats = (alnCheckN(refAbridged2, targetAbridged2, round(slack)))
                     percIdentN = NterminalStats[0]
                     gapsN = NterminalStats[1]
@@ -1878,14 +1945,27 @@ def full(args, file_dict, log_file_dict=None):
                                         preferredStartGain = "n"
 
                             else:
-                                startcodon = "NA"
-                                preferredStartGain = "NA"
-                                preferredStartLoss = "NA"
+                                anotherStartCodon = startScanPost(remove(targetLeading[1], ["-"]))
+                                if anotherStartCodon not in ["ATG", "TTG", "GTG"]:
+                                    anotherStartCodon = startScanPre(remove(targetLeading[0], ["-"]))
+                                    if anotherStartCodon not in ["ATG", "TTG", "GTG"]:
+                                        startcodon = "n"
+                                        preferredStartGain = "NA"
+                                        preferredStartLoss = "NA"
+                                    else:
+                                        startcodon = "y"
+                                        preferredStartGain = "NA"
+                                        preferredStartLoss = "NA"
+
+                                else:
+                                    startcodon = "y"
+                                    preferredStartGain = "NA"
+                                    preferredStartLoss = "NA"
 
                             # stop
+                            targetStraightDegapRaw = remove(targetAbridged2, ["-"])
                             if Cterm == "y":
                                 putativeStopCodon = ""
-                                targetStraightDegapRaw = remove(targetAbridged2, ["-"])
                                 for codon in range(0, len(targetStraightDegapRaw), 3):
                                     putativeStopCodon = targetStraightDegapRaw[codon:codon + 3]
 
@@ -1894,8 +1974,11 @@ def full(args, file_dict, log_file_dict=None):
                                 else:
                                     stopcodon = "n"
                             else:
-                                stopcodon = "NA"
-                                targetStraightDegapRaw = remove(targetAbridged2, ["-"])
+                                stopcodon = stopScanPost(remove(targetTrailing, ["-"]))
+                                if stopcodon != "n":
+                                    stopcodon = "y"
+                                else:
+                                    stopcodon = "n"
 
                             # removing gaps from both sequences based on presence of a gap in the reference sequence.
                             # in other words, positions with insertions in the query sequence will be removed,
