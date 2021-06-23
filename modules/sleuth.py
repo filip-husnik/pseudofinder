@@ -26,7 +26,7 @@ def startScanPost(seq):
         if i != len(seq):
             codon = seq[i:i + 3]
             if codon in ["ATG", "GTG", "TTG"]:
-                CODON = "y"
+                CODON = codon
                 break
     return CODON
 
