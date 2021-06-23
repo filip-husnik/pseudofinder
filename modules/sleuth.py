@@ -193,7 +193,7 @@ def lastItem(ls):
             x = i
     return x
 
-
+###### ---------------------ATGCGGACGTGATGCTAGCTAGTCGATGACGTCGATCGATGA
 def startFinder(seq):
     start = ''
     for i in range(len(seq)):
@@ -1162,7 +1162,7 @@ def main():
                 target = (list(file.keys())[1])
                 targetSeq = file[target]
 
-                querylength = len(refSeq)
+                querylength = len(remove(refSeq, ["-"]))
                 slack = querylength * 0.1
                 slack = round(slack)
 
@@ -1276,20 +1276,32 @@ def main():
                             if Nterm == "y":
                                 if targetAbridged2[0:3] in ["ATG", "GTG", "TTG"]:
                                     startcodon = "y"
+                                    realStartCodon = targetAbridged2[0:3]
                                 else:
-                                    startcodon = "n"
+                                    anotherStartCodon = startScanPost(remove(targetLeading[1], ["-"]))
+                                    if anotherStartCodon not in ["ATG", "TTG", "GTG"]:
+                                        anotherStartCodon = startScanPre(remove(targetLeading[0], ["-"]))
+                                        if anotherStartCodon not in ["ATG", "TTG", "GTG"]:
+                                            startcodon = "n"
+                                            realStartCodon = targetAbridged2[0:3]
+                                        else:
+                                            startcodon = "y"
+                                            realStartCodon = anotherStartCodon
+                                    else:
+                                        startcodon = "y"
+                                        realStartCodon = anotherStartCodon
 
                                 preferredStartLoss = ''
                                 preferredStartGain = ''
                                 if START == "ATG":
                                     preferredStartGain = "n"
-                                    if targetAbridged2[0:3] == "ATG":
+                                    if realStartCodon == "ATG":
                                         preferredStartLoss = "n"
                                     else:
                                         preferredStartLoss = "y"
                                 else:
                                     preferredStartLoss = "n"
-                                    if targetAbridged2[0:3] == "ATG":
+                                    if realStartCodon == "ATG":
                                         preferredStartGain = "y"
                                     else:
                                         preferredStartGain = "n"
@@ -1322,7 +1334,12 @@ def main():
                                 if putativeStopCodon in ["TAG", 'TAA', "TGA"]:
                                     stopcodon = "y"
                                 else:
-                                    stopcodon = "n"
+                                    stopcodon = stopScanPost(remove(targetTrailing, ["-"]))
+                                    if stopcodon != "n":
+
+                                        stopcodon = "y"
+                                    else:
+                                        stopcodon = "n"
                             else:
                                 stopcodon = stopScanPost(remove(targetTrailing, ["-"]))
                                 if stopcodon != "n":
@@ -1810,7 +1827,7 @@ def full(args, file_dict, log_file_dict=None):
                 target = (list(file.keys())[1])
                 targetSeq = file[target]
 
-                querylength = len(refSeq)
+                querylength = len(remove(refSeq, ["-"]))
                 slack = querylength * 0.1
                 slack = round(slack)
 
@@ -1926,20 +1943,32 @@ def full(args, file_dict, log_file_dict=None):
                             if Nterm == "y":
                                 if targetAbridged2[0:3] in ["ATG", "GTG", "TTG"]:
                                     startcodon = "y"
+                                    realStartCodon = targetAbridged2[0:3]
                                 else:
-                                    startcodon = "n"
+                                    anotherStartCodon = startScanPost(remove(targetLeading[1], ["-"]))
+                                    if anotherStartCodon not in ["ATG", "TTG", "GTG"]:
+                                        anotherStartCodon = startScanPre(remove(targetLeading[0], ["-"]))
+                                        if anotherStartCodon not in ["ATG", "TTG", "GTG"]:
+                                            startcodon = "n"
+                                            realStartCodon = targetAbridged2[0:3]
+                                        else:
+                                            startcodon = "y"
+                                            realStartCodon = anotherStartCodon
+                                    else:
+                                        startcodon = "y"
+                                        realStartCodon = anotherStartCodon
 
                                 preferredStartLoss = ''
                                 preferredStartGain = ''
                                 if START == "ATG":
                                     preferredStartGain = "n"
-                                    if targetAbridged2[0:3] == "ATG":
+                                    if realStartCodon == "ATG":
                                         preferredStartLoss = "n"
                                     else:
                                         preferredStartLoss = "y"
                                 else:
                                     preferredStartLoss = "n"
-                                    if targetAbridged2[0:3] == "ATG":
+                                    if realStartCodon == "ATG":
                                         preferredStartGain = "y"
                                     else:
                                         preferredStartGain = "n"
@@ -1972,7 +2001,12 @@ def full(args, file_dict, log_file_dict=None):
                                 if putativeStopCodon in ["TAG", 'TAA', "TGA"]:
                                     stopcodon = "y"
                                 else:
-                                    stopcodon = "n"
+                                    stopcodon = stopScanPost(remove(targetTrailing, ["-"]))
+                                    if stopcodon != "n":
+
+                                        stopcodon = "y"
+                                    else:
+                                        stopcodon = "n"
                             else:
                                 stopcodon = stopScanPost(remove(targetTrailing, ["-"]))
                                 if stopcodon != "n":
