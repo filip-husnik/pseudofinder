@@ -1689,9 +1689,8 @@ def full(args, file_dict, log_file_dict=None):
     redunDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     for i in blast:
 
-        identity = float(ls[2])
-
         ls = i.rstrip().split("\t")
+        identity = float(ls[2])
         alnregionlength = (int(ls[7]) - int(ls[6]) + 1)
         targetlength = diff(int(ls[8]), int(ls[9]))
         querylength = len(ffn[ls[0]])
