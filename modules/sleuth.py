@@ -1837,7 +1837,7 @@ def full(args, file_dict, log_file_dict=None):
                     redunDict[targetStart]["target"] = target
                 else:
                     if identity > redunDict[targetStart]["ID"]:
-                        blastDict2[key].pop(redunDict[targetStart]["target"], None)
+                        blastDict2[ls[0]].pop(redunDict[targetStart]["target"], None)
 
                         target = ls[1] + "-" + ls[8] + "-" + ls[9]
                         blastDict2[ls[0]][target] = seq
