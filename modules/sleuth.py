@@ -1756,9 +1756,12 @@ def full(args, file_dict, log_file_dict=None):
                                 blastDict2[key][target] = seq
                                 aniDict[key][target] = ANI
 
-                                redunDict[targetStart] = identity
+                                redunDict[targetStart]["ID"] = identity
+                                redunDict[targetStart]["target"] = target
                             else:
-                                if identity > redunDict[targetStart]:
+                                if identity > redunDict[targetStart]["ID"]:
+                                    blastDict2[key].pop(redunDict[targetStart]["target"], None)
+
                                     target = l + "-" + str(j[0]) + "-" + str(lastItem(j))
                                     start = int(coordDict[j[0]][8])
                                     end = int(coordDict[j[0]][9])
@@ -1776,7 +1779,8 @@ def full(args, file_dict, log_file_dict=None):
                                     blastDict2[key][target] = seq
                                     aniDict[key][target] = ANI
 
-                                    redunDict[targetStart] = identity
+                                    redunDict[targetStart]["ID"] = identity
+                                    redunDict[targetStart]["target"] = target
                                 else:
                                     pass
 
@@ -1799,7 +1803,9 @@ def full(args, file_dict, log_file_dict=None):
 
                             redunDict[targetStart] = identity
                         else:
-                            if identity > redunDict[targetStart]:
+                            if identity > redunDict[targetStart]["ID"]:
+                                blastDict2[key].pop(redunDict[targetStart]["target"], None)
+
                                 target = l + "-" + str(blastDict3[l][0][8]) + "-" + str(blastDict3[l][0][9])
                                 start = int(blastDict3[l][0][8])
                                 end = int(blastDict3[l][0][9])
@@ -1813,7 +1819,8 @@ def full(args, file_dict, log_file_dict=None):
                                 blastDict2[key][target] = seq
                                 aniDict[key][target] = str(blastDict3[l][0][2])
 
-                                redunDict[targetStart] = identity
+                                redunDict[targetStart]["ID"] = identity
+                                redunDict[targetStart]["target"] = target
                             else:
                                 pass
 
@@ -1827,12 +1834,15 @@ def full(args, file_dict, log_file_dict=None):
 
                     redunDict[targetStart] = identity
                 else:
-                    if identity > redunDict[targetStart]:
+                    if identity > redunDict[targetStart]["ID"]:
+                        blastDict2[key].pop(redunDict[targetStart]["target"], None)
+
                         target = ls[1] + "-" + ls[8] + "-" + ls[9]
                         blastDict2[ls[0]][target] = seq
                         aniDict[ls[0]][target] = ls[2]
 
-                        redunDict[targetStart] = identity
+                        redunDict[targetStart]["ID"] = identity
+                        redunDict[targetStart]["target"] = target
                     else:
                         pass
 
