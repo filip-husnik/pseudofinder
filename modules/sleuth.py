@@ -1686,8 +1686,11 @@ def full(args, file_dict, log_file_dict=None):
     aniDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     counter = 0
     blast = open("%s/cds.genome.blast" % out)
-    redunDict = defaultdict(lambda: 'EMPTY')
+    redunDict = defaultdict(lambda: defaultdict(lambda: 'EMPTY'))
     for i in blast:
+
+        identity = float(ls[2])
+
         ls = i.rstrip().split("\t")
         alnregionlength = (int(ls[7]) - int(ls[6]) + 1)
         targetlength = diff(int(ls[8]), int(ls[9]))
@@ -1754,7 +1757,30 @@ def full(args, file_dict, log_file_dict=None):
                                 blastDict2[key][target] = seq
                                 aniDict[key][target] = ANI
 
-                                redunDict[targetStart] = target
+                                redunDict[targetStart] = identity
+                            else:
+                                if identity > redunDict[targetStart]:
+                                    target = l + "-" + str(j[0]) + "-" + str(lastItem(j))
+                                    start = int(coordDict[j[0]][8])
+                                    end = int(coordDict[j[0]][9])
+
+                                    if start > end:
+                                        seq = reverseComplement(
+                                            genome[l][j[0] - 1 - slack:lastItem(j) - 1 + slack])
+                                    else:
+                                        seq = genome[l][j[0] - 1 - slack:lastItem(j) + slack]
+
+                                    aniList = []
+                                    for n in j:
+                                        aniList.append(float(coordDict[n][2]))
+                                    ANI = statistics.mean(aniList)
+                                    blastDict2[key][target] = seq
+                                    aniDict[key][target] = ANI
+
+                                    redunDict[targetStart] = identity
+                                else:
+                                    pass
+
                     else:
                         targetStart = l + "-" + str(blastDict3[l][0][8])
                         if targetStart not in redunDict.keys():
@@ -1772,7 +1798,25 @@ def full(args, file_dict, log_file_dict=None):
                             blastDict2[key][target] = seq
                             aniDict[key][target] = str(blastDict3[l][0][2])
 
-                            redunDict[targetStart] = target
+                            redunDict[targetStart] = identity
+                        else:
+                            if identity > redunDict[targetStart]:
+                                target = l + "-" + str(blastDict3[l][0][8]) + "-" + str(blastDict3[l][0][9])
+                                start = int(blastDict3[l][0][8])
+                                end = int(blastDict3[l][0][9])
+
+                                if start > end:
+                                    seq = reverseComplement(
+                                        genome[l][end - 1 - slack:start - 1 + slack])
+                                else:
+                                    seq = genome[l][start - 1 - slack:end + slack]
+
+                                blastDict2[key][target] = seq
+                                aniDict[key][target] = str(blastDict3[l][0][2])
+
+                                redunDict[targetStart] = identity
+                            else:
+                                pass
 
             else:
                 targetStart = ls[1] + "-" + ls[8]
@@ -1782,7 +1826,16 @@ def full(args, file_dict, log_file_dict=None):
                     blastDict2[ls[0]][target] = seq
                     aniDict[ls[0]][target] = ls[2]
 
-                    redunDict[targetStart] = target
+                    redunDict[targetStart] = identity
+                else:
+                    if identity > redunDict[targetStart]:
+                        target = ls[1] + "-" + ls[8] + "-" + ls[9]
+                        blastDict2[ls[0]][target] = seq
+                        aniDict[ls[0]][target] = ls[2]
+
+                        redunDict[targetStart] = identity
+                    else:
+                        pass
 
         else:
             counter += 1
