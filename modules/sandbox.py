@@ -1009,3 +1009,67 @@ def convert_csv_to_dnds(dnds_file):
             fields = [common.literal_eval(x) for x in re.split(",", line.rstrip("\n"))]
             dnds_list.append(dnds_data(*fields[:-1])) # unpacking
     return dnds_list
+
+
+
+def assign_pseudotype(feature, pseudotype):
+    """
+    Fully replaceable pseudotypes:
+        - Input.general
+        - NotPseudo.intact
+
+    Fully irreplaceable pseudotypes:
+        - NotPseudo.consumed
+        - MultiIssue.sleuth
+
+    Pseudotypes that can be combined to create a MultiIssue.general pseudotype:
+        - Input.indel
+        - Input.internalstop
+        - any single Blast pseudotype
+
+    Blast PseudoType logic:
+        - Blast.fragment will replace any of the following:
+            - truncated
+            - truncated + short alignment
+            - truncated + intergenic
+            - intergenic
+            -
+
+
+    Pseudotypes that will create MultiIssue.sleuth pseudotype if they are combined with anything else:
+        - Any sleuth pseudotype
+    """
+    current_pseudotype = feature.qualifiers['pseudo_type']
+    assigned_pseudotype = pseudotype
+
+    # If the feature is assigned to no longer be a pseudogene, that takes absolute precendence
+    if type(assigned_pseudotype) is PseudoType.NotPseudo:
+        feature.qualifiers['pseudo_type'] = assigned_pseudotype
+
+    # If the feature has been consumed, do not act on it
+    elif current_pseudotype is PseudoType.NotPseudo.consumed:
+        pass
+
+    # Input pseudo refinement
+    elif type(current_pseudotype) is PseudoType.Input:
+        if current_pseudotype is PseudoType.Input.general:
+            feature.qualifiers['pseudo_type'] = assigned_pseudotype
+        else:
+            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.general
+
+    return False
+
+def adjacent_fragments_proximity(f1, f2):
+    f1_hits = set(f1.qualifiers['hits'])
+    f2_hits = set(f2.qualifiers['hits'])
+    common_hits = list(f1_hits & f2_hits)
+    mean_common_length = sum([blasthit_length(hit, 'nt') for hit in common_hits]) / len(common_hits)
+
+    if len(common_hits) == 0:
+        return False
+
+    else:
+        f1_set = set([hit.subject_accession for hit in f1_hits])
+        f2_set = set([hit.subject_accession for hit in f2_hits])
+
+    return False # stub

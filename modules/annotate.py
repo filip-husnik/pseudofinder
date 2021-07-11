@@ -5,6 +5,7 @@ from .data_structures import PseudoType, BlastHit, StatisticsDict
 import re
 import os
 import shutil
+import statistics
 from copy import deepcopy
 from pandas.core.common import flatten
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
@@ -83,58 +84,6 @@ def translate_cds(args, feature, seqrecord):
                                    "Error: %s\n"
                                    "Please fix input file. Pseudofinder will exit now." % (feature.qualifiers['locus_tag'][0], e))
             exit()
-
-
-def assign_pseudotype(feature, pseudotype):
-    """
-    Fully replaceable pseudotypes:
-        - Input.general
-        - NotPseudo.intact
-
-    Fully irreplaceable pseudotypes:
-        - NotPseudo.consumed
-        - MultiIssue.sleuth
-
-    Pseudotypes that can be combined to create a MultiIssue.general pseudotype:
-        - Input.indel
-        - Input.internalstop
-        - any single Blast pseudotype
-
-    Blast PseudoType logic:
-        - Blast.fragment will replace any of the following:
-            - truncated
-            - truncated + short alignment
-            - truncated + intergenic
-            - intergenic
-            -
-
-
-    Pseudotypes that will create MultiIssue.sleuth pseudotype if they are combined with anything else:
-        - Any sleuth pseudotype
-    """
-    current_pseudotype = feature.qualifiers['pseudo_type']
-    assigned_pseudotype = pseudotype
-
-    # If the feature is assigned to no longer be a pseudogene, that takes absolute precendence
-    if type(assigned_pseudotype) is PseudoType.NotPseudo:
-        feature.qualifiers['pseudo_type'] = assigned_pseudotype
-
-    # If the feature has been consumed, do not act on it
-    elif current_pseudotype is PseudoType.NotPseudo.consumed:
-        pass
-
-    # Input pseudo refinement
-    elif type(current_pseudotype) is PseudoType.Input:
-        if current_pseudotype is PseudoType.Input.general:
-            feature.qualifiers['pseudo_type'] = assigned_pseudotype
-        else:
-            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.general
-
-
-
-
-
-    return False
 
 
 def add_qualifiers_to_features(args, seqrecord):
@@ -534,64 +483,104 @@ def check_dnds(feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.dnds is not None:
         if sleuth_data.dnds > 0.3:
-            feature.type = 'pseudogene'
-            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.dnds
-            reason = "Elevated dN/dS: %s." % (round(sleuth_data.dnds, 4))
-
-            if sleuth_data.dnds > 3:
-                reason = reason[:-1] + " (this exceptionally high dN/dS is likely caused by a poor alignment," \
-                                       " which may be indiciative of a true pseudogene, or a false positive " \
-                                       "BLAST hit)."
-
-            feature.qualifiers['pseudo_candidate_reasons'].append(reason)
-            feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+            manage_pseudo_type(feature, PseudoType.Sleuth.dnds)
 
 
 def check_dsds(feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.dsds is not None:
         if sleuth_data.dsds > 15 or sleuth_data.delta_ds > 0.1:
-            feature.type = 'pseudogene'
-            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.frameshift
-            reason = str(sleuth_data.out_of_frame_inserts + sleuth_data.out_of_frame_dels) + " significant frameshift-inducing indel(s)."
-            feature.qualifiers['pseudo_candidate_reasons'].append(reason)
-            feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+            manage_pseudo_type(feature, PseudoType.Sleuth.frameshift)
 
 
 def check_start_codon(feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.start is False:
-        feature.type = 'pseudogene'
-        if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
-            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
-        else:
-            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.start_codon
-        reason = "Missing start codon."
-        feature.qualifiers['pseudo_candidate_reasons'].append(reason)
-        feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+        manage_pseudo_type(feature, PseudoType.Sleuth.start_codon)
 
 
 def check_stop_codon(feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.stop_codon is False and sleuth_data.internal_stops == 0:
-        feature.type = 'pseudogene'
-        if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
-            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
-        else:
-            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.stop_codon
-        reason = "Missing stop codon."
-        feature.qualifiers['pseudo_candidate_reasons'].append(reason)
-        feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+        manage_pseudo_type(feature, PseudoType.Sleuth.stop_codon)
+
 
     elif sleuth_data.internal_stops > 0 and sleuth_data.first_stop_codon < 0.75:
-        feature.type = 'pseudogene'
-        if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
-            feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
+        manage_pseudo_type(feature, PseudoType.Sleuth.internal_stop)
+
+
+def check_blasthit_deviation(args, feature):
+    db_lengths = [blasthit_length(hit, 'nt') for hit in feature.qualifiers['hits']]
+    mean_db_length = sum(db_lengths) / len(db_lengths)
+    stdev = statistics.stdev(db_lengths)
+    num_deviations = 2
+
+    if len(feature) < mean_db_length - stdev * num_deviations:
+        manage_pseudo_type(feature, PseudoType.Blast.truncated)
+        # print("SHORT: Mean = %s +/- %s, feature len = %s" % (mean_db_length, stdev, len(feature)))
+
+    elif len(feature) > mean_db_length + stdev * num_deviations:
+        manage_pseudo_type(feature, PseudoType.Blast.long)
+        # print("LONG: Mean = %s +/- %s, feature len = %s" % (mean_db_length, stdev, len(feature)))
+    else:
+        pass
+
+
+def check_blasthit_length(args, feature):
+    if feature_length_relative_to_hits(feature) <= args.length_pseudo:
+        manage_pseudo_type(feature, PseudoType.Blast.truncated)
+
+    elif feature_length_relative_to_hits(feature) >= 2 - args.length_pseudo:
+        if args.no_bidirectional_length:
+            pass
         else:
-            feature.qualifiers['pseudo_type'] = PseudoType.Sleuth.internal_stop
-        reason = "Internal stop codon at " + str(round(sleuth_data.first_stop_codon * 100)) + "% expected length."
-        feature.qualifiers['pseudo_candidate_reasons'].append(reason)
-        feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+            manage_pseudo_type(feature, PseudoType.Blast.long)
+
+    elif feature_length_relative_to_hits(feature, alignment=True) <= args.length_pseudo:
+        if args.use_alignment:
+            manage_pseudo_type(feature, PseudoType.Blast.short_alignment)
+
+
+def check_intergenic_hits(args, feature):
+    if len(feature.qualifiers['hits']) / args.hitcap >= args.intergenic_threshold:
+        manage_pseudo_type(feature, PseudoType.Blast.intergenic)
+
+
+def manage_pseudo_type(feature, new_pseudo_call):
+    length_reason = 'ORF is %s%% of the average length of hits to this gene.' % (
+            round(feature_length_relative_to_hits(feature) * 100, 1))
+    reason_dict = {
+        PseudoType.Blast.truncated: length_reason,
+        PseudoType.Blast.long: length_reason,
+        PseudoType.Blast.short_alignment: length_reason,
+        PseudoType.Blast.intergenic: 'Intergenic region with %s blast hits.' % len(feature.qualifiers['hits'])
+
+    }
+    if len(feature.qualifiers['sleuth']) > 0:
+        sleuth_data = feature.qualifiers['sleuth'][0]
+        reason_dict.update({
+            PseudoType.Sleuth.dnds: "Elevated dN/dS: %s." % (round(sleuth_data.dnds, 4)), #TODO: add high dnds reason
+            PseudoType.Sleuth.frameshift: str(sleuth_data.out_of_frame_inserts + sleuth_data.out_of_frame_dels) + " significant frameshift-inducing indel(s).",
+            PseudoType.Sleuth.start_codon: "Missing start codon.",
+            PseudoType.Sleuth.stop_codon: "Missing stop codon.",
+            PseudoType.Sleuth.internal_stop: "Internal stop codon at " + str(round(sleuth_data.first_stop_codon * 100)) + "% expected length.",
+        })
+
+        if sleuth_data.dnds > 3:
+            high_dnds_comment = " (this exceptionally high dN/dS is likely caused by a poor alignment," \
+                                   " which may be indiciative of a true pseudogene, or a false positive " \
+                                   "BLAST hit)."
+            reason_dict[PseudoType.Sleuth.dnds] = reason_dict[PseudoType.Sleuth.dnds][:-1] + high_dnds_comment
+
+    if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
+        feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth    # Do not overwrite a sleuth call
+
+    else:
+        feature.qualifiers['pseudo_type'] = new_pseudo_call
+
+    feature.type = 'pseudogene'
+    feature.qualifiers['pseudo_candidate_reasons'].append(reason_dict[new_pseudo_call])
+    feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
 
 
 def find_individual_pseudos(args, seqrecord):
@@ -608,45 +597,20 @@ def find_individual_pseudos(args, seqrecord):
             check_start_codon(feature)
             check_stop_codon(feature)
 
-        # Option 2: Length-based pseudogenes
-        if feature.type != 'intergenic' and len(feature.qualifiers['hits']) > 0:
-            if feature_length_relative_to_hits(feature) <= args.length_pseudo:
-                feature.type = 'pseudogene'
-                if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
-                    feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
-                else:
-                    feature.qualifiers['pseudo_type'] = PseudoType.Blast.truncated
+        # Option 2.a: Length-based pseudogenes (by standard deviation)
+        if args.use_deviation:
+            if feature.type != 'intergenic' and len(feature.qualifiers['hits']) > 2:
+                check_blasthit_deviation(args, feature)
 
-            elif feature_length_relative_to_hits(feature) >= 2 - args.length_pseudo:
-                if args.no_bidirectional_length:
-                    pass
-                else:
-                    feature.type = 'pseudogene'
-                    if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
-                        feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth
-                    else:
-                        feature.qualifiers['pseudo_type'] = PseudoType.Blast.long
-
-            elif feature_length_relative_to_hits(feature, alignment=True) <= args.length_pseudo:
-                if args.use_alignment:
-                    feature.type = 'pseudogene'
-                    if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
-                        print("we made it bois 3")
-                    feature.qualifiers['pseudo_type'] = PseudoType.Blast.short_alignment
-
-            if type(feature.qualifiers['pseudo_type']) is PseudoType.Blast:
-                reason = 'ORF is %s%% of the average length of hits to this gene.' % (round(feature_length_relative_to_hits(feature)*100, 1))
-                feature.qualifiers['pseudo_candidate_reasons'].append(reason)
-                feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+        # # Option 2.b: Length-based pseudogenes (by average gene length)
+        if not args.use_deviation:
+            if feature.type != 'intergenic' and len(feature.qualifiers['hits']) > 0:
+                check_blasthit_length(args, feature)
 
         # Option 3: Intergenic pseudogene
         if feature.type == 'intergenic':
-            if len(feature.qualifiers['hits']) / args.hitcap >= args.intergenic_threshold:
-                feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.Blast.intergenic
-                reason = 'Intergenic region with %s blast hits.' % len(feature.qualifiers['hits'])
-                feature.qualifiers['pseudo_candidate_reasons'].append(reason)
-                feature.qualifiers['parents'].append(feature.qualifiers['locus_tag'][0])
+            check_intergenic_hits(args, feature)
+
         else:
             pass
 
@@ -705,22 +669,6 @@ def concatenation_overestimation_checker(args, f1, f2):
             return False
         else:
             return True
-
-
-def adjacent_fragments_proximity(f1, f2):
-    f1_hits = set(f1.qualifiers['hits'])
-    f2_hits = set(f2.qualifiers['hits'])
-    common_hits = list(f1_hits & f2_hits)
-    mean_common_length = sum([blasthit_length(hit, 'nt') for hit in common_hits]) / len(common_hits)
-
-    if len(common_hits) == 0:
-        return False
-
-    else:
-        f1_set = set([hit.subject_accession for hit in f1_hits])
-        f2_set = set([hit.subject_accession for hit in f2_hits])
-
-    return False # stub
 
 
 def adjacent_fragments_match(args, f1, f2):
@@ -1027,7 +975,7 @@ def main():
     intergenic = extract_features_from_genome(args, genome, 'intergenic')
     input_pseudos = extract_features_from_genome(args, genome, 'pseudogene')
 
-    # Write initial files
+    # # Write initial files
     write_fasta(seqs=genome, outfile=file_dict['contigs_filename'], in_type='records')
     write_fasta(seqs=proteome, outfile=file_dict['cds_filename'], seq_type='nt')
     write_fasta(seqs=proteome, outfile=file_dict['proteome_filename'], seq_type='aa')

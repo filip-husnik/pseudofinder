@@ -516,6 +516,15 @@ def get_args(module='None', **kwargs):
         'default': False,
         'action': 'store_true'
     }
+    use_deviation = {
+        'short': '-dev',
+        'long': '--use_deviation',
+        'help': 'Feature currently in development, use at own risk. This flag will make pseudofinder call pseudogenes if '
+                'the gene length falls outside of two standard deviations from the mean blast hit length.',
+        'required': False,
+        'default': False,
+        'action': 'store_true'
+    }
 
     if names_only:
         to_remove = ['module', 'kwargs', 'names_only', 'to_remove']
@@ -528,7 +537,7 @@ def get_args(module='None', **kwargs):
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, hitcap,
                          contig_ends, intergenic_threshold, reference, diamond, skip_makedb,
-                         no_bidirectional_length, use_alignment, perc_id, perc_cov, max_dnds]
+                         no_bidirectional_length, use_alignment, perc_id, perc_cov, max_dnds, use_deviation]
         deprecated_args = [distance]
 
     elif module == 'reannotate':
