@@ -469,6 +469,9 @@ def feature_length_relative_to_hits(feature, alignment=False) -> float:
     """
 
     db_lengths = [blasthit_length(hit, 'nt') for hit in feature.qualifiers['hits']]
+    print(feature)
+    print(db_lengths)
+    print("")
     average_db_len = sum(db_lengths) / len(db_lengths)
 
     if alignment:
