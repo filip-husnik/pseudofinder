@@ -547,8 +547,14 @@ def check_intergenic_hits(args, feature):
 
 
 def manage_pseudo_type(feature, new_pseudo_call):
-    length_reason = 'ORF is %s%% of the average length of hits to this gene.' % (
-            round(feature_length_relative_to_hits(feature) * 100, 1))
+    # try statement added to catch error where manage_pseudo_type() is called on a gene with no blast hits
+    # Due to sleuth module calling for a pseudo
+    try:
+        length_reason = 'ORF is %s%% of the average length of hits to this gene.' % (
+                round(feature_length_relative_to_hits(feature) * 100, 1))
+    except ZeroDivisionError:
+        length_reason = 'n/a'
+
     reason_dict = {
         PseudoType.Blast.truncated: length_reason,
         PseudoType.Blast.long: length_reason,
