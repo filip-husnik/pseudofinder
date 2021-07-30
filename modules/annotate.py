@@ -509,32 +509,46 @@ def check_stop_codon(feature):
         manage_pseudo_type(feature, PseudoType.Sleuth.internal_stop)
 
 
-def check_blasthit_deviation(args, feature):
+def blasthit_deviation(args, feature):
+    """
+    Returns True if the length of a gene is more than two standard deviations from the mean blasthit length,
+    otherwise returns False.
+    """
+    # Do not run this function if there are not more than 2 data points
+    if len(feature.qualifiers['hits']) < 2:
+        return False
+
     db_lengths = [blasthit_length(hit, 'nt') for hit in feature.qualifiers['hits']]
     mean_db_length = sum(db_lengths) / len(db_lengths)
     stdev = statistics.stdev(db_lengths)
     num_deviations = 2
 
-    if len(feature) < mean_db_length - stdev * num_deviations:
-        manage_pseudo_type(feature, PseudoType.Blast.truncated)
-        # print("SHORT: Mean = %s +/- %s, feature len = %s" % (mean_db_length, stdev, len(feature)))
-
-    elif len(feature) > mean_db_length + stdev * num_deviations:
-        manage_pseudo_type(feature, PseudoType.Blast.long)
-        # print("LONG: Mean = %s +/- %s, feature len = %s" % (mean_db_length, stdev, len(feature)))
+    if mean_db_length - stdev * num_deviations < len(feature) < mean_db_length + stdev * num_deviations:
+        return False
     else:
-        pass
+        return True
 
 
 def check_blasthit_length(args, feature):
+    # Check for short pseudos
     if feature_length_relative_to_hits(feature) <= args.length_pseudo:
-        manage_pseudo_type(feature, PseudoType.Blast.truncated)
+        # If use_deviation is called, check to make sure that it falls outside 2 standard deviations
+        if args.use_deviation:
+            if blasthit_deviation(args, feature):
+                manage_pseudo_type(feature, PseudoType.Blast.truncated)
+        else:
+            manage_pseudo_type(feature, PseudoType.Blast.truncated)
 
+    # Check for long pseudos
     elif feature_length_relative_to_hits(feature) >= 2 - args.length_pseudo:
         if args.no_bidirectional_length:
             pass
         else:
-            manage_pseudo_type(feature, PseudoType.Blast.long)
+            if args.use_deviation:
+                if blasthit_deviation(args, feature):
+                    manage_pseudo_type(feature, PseudoType.Blast.long)
+            else:
+                manage_pseudo_type(feature, PseudoType.Blast.long)
 
     elif feature_length_relative_to_hits(feature, alignment=True) <= args.length_pseudo:
         if args.use_alignment:
@@ -603,15 +617,14 @@ def find_individual_pseudos(args, seqrecord):
             check_start_codon(feature)
             check_stop_codon(feature)
 
-        # Option 2.a: Length-based pseudogenes (by standard deviation)
-        if args.use_deviation:
-            if feature.type != 'intergenic' and len(feature.qualifiers['hits']) > 2:
-                check_blasthit_deviation(args, feature)
+        # Option 2: Length-based pseudogene
+        if feature.type != 'intergenic' and len(feature.qualifiers['hits']) > 0:
+            check_blasthit_length(args, feature)
 
-        # # Option 2.b: Length-based pseudogenes (by average gene length)
-        if not args.use_deviation:
-            if feature.type != 'intergenic' and len(feature.qualifiers['hits']) > 0:
-                check_blasthit_length(args, feature)
+
+        # if args.use_deviation:
+        #     if feature.type != 'intergenic' and len(feature.qualifiers['hits']) > 2:
+        #         check_blasthit_deviation(args, feature)
 
         # Option 3: Intergenic pseudogene
         if feature.type == 'intergenic':
