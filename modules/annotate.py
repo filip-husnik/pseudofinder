@@ -482,7 +482,7 @@ def feature_length_relative_to_hits(feature, alignment=False) -> float:
 def check_dnds(feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.dnds is not None:
-        if sleuth_data.dnds > 0.3:
+        if sleuth_data.dnds > args.max_dnds:
             manage_pseudo_type(feature, PseudoType.Sleuth.dnds)
 
 
