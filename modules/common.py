@@ -244,8 +244,8 @@ def get_args(module='None', **kwargs):
     }
 
     perc_id = {
-        'short': '-id',
-        'long': '--perc_id',
+        'short': '-cov',
+        'long': '--perc_cov',
         'help': 'the candidate gene/pseudogene needs to be at least this proportion of '
                 'reference gene length for frameshift and dN/dS analysis (Sleuth module or Annotate module with -reference). Default is %(default)s.',
         'required': False,
@@ -254,8 +254,8 @@ def get_args(module='None', **kwargs):
     }
 
     perc_cov = {
-        'short': '-cov',
-        'long': '--perc_cov',
+        'short': '-id',
+        'long': '--perc_id',
         'help': 'the candidate gene/pseudogene needs to be at least this percent identicial '
                 'to reference gene for frameshift and dN/dS analysis (Sleuth module or Annotate module with -reference). Default is %(default)s.',
         'required': False,
