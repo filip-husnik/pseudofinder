@@ -306,6 +306,10 @@ Pseudofinder is developed by Mitch Syberg-Olsen<sup>1</sup>, Arkadiy Garber<sup>
 
 <sup>3</sup> Okinawa Institute of Science and Technology, Okinawa, Japan
 
-This project still a work in progress, so there is no official publication. If it was useful for your work, you can cite it as: M. Syberg-Olsen, A. Garber, P. Keeling, J. McCutcheon, & F. Husnik 2020: Pseudofinder, GitHub repository: https://github.com/filip-husnik/pseudofinder/.
+If it was useful for your work, please cite it as:
+
+Syberg-Olsen MJ*, Graber AI*, Keeling PJ, McCutcheon JP, Husnik F. Pseudofinder: detection of pseudogenes in prokaryotic genomes, bioRxiv 2021, doi: 10.1101/2021.10.07.463580. GitHub repository: https://github.com/filip-husnik/pseudofinder/.
+
+*Co-first authors.
 
 Please also cite various dependencies used by Pseudofinder.
