@@ -286,13 +286,13 @@ There are several additional features we'll try to include in the script in the 
 
 2. Improve logic for ORFs on contig ends broken by assembly issues (e.g. metagenome-assembled genomes).
 
-3. Check if the ORFs called as pseudogenes do not represent individual protein domains that can exists and evolve independently of the rest of the original multi-domain protein chain (PFAM?)
+3. Check if the ORFs called as pseudogenes do not represent individual protein domains that can exist and evolve independently of the rest of the original multi-domain protein chain (PFAM?)
 
 4. Fine tune pseudogene finding for mobile elements such as transposases.
 
 5. Visualize results by a scatter plot of all genes/pseudogenes (dN/dS, GC content, expression, length ratio, ...).
 
-6. Sometimes ORFs are predicted by mistake on the opposite strand (e.g. in GC-rich genomes), check regions with ORFS with no blastP hits by blastX.
+6. Sometimes ORFs are predicted by mistake on the opposite strand or many additional spurious ORFs are predicted in GC-rich genomes (stop codons are AT-rich). Include an ORF filtering step and/or check regions with ORFS with no blastP hits by blastX. Include a proteomics validation step for hypothetical proteins.
 
 Please suggest any additional features here: [https://github.com/filip-husnik/pseudofinder/issues].
 
