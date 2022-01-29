@@ -5,4 +5,5 @@ __all__ = ['annotate',
            'pseudofinder_test',
            'reannotate',
            'visualize',
-           'interactive']
+           'interactive',
+           'sleuth']

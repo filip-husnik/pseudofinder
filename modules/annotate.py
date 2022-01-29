@@ -530,6 +530,11 @@ def blasthit_deviation(args, feature):
 
 
 def check_blasthit_length(args, feature):
+    try:
+        args.use_deviation
+    except AttributeError:
+        args.use_deviation = False
+
     # Check for short pseudos
     if feature_length_relative_to_hits(feature) <= args.length_pseudo:
         # If use_deviation is called, check to make sure that it falls outside 2 standard deviations

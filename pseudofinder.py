@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-from sys import argv, stderr
-from modules import *
-from modules import sleuth
-
 """
 pseudofinder.py: A script to find pseudogene candidates in annotated genbank files.
 Tested mostly on .gbk files annotated by Prokka with the --compliant flag.
@@ -14,6 +10,22 @@ __author__ = "Mitch Syberg-Olsen, Arkadiy Garber & Filip Husnik"
 __version__ = "1.00"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
+
+try:
+    from sys import argv, stderr
+    from modules import *
+
+except ModuleNotFoundError as err:
+    stderr.write(f"Pseudofinder encountered an error: {str(err)}.\n"
+                 f"If you are a conda user, please enable the Pseudofinder environment with the following command:\n"
+                 f"conda activate pseudofinder\n"
+                 f"If you are not a conda user, please check that you have installed the required dependencies.\n")
+    exit()
+
+except ImportError as err:
+    stderr.write(f"Pseudofinder encountered an error: {str(err)}.\n"
+                 f"Please check that no files are missing from the pseudofinder/modules folder.\n")
+    exit()
 
 errorMessage = "Options: " + common.bold("pseudofinder.py [ annotate | reannotate | visualize | sleuth | test | help ]\n")
 
