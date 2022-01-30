@@ -940,8 +940,7 @@ def main():
 
     ref_genes = args.ref_genes
     ref_gff = args.ref_gff
-    print(ref_gff)
-    target_genome = args.genome
+    target_genome = args.contigs
     outdir = args.outdir
     e = args.evalue
     threads = args.threads
