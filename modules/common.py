@@ -179,6 +179,12 @@ def get_args(module='None', **kwargs):
         'help': 'Please provide your genome file in the genbank format.',
         'required': False if module == 'test' else True
     }
+    contigs = {
+        'short': '-ctg',
+        'long': '--contigs',
+        'help': 'Please provide your genome file in FASTA nucleic acid format (in contigs).',
+        'required': False if module == 'test' else True
+    }
     annotated_genome = {
         'short': '-ag',
         'long': '--annotated_genome',
@@ -552,7 +558,7 @@ def get_args(module='None', **kwargs):
         deprecated_args = []
 
     elif module == 'sleuth':
-        required_args = [ref_genes, genome, ref_gff]
+        required_args = [contigs, ref_genes, ref_gff]
         optional_args = [outdir, threads, perc_id, perc_cov, evalue, max_dnds, length_pseudo]
         deprecated_args = []
 
