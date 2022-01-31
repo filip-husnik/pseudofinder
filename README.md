@@ -165,7 +165,7 @@ Every run will produce the following files:
 | \[prefix]_pseudos.fasta | Candidate pseudogenes in fasta format. |
 | \[prefix]_dnds | Directory containing output from the dnds module: BLAST results, dN/dS summary file, and a folder containing the nucleotide, amino acids, and codon alignments that were used to calculate dN and dS values. |
 
-The interactive plot is a good place to start engaging with your data. 
+The interactive plot is a good place to start engaging with your data. Here you will find a summary of all data collected for each feature on the genome and if you hover over an individual feature, the popup will give you a more detailed look. Red bars indicate features which have been flagged as pseudogenes, and the popup will tell you specifically what kind of pseudogene.
 ![alt text](https://github.com/filip-husnik/pseudofinder/blob/master/wiki_images/interactive_example.gif)
 
 ### Selection
