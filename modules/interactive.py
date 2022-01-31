@@ -47,6 +47,7 @@ class Entry:
                 if isinstance(hit, str):
                     hit = convert_string_to_blasthit(hit)
                 lengths.append(annotate.blasthit_length(hit))
+
         except KeyError:
             pass
         return lengths
@@ -54,12 +55,6 @@ class Entry:
     def retrieve_feature_type(self):
         if self.feature.type == 'pseudogene':
             return self.feature.qualifiers['pseudo_type']
-            # if isinstance(self.feature.qualifiers['pseudo_type'], data_structures.PseudoType):
-            #     return str(self.feature.qualifiers['pseudo_type'])
-            # else:
-            #     print(self.feature.qualifiers['pseudo_type'])
-            #     exit()
-            #     return str(self.feature.qualifiers['pseudo_type'][0])
         else:
             return self.feature.type
 
@@ -364,6 +359,7 @@ def convert_string_to_blasthit(string):
     fields = string.replace("BlastHit(", "")[:-1].split(",")
     fields_dict = {}
     for field in fields:
+        print(field)
         if 'stitle' not in field:
             try:
                 key, value = [x.strip(" ") for x in field.split("=")]
@@ -372,6 +368,8 @@ def convert_string_to_blasthit(string):
                 pass
         fields_dict['stitle'] = "info lost"
     blasthit = annotate.BlastHit(**fields_dict)
+    print(blasthit)
+    exit()
     return blasthit
 
 

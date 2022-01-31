@@ -193,10 +193,13 @@ def extract_features_from_genome(args, genome, feature_type: list or str) -> lis
 def write_fasta(seqs: list, outfile: str, seq_type='nt', in_type='features') -> None:
     """Takes a list of sequences in seq_feature format and writes them to fasta file"""
 
-    with open(outfile, "w") as output_handle:
-        if in_type == 'dict':  # If input is a dictionary, convert it to an iterable
-            seqs = seqs.items()
+    # convert sequences to list and sort them by start location
+    if in_type == 'dict':  # If input is a dictionary, convert it to an iterable
+        seqs = seqs.items()
+    if in_type == 'features':
+        seqs.sort(key=lambda feature: feature.location.start)  # sort by start location
 
+    with open(outfile, "w") as output_handle:
         for seq in seqs:
             if in_type == 'features':
                 if seq_type == 'nt':
@@ -391,8 +394,8 @@ def blasthit_length(hit, seq_type='nt', alignment=False):
             nt_length = aa_length*3
 
         if hit.blast_type == 'blastx':
-            nt_length = hit.length
-            aa_length = nt_length/3
+            nt_length = hit.length*3
+            aa_length = hit.length
 
     if seq_type == 'nt':
         return nt_length
@@ -479,7 +482,7 @@ def feature_length_relative_to_hits(feature, alignment=False) -> float:
         return len(feature) / average_db_len
 
 
-def check_dnds(feature):
+def check_dnds(args, feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.dnds is not None:
         if sleuth_data.dnds > args.max_dnds:
@@ -503,8 +506,6 @@ def check_stop_codon(feature):
     sleuth_data = feature.qualifiers['sleuth'][0]
     if sleuth_data.stop_codon is False and sleuth_data.internal_stops == 0:
         manage_pseudo_type(feature, PseudoType.Sleuth.stop_codon)
-
-
     elif sleuth_data.internal_stops > 0 and sleuth_data.first_stop_codon < 0.75:
         manage_pseudo_type(feature, PseudoType.Sleuth.internal_stop)
 
@@ -617,7 +618,7 @@ def find_individual_pseudos(args, seqrecord):
 
         # Option 1: sleuth pseudogene
         if len(feature.qualifiers['sleuth']) > 0:
-            check_dnds(feature)
+            check_dnds(args, feature)
             check_dsds(feature)
             check_start_codon(feature)
             check_stop_codon(feature)
@@ -821,7 +822,8 @@ def find_fragmented_pseudos(args, seqrecord):
 def update_locus_tags(args, genome):
     """Gives all pseudogenes a unique locus tag."""
 
-    pseudos = extract_features_from_genome(args, genome, 'pseudogene')
+    pseudos = extract_features_from_genome(args, genome, 'pseudogene') # collect all pseudogenes
+    pseudos.sort(key=lambda feature: feature.location.start) # sort them by start position
     i = 1
     for feature in pseudos:
         contig_id = feature.qualifiers['contig_id']

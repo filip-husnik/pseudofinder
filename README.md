@@ -129,6 +129,7 @@ This flowchart shows all steps of the Pseudofinder pipeline.
 <b>Annotate</b> is Pseudofinder's core command. Calling this command will identify pseudogene candidates in the input genome annotation, and will produce various output files, explained in detail below.
 
 As with any other python script, there are two ways how to run it:
+
 ```
 # Call it directly with python3 (or just python if python3 is your default).
 python3 pseudofinder.py
@@ -138,6 +139,7 @@ chmod u+x ./pseudofinder.py
 ```
 
 Providing input files:
+
 ```
 # Run the full pipeline on 16 processors (for BlastX/BlastP searches).
 # Unless you have a $BLASTDB environmental variable set on your system, you have to provide a full path to the NR database.
@@ -150,6 +152,7 @@ Every run will produce the following files:
 
 | File | Description |
 | --- | --- |
+| \[prefix]_interactive.html | Interactive plots which summarize the genome-wide analysis. |
 | \[prefix]_intact.gff | Intact genes in GFF3 format. |
 | \[prefix]_intact.faa | Intact genes in fasta format. |
 | \[prefix]_intergenic.fasta | Intergenic regions in fasta format. |
@@ -162,10 +165,14 @@ Every run will produce the following files:
 | \[prefix]_pseudos.fasta | Candidate pseudogenes in fasta format. |
 | \[prefix]_dnds | Directory containing output from the dnds module: BLAST results, dN/dS summary file, and a folder containing the nucleotide, amino acids, and codon alignments that were used to calculate dN and dS values. |
 
+The interactive plot is a good place to start engaging with your data. 
+![alt text](https://github.com/filip-husnik/pseudofinder/blob/master/wiki_images/interactive_example.gif)
+
 ### Selection
 The <b>selection</b> command will compare a genome against another closely-related genome. After homologous genes are identified, this module runs PAML on aligned genes to generate codon alignments and calculate per-gene dN/dS values. These dN/dS values can be used to infer neutral selection and potential cryptic pseudogenes. This module can be invoked within the <b>Annotate</b> command by providing a closely-related reference genome using the -ref flag.
 
 Usage:
+
 ```
 # Call within annotate
 python3 pseudofinder.py annotate --genome GENOME.GBF --reference REFERENCE.GBF --outprefix PREFIX --database /PATH/TO/NR/nr --threads 16 
@@ -179,6 +186,7 @@ pseudofinder.py dnds -a GENOME_PROTS -n GENOME_GENES -ra REFERENCE-PROTS -rn REF
 This command can very quickly reannotate pseudogenes if you would like to change any downstream parameters. The log file from the previous run will be parsed for previous parameters and files, so please keep the files in the locations described in the log file.
 
 Usage:
+
 ```
 pseudofinder.py reannotate -g GENOME -log LOGFILE -op OUTPREFIX
 ``` 
@@ -191,6 +199,7 @@ This command will display how many pseudogenes will be detected based on any com
 Similar to the reannotate module, the log file will be parsed for information about relevant files and parameters.
 
 Usage:
+
 ```
 pseudofinder.py visualize -g GENOME -log LOGFILE -op OUTPREFIX 
 ```
@@ -204,6 +213,7 @@ Simply enter the following command:
 ```
 python3 pseudofinder.py test --database /PATH/TO/NR/nr
 ```
+
 The workflow will begin immediately and write the results to a timestamped folder found in ```/pseudo-finder/test/```.
 
 
