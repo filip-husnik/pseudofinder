@@ -204,6 +204,8 @@ Usage:
 pseudofinder.py visualize -g GENOME -log LOGFILE -op OUTPREFIX 
 ```
 
+![alt text](https://github.com/filip-husnik/pseudofinder/blob/master/wiki_images/visualize_example.gif)
+
 ### Test
 
 With a single command, the entire Pseudofinder workflow can be run on the 139 kbp genome of <i>Candidatus</i> Tremblaya princeps strain PCIT (or optionally, you may provide your own genome).
