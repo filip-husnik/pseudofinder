@@ -1007,7 +1007,7 @@ def main():
             count += 1
     if count > 0:
 
-        print("detected \'|\' characters in input fasta file. Creating a new version of the file %s-fixed.fna" % allButTheLast(target_genomef, "."))
+        print("detected \'|\' characters in input fasta file. Creating a new version of the file %s-fixed.fna" % allButTheLast(target_genome, "."))
         out = open("%s-fixed.fna" % (allButTheLast(target_genome, ".")), "w")
         for i in genome.keys():
             out.write(">" + remove(i, ["|"]) + "\n")
