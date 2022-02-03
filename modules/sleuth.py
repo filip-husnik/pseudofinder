@@ -1550,7 +1550,6 @@ def main():
             for line in mlcNoMercy:
                 if not re.match(r'^ ', line):
                     try:
-                        print(line.rstrip())
                         dnNoMercy = (line.rstrip().split("dN = ")[1])
                         dsNoMercy = (line.rstrip().split("dS = ")[1])
                     except IndexError:
