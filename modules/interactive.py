@@ -30,6 +30,14 @@ class Entry:
         self.mean_blast_length = self.retrieve_mean_blast_length()
         self.blast_stdev = self.blast_stdev()
 
+        try:
+            self.sleuth_data = self.feature.qualifiers['sleuth'][0]
+            self.ds = self.sleuth_data.ds
+            self.dn = self.sleuth_data.dnds * self.ds   # TODO: this info should be available in the datatype.
+        except (KeyError, IndexError):
+            self.ds = None
+            self.dn = None
+
         if normalized:
             self.length = self.normalize_length()
             self.blast_stdev = self.normalize_stdev()   # must be called before normalizing length
@@ -164,12 +172,19 @@ class Figure:
                                                                             round(entry.blast_stdev, 3))
             pie_text = pie_length + bar_text + "<br>" + scatter_text
 
+            try:
+                dnds_text = bar_text + "<br>" + f"dN = {round(entry.dn, 4)}<br>dS = {round(entry.ds, 4)}"
+            except TypeError:
+                pass
+
             if object_type == "bar":
                 hovertext.append(bar_text)
             elif object_type == "scatter":
                 hovertext.append(scatter_text)
             elif object_type == 'pie':
                 hovertext.append(pie_text)
+            elif object_type == 'dnds':
+                hovertext.append(dnds_text)
             else:
                 raise RuntimeError("wrong use of Figure.hovertext().")
 
@@ -337,6 +352,80 @@ class Map(Figure):
         self.fig.add_trace(pie, row=1, col=col)
 
 
+class Dnds(Figure):
+    """Makes an XY plot of dN vs dS"""
+    def __init__(self, args, file_dict, dataset):
+        super().__init__(args, file_dict)
+        self.fig = go.Figure()
+        self.filename = self.file_dict['interactive_dnds']
+        self.dataset = dataset
+        self.fig = go.Figure()
+        self.scatter()
+        self.fig.update_layout(xaxis_title="dN",
+                               yaxis_title="dS",
+                               showlegend=False,
+                               plot_bgcolor='rgba(0,0,0,0)')
+        axes = dict(showline=True,
+                    linewidth=1,
+                    linecolor='black',
+                    rangemode="tozero",
+                    ticks="outside")
+
+        self.fig.update_xaxes(axes)
+        self.fig.update_yaxes(axes)
+
+    def scatter(self):
+        scatter_kwargs = dict()
+
+        x_vals = [entry.ds for entry in self.dataset]
+        y_vals = [entry.dn for entry in self.dataset]
+        hovertext = self.hovertext(self.dataset, 'dnds')
+
+        scatter = go.Scatter(scatter_kwargs,
+                             x=x_vals,
+                             y=y_vals,
+                             marker=dict(color=self.bar_colours(self.dataset)),
+                             mode='markers',
+                             name='',
+                             hovertemplate=hovertext)
+
+        # linear regression, y = mx + b  |   x = (y - b)/m
+        m, b = linear_regression(x_vals, y_vals)
+        r2 = r_squared(x_vals, y_vals, m, b)
+        y_1 = m * min(x_vals) + b
+        y_2 = m * max(x_vals) + b
+        x_1 = (y_1 - b) / m
+        x_2 = (y_2 - b) / m
+        xy_max = max(x_vals + y_vals)
+
+        line_dict = dict(mode='lines',
+                         name='',
+                         marker_color='black',
+                         line=dict(width=1))
+
+        trendline = go.Scatter(line_dict,
+                               x=[x_1, x_2],
+                               y=[y_1, y_2],
+                               marker_color="#6E269E")
+        slope1 = go.Scatter(line_dict,
+                            x=[0, xy_max],
+                            y=[0, xy_max])
+
+        self.fig.add_trace(scatter)
+        self.fig.add_trace(trendline)
+        self.fig.add_trace(slope1)
+        self.fig.add_annotation(x=x_2,
+                                y=y_2,
+                                showarrow=False,
+                                text=f"y = {round(m, 4)}x + {round(b, 4)}<br>"
+                                     f"R<sup>2</sup> = {round(r2, 4)}")
+
+        self.fig.add_annotation(x=xy_max,
+                                y=xy_max,
+                                showarrow=False,
+                                text=f"1:1")
+
+
 def data_is_normalized(dataset):
     """
     Returns true if every entry in the dataset is normalized.
@@ -359,7 +448,6 @@ def convert_string_to_blasthit(string):
     fields = string.replace("BlastHit(", "")[:-1].split(",")
     fields_dict = {}
     for field in fields:
-        print(field)
         if 'stitle' not in field:
             try:
                 key, value = [x.strip(" ") for x in field.split("=")]
@@ -368,8 +456,7 @@ def convert_string_to_blasthit(string):
                 pass
         fields_dict['stitle'] = "info lost"
     blasthit = annotate.BlastHit(**fields_dict)
-    print(blasthit)
-    exit()
+
     return blasthit
 
 
@@ -408,21 +495,102 @@ def genome_to_graphs(args, file_dict, genome, show=False):
     desc3 = "Sorted by normalized gene length"
     plot3_data = sorted(plot2_data, key=lambda x: x.length)
 
+    desc4 = "Only features that have dN / dS values"
+    plot4_data = [d for d in data if d.dn is not None]
+
+
     # Plot the data
     bar = Bar(args=args,
               file_dict=file_dict,
               datasets=[plot1_data, plot2_data, plot3_data],
               descriptions=[desc1, desc2, desc3])
 
-    map = Map(args=args,
-              file_dict=file_dict,
-              dataset=plot1_data)
+    # map = Map(args=args,
+    #           file_dict=file_dict,
+    #           dataset=plot1_data)
+
+    if len(plot4_data) > 0:
+        dnds = Dnds(args=args,
+                    file_dict=file_dict,
+                    dataset=plot4_data)
+        dnds.offline_plot()
+
     if show:
-         bar.show()
-         #map.show()
+        bar.show()
+        # map.show()
+        # dnds.show()
     else:
         bar.offline_plot()
         #map.offline_plot()
+
+
+def linear_regression(x_vals, y_vals):
+
+    # ensure values are stored in arrays
+    x_vals = np.array(x_vals)
+    y_vals = np.array(y_vals)
+    size = np.size(x_vals)
+
+    mean_x = np.mean(x_vals)
+    mean_y = np.mean(y_vals)
+
+    sum_squares_xy = np.sum(x_vals*y_vals) - size * mean_x * mean_y
+    sum_squares_xx = np.sum(x_vals*x_vals) - size * mean_x * mean_x
+
+    m = sum_squares_xy / sum_squares_xx
+    b = mean_y - m * mean_x
+
+    return m, b  # where y = mx + b
+
+
+def r_squared(x_vals, y_vals, m, b):
+    actual_y = np.array(y_vals)
+    pred_y = np.array([(m * x + b) for x in x_vals])
+
+    correlation_matrix = np.corrcoef(actual_y, pred_y)
+    correlation_coefficient = correlation_matrix[0, 1]
+    r2 = correlation_coefficient**2
+
+    return r2
+
+
+def scatter():
+    fig = go.Figure()
+
+    scatter_kwargs = dict()
+    x_vals = [1, 2, 3, 4, 5, 6, 7, 8.8]
+    y_vals = [1, 2, 9, 3.5, 5, 6, 7, 8]
+    text = "first line <br> second line"
+    labels = [text]*8
+    scatter = go.Scatter(scatter_kwargs,
+                         x=x_vals,
+                         y=y_vals,
+                         mode='markers',
+                         name='',
+                         text=labels)
+
+    # linear regression, y = mx + b  |   x = (y - b)/m
+    m, b = linear_regression(x_vals, y_vals)
+    r2 = r_squared(x_vals, y_vals, m, b)
+    y_1 = m * min(x_vals) + b
+    y_2 = m * max(x_vals) + b
+    x_1 = (y_1 - b) / m
+    x_2 = (y_2 - b) / m
+
+    trendline = go.Scatter(x=[x_1, x_2],
+                           y=[y_1, y_2],
+                           mode='lines',
+                           name='',)
+
+    fig.add_trace(scatter)
+    fig.add_trace(trendline)
+    fig.add_annotation(x=x_2,
+                       y=y_2,
+                       showarrow=False,
+                       text=f"y = {round(m, 4)}x + {round(b, 4)}<br>"
+                            f"R<sup>2</sup> = {round(r2, 4)}")
+
+    fig.show()
 
 
 def main():
@@ -432,7 +600,6 @@ def main():
     import warnings
     from Bio import BiopythonParserWarning
     warnings.simplefilter('ignore', BiopythonParserWarning)
-
     args = common.get_args('interactive')
     annotated_genome = gbk_to_seqrecord_list(args, args.annotated_genome)
     if args.outprefix:

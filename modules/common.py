@@ -692,6 +692,7 @@ def file_dict(args, **kwargs):
         'chromosome_map': base_outfile_name + "map.pdf",
         'interactive_bar': base_outfile_name + "interactive_results.html",
         'interactive_map': base_outfile_name + "interactive_map.html",
+        'interactive_dnds': base_outfile_name + "interactive_dnds.html",
         'gbk_out': base_outfile_name[:-1] + ".gbk",
         'dnds_out': base_outfile_name + "dnds",
         'log': base_outfile_name + "log.txt",
