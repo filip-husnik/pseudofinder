@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from . import common, annotate, selection
+from . import common, annotate, sleuth
 
 StatisticsDict = annotate.StatisticsDict
 

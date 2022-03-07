@@ -361,8 +361,8 @@ class Dnds(Figure):
         self.dataset = dataset
         self.fig = go.Figure()
         self.scatter()
-        self.fig.update_layout(xaxis_title="dN",
-                               yaxis_title="dS",
+        self.fig.update_layout(xaxis_title="dS",
+                               yaxis_title="dN",
                                showlegend=False,
                                plot_bgcolor='rgba(0,0,0,0)')
         axes = dict(showline=True,
