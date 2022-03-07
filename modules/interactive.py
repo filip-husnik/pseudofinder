@@ -397,7 +397,7 @@ class Dnds(Figure):
                              hovertemplate=hovertext)
         self.fig.add_trace(scatter)
 
-    def trendline(self):
+    def trendline(self):    # TODO: anchor at x=y=0
         x_vals = [entry.ds for entry in self.dataset]
         y_vals = [entry.dn for entry in self.dataset]
 
@@ -427,7 +427,7 @@ class Dnds(Figure):
                                 text=f"y = {round(m, 4)}x + {round(b, 4)}<br>"
                                      f"R<sup>2</sup> = {round(r2, 4)}")
 
-    def slope1_line(self):
+    def slope1_line(self):  # TODO: make smaller along the y-axis
         x_vals = [entry.ds for entry in self.dataset]
         y_vals = [entry.dn for entry in self.dataset]
         xy_max = max(x_vals + y_vals)
@@ -446,7 +446,7 @@ class Dnds(Figure):
                                 showarrow=False,
                                 text=f"1:1")
 
-    def dnds_cutoff_line(self):
+    def dnds_cutoff_line(self):  # TODO: make responsive to args
         x_vals = [entry.ds for entry in self.dataset]
         y_vals = [entry.dn for entry in self.dataset]
 
@@ -474,8 +474,6 @@ class Dnds(Figure):
                                 text=f"2 standard deviations above the genome-wide mean dN/dS.<br>"
                                      f"Mean = {round(self.mean_dnds(), 4)}<br>"
                                      f"StDev = {round(self.sd_dnds(), 4)}")
-
-
 
     def mean_dnds(self):
         dnds_vals = [entry.dnds for entry in self.dataset]
