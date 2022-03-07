@@ -34,9 +34,11 @@ class Entry:
             self.sleuth_data = self.feature.qualifiers['sleuth'][0]
             self.ds = self.sleuth_data.ds
             self.dn = self.sleuth_data.dnds * self.ds   # TODO: this info should be available in the datatype.
+            self.dnds = self.sleuth_data.dnds
         except (KeyError, IndexError):
             self.ds = None
             self.dn = None
+            self.dnds = None
 
         if normalized:
             self.length = self.normalize_length()
@@ -173,7 +175,9 @@ class Figure:
             pie_text = pie_length + bar_text + "<br>" + scatter_text
 
             try:
-                dnds_text = bar_text + "<br>" + f"dN = {round(entry.dn, 4)}<br>dS = {round(entry.ds, 4)}"
+                dnds_text = bar_text + "<br>" + f"dN = {round(entry.dn, 4)}<br>" \
+                                                f"dS = {round(entry.ds, 4)}<br>" \
+                                                f"dN/dS = {round(entry.dnds, 4)}"
             except TypeError:
                 pass
 
@@ -361,6 +365,9 @@ class Dnds(Figure):
         self.dataset = dataset
         self.fig = go.Figure()
         self.scatter()
+        self.trendline()
+        self.slope1_line()
+        self.dnds_cutoff_line()
         self.fig.update_layout(xaxis_title="dS",
                                yaxis_title="dN",
                                showlegend=False,
@@ -388,15 +395,20 @@ class Dnds(Figure):
                              mode='markers',
                              name='',
                              hovertemplate=hovertext)
+        self.fig.add_trace(scatter)
+
+    def trendline(self):
+        x_vals = [entry.ds for entry in self.dataset]
+        y_vals = [entry.dn for entry in self.dataset]
 
         # linear regression, y = mx + b  |   x = (y - b)/m
         m, b = linear_regression(x_vals, y_vals)
+        # m, b = statistics.linear_regression(x_vals, y_vals, proportional=True) #TODO: coming in python 3.11
         r2 = r_squared(x_vals, y_vals, m, b)
         y_1 = m * min(x_vals) + b
         y_2 = m * max(x_vals) + b
         x_1 = (y_1 - b) / m
         x_2 = (y_2 - b) / m
-        xy_max = max(x_vals + y_vals)
 
         line_dict = dict(mode='lines',
                          name='',
@@ -407,23 +419,71 @@ class Dnds(Figure):
                                x=[x_1, x_2],
                                y=[y_1, y_2],
                                marker_color="#6E269E")
-        slope1 = go.Scatter(line_dict,
-                            x=[0, xy_max],
-                            y=[0, xy_max])
 
-        self.fig.add_trace(scatter)
         self.fig.add_trace(trendline)
-        self.fig.add_trace(slope1)
         self.fig.add_annotation(x=x_2,
                                 y=y_2,
                                 showarrow=False,
                                 text=f"y = {round(m, 4)}x + {round(b, 4)}<br>"
                                      f"R<sup>2</sup> = {round(r2, 4)}")
 
+    def slope1_line(self):
+        x_vals = [entry.ds for entry in self.dataset]
+        y_vals = [entry.dn for entry in self.dataset]
+        xy_max = max(x_vals + y_vals)
+        line_dict = dict(mode='lines',
+                         name='',
+                         marker_color='black',
+                         line=dict(width=1))
+
+        slope1 = go.Scatter(line_dict,
+                            x=[0, xy_max],
+                            y=[0, xy_max])
+
+        self.fig.add_trace(slope1)
         self.fig.add_annotation(x=xy_max,
                                 y=xy_max,
                                 showarrow=False,
                                 text=f"1:1")
+
+    def dnds_cutoff_line(self):
+        x_vals = [entry.ds for entry in self.dataset]
+        y_vals = [entry.dn for entry in self.dataset]
+
+        limit = self.mean_dnds() + self.sd_dnds()*2
+        # y = mx, where m = limit
+        x_1 = 0
+        x_2 = max(x_vals)
+        y_1 = 0
+        y_2 = limit * x_2
+
+        line_dict = dict(mode='lines',
+                         name='',
+                         marker_color='black',
+                         line=dict(width=1))
+
+        line = go.Scatter(line_dict,
+                          x=[x_1, x_2],
+                          y=[y_1, y_2],
+                          marker_color="red")
+
+        self.fig.add_trace(line)
+        self.fig.add_annotation(x=x_2,
+                                y=y_2,
+                                showarrow=False,
+                                text=f"2 standard deviations above the genome-wide mean dN/dS.<br>"
+                                     f"Mean = {round(self.mean_dnds(), 4)}<br>"
+                                     f"StDev = {round(self.sd_dnds(), 4)}")
+
+
+
+    def mean_dnds(self):
+        dnds_vals = [entry.dnds for entry in self.dataset]
+        return np.mean(dnds_vals)
+
+    def sd_dnds(self):
+        dnds_vals = [entry.dnds for entry in self.dataset]
+        return np.std(dnds_vals)
 
 
 def data_is_normalized(dataset):
@@ -552,45 +612,6 @@ def r_squared(x_vals, y_vals, m, b):
     r2 = correlation_coefficient**2
 
     return r2
-
-
-def scatter():
-    fig = go.Figure()
-
-    scatter_kwargs = dict()
-    x_vals = [1, 2, 3, 4, 5, 6, 7, 8.8]
-    y_vals = [1, 2, 9, 3.5, 5, 6, 7, 8]
-    text = "first line <br> second line"
-    labels = [text]*8
-    scatter = go.Scatter(scatter_kwargs,
-                         x=x_vals,
-                         y=y_vals,
-                         mode='markers',
-                         name='',
-                         text=labels)
-
-    # linear regression, y = mx + b  |   x = (y - b)/m
-    m, b = linear_regression(x_vals, y_vals)
-    r2 = r_squared(x_vals, y_vals, m, b)
-    y_1 = m * min(x_vals) + b
-    y_2 = m * max(x_vals) + b
-    x_1 = (y_1 - b) / m
-    x_2 = (y_2 - b) / m
-
-    trendline = go.Scatter(x=[x_1, x_2],
-                           y=[y_1, y_2],
-                           mode='lines',
-                           name='',)
-
-    fig.add_trace(scatter)
-    fig.add_trace(trendline)
-    fig.add_annotation(x=x_2,
-                       y=y_2,
-                       showarrow=False,
-                       text=f"y = {round(m, 4)}x + {round(b, 4)}<br>"
-                            f"R<sup>2</sup> = {round(r2, 4)}")
-
-    fig.show()
 
 
 def main():
