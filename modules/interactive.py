@@ -397,6 +397,23 @@ class Dnds(Figure):
                              hovertemplate=hovertext)
         self.fig.add_trace(scatter)
 
+    def line(self, start_coords: tuple, end_coords: tuple, text: str, colour='black'):
+        x_1, y_1 = start_coords
+        x_2, y_2 = end_coords
+
+        line = go.Scatter(x=[x_1, x_2],
+                          y=[y_1,y_2],
+                          mode='lines',
+                          name='',
+                          marker_color=colour,
+                          line=dict(width=1))
+
+        self.fig.add_trace(line)
+        self.fig.add_annotation(x=x_2,
+                                y=y_2,
+                                showarrow=False,
+                                text=text)
+
     def trendline(self):    # TODO: anchor at x=y=0
         x_vals = [entry.ds for entry in self.dataset]
         y_vals = [entry.dn for entry in self.dataset]
@@ -410,41 +427,19 @@ class Dnds(Figure):
         x_1 = (y_1 - b) / m
         x_2 = (y_2 - b) / m
 
-        line_dict = dict(mode='lines',
-                         name='',
-                         marker_color='black',
-                         line=dict(width=1))
-
-        trendline = go.Scatter(line_dict,
-                               x=[x_1, x_2],
-                               y=[y_1, y_2],
-                               marker_color="#6E269E")
-
-        self.fig.add_trace(trendline)
-        self.fig.add_annotation(x=x_2,
-                                y=y_2,
-                                showarrow=False,
-                                text=f"y = {round(m, 4)}x + {round(b, 4)}<br>"
-                                     f"R<sup>2</sup> = {round(r2, 4)}")
+        self.line(start_coords=(x_1, y_1),
+                  end_coords=(x_2, y_2),
+                  text=f"y = {round(m, 4)}x + {round(b, 4)}<br>"
+                       f"R<sup>2</sup> = {round(r2, 4)}")
 
     def slope1_line(self):  # TODO: make smaller along the y-axis
         x_vals = [entry.ds for entry in self.dataset]
         y_vals = [entry.dn for entry in self.dataset]
         xy_max = max(x_vals + y_vals)
-        line_dict = dict(mode='lines',
-                         name='',
-                         marker_color='black',
-                         line=dict(width=1))
 
-        slope1 = go.Scatter(line_dict,
-                            x=[0, xy_max],
-                            y=[0, xy_max])
-
-        self.fig.add_trace(slope1)
-        self.fig.add_annotation(x=xy_max,
-                                y=xy_max,
-                                showarrow=False,
-                                text=f"1:1")
+        self.line(start_coords=(0,0),
+                  end_coords=(xy_max, xy_max),
+                  text=f"1:1")
 
     def dnds_cutoff_line(self):  # TODO: make responsive to args
         x_vals = [entry.ds for entry in self.dataset]
@@ -457,23 +452,12 @@ class Dnds(Figure):
         y_1 = 0
         y_2 = limit * x_2
 
-        line_dict = dict(mode='lines',
-                         name='',
-                         marker_color='black',
-                         line=dict(width=1))
-
-        line = go.Scatter(line_dict,
-                          x=[x_1, x_2],
-                          y=[y_1, y_2],
-                          marker_color="red")
-
-        self.fig.add_trace(line)
-        self.fig.add_annotation(x=x_2,
-                                y=y_2,
-                                showarrow=False,
-                                text=f"2 standard deviations above the genome-wide mean dN/dS.<br>"
-                                     f"Mean = {round(self.mean_dnds(), 4)}<br>"
-                                     f"StDev = {round(self.sd_dnds(), 4)}")
+        self.line(start_coords=(x_1, y_1),
+                  end_coords=(x_2, y_2),
+                  text=f"2 standard deviations above the genome-wide mean dN/dS.<br>"
+                       f"Mean = {round(self.mean_dnds(), 4)}<br>"
+                       f"StDev = {round(self.sd_dnds(), 4)}",
+                  colour='red')
 
     def mean_dnds(self):
         dnds_vals = [entry.dnds for entry in self.dataset]
