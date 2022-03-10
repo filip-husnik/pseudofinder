@@ -55,7 +55,7 @@ def add_intergenic_to_seqrecord(args, seqrecord):
         this_start = gene_list[i][0]
 
         if this_start - last_end >= args.intergenic_length:
-            intergenic_region = SeqFeature(location=FeatureLocation(last_end, this_start),
+            intergenic_region = SeqFeature(location=FeatureLocation(last_end + 1, this_start - 1),
                                            type='intergenic',
                                            strand=0)
 
@@ -222,7 +222,10 @@ def write_fasta(seqs: list, outfile: str, seq_type='nt', in_type='features') -> 
 
 
 def gff_entry(seq_id, source, feature_type, feature_start, feature_end, score, strand, phase, attributes):
-    return "\t".join([seq_id, source, feature_type, feature_start, feature_end, score, strand, phase, attributes])
+    string = "\t".join([seq_id, source, feature_type, feature_start, feature_end, score, strand, phase, attributes])
+    string_hex_coded = string.replace("%", "%25")
+
+    return string_hex_coded
 
 
 def format_strand(strand, format='gff'):
