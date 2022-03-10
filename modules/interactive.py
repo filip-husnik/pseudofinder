@@ -118,7 +118,7 @@ class Entry:
 
 class Figure:
     def __init__(self, args, file_dict):
-        self.args = args,
+        self.args = args
         self.file_dict = file_dict
         self.fig = None
         self.config = self.plot_config()
@@ -368,6 +368,7 @@ class Dnds(Figure):
         self.trendline()
         self.slope1_line()
         self.dnds_cutoff_line()
+        #self.mean_dnds_line()
         self.fig.update_layout(xaxis_title="dS",
                                yaxis_title="dN",
                                showlegend=False,
@@ -402,9 +403,10 @@ class Dnds(Figure):
         x_2, y_2 = end_coords
 
         line = go.Scatter(x=[x_1, x_2],
-                          y=[y_1,y_2],
+                          y=[y_1, y_2],
                           mode='lines',
                           name='',
+                          hoverinfo='skip',
                           marker_color=colour,
                           line=dict(width=1))
 
@@ -412,6 +414,7 @@ class Dnds(Figure):
         self.fig.add_annotation(x=x_2,
                                 y=y_2,
                                 showarrow=False,
+                                yshift=10,
                                 text=text)
 
     def trendline(self):    # TODO: anchor at x=y=0
@@ -429,7 +432,8 @@ class Dnds(Figure):
 
         self.line(start_coords=(x_1, y_1),
                   end_coords=(x_2, y_2),
-                  text=f"y = {round(m, 4)}x + {round(b, 4)}<br>"
+                  text=f"OLS regression<br>"
+                       f"y = {round(m, 4)}x + {round(b, 4)}<br>"
                        f"R<sup>2</sup> = {round(r2, 4)}")
 
     def slope1_line(self):  # TODO: make smaller along the y-axis
@@ -445,7 +449,14 @@ class Dnds(Figure):
         x_vals = [entry.ds for entry in self.dataset]
         y_vals = [entry.dn for entry in self.dataset]
 
-        limit = self.mean_dnds() + self.sd_dnds()*2
+        limit = self.args.max_dnds
+        text = f"dN/dS cutoff: {self.args.max_dnds}"
+
+        # if 'something about using deviation to calculate cutoff:
+            #limit = self.mean_dnds() + self.sd_dnds()*2
+            #text = f"2 standard deviations above the genome-wide mean dN/dS.<br>"
+                       # f"Mean = {round(self.mean_dnds(), 4)}<br>"
+                       # f"StDev = {round(self.sd_dnds(), 4)}"
         # y = mx, where m = limit
         x_1 = 0
         x_2 = max(x_vals)
@@ -454,10 +465,25 @@ class Dnds(Figure):
 
         self.line(start_coords=(x_1, y_1),
                   end_coords=(x_2, y_2),
-                  text=f"2 standard deviations above the genome-wide mean dN/dS.<br>"
-                       f"Mean = {round(self.mean_dnds(), 4)}<br>"
-                       f"StDev = {round(self.sd_dnds(), 4)}",
+                  text=text,
                   colour='red')
+
+    def mean_dnds_line(self):
+        x_vals = [entry.ds for entry in self.dataset]
+
+        # y = mx, where m = limit
+        x_1 = 0
+        x_2 = max(x_vals)
+        y_1 = 0
+        y_2 = self.mean_dnds() * x_2
+
+        text = f"Genome-wide mean dN/dS.<br>" \
+               f"Mean = {round(self.mean_dnds(), 4)}<br>" \
+               f"StDev = {round(self.sd_dnds(), 4)}"
+
+        self.line(start_coords=(x_1, y_1),
+                  end_coords=(x_2, y_2),
+                  text=text)
 
     def mean_dnds(self):
         dnds_vals = [entry.dnds for entry in self.dataset]
