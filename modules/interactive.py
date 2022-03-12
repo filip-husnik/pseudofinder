@@ -470,7 +470,7 @@ class Dnds(Figure):
                   colour='red')
 
     def mean_dnds_annotation(self):
-        text = f"Genome-wide mean dN/dS.<br>" \
+        text = f"Genome-wide dN/dS:<br>" \
                f"Mean = {round(self.mean_dnds(), 4)}<br>" \
                f"StDev = {round(self.sd_dnds(), 4)}"
 
@@ -481,7 +481,8 @@ class Dnds(Figure):
             x=0.10,
             # The arrow head will be 40% along the y axis, starting from the bottom
             y=0.90,
-            text=text
+            text=text,
+            showarrow=False
         )
 
 
