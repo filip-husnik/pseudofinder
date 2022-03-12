@@ -55,7 +55,7 @@ def add_intergenic_to_seqrecord(args, seqrecord):
         this_start = gene_list[i][0]
 
         if this_start - last_end >= args.intergenic_length:
-            intergenic_region = SeqFeature(location=FeatureLocation(last_end + 1, this_start - 1),
+            intergenic_region = SeqFeature(location=FeatureLocation(last_end, this_start),
                                            type='intergenic',
                                            strand=0)
 
@@ -92,6 +92,7 @@ def add_qualifiers_to_features(args, seqrecord):
     """
     intergenic_counter = 1
     for feature in seqrecord.features:
+
         if feature.type == 'CDS' and feature.qualifiers.get('pseudo'):    # Finds CDS that are already annotated as pseudogenes
             feature.type = 'pseudogene'
             feature.qualifiers['pseudo_type'] = PseudoType.Input.general
@@ -186,8 +187,22 @@ def extract_features_from_genome(args, genome, feature_type: list or str) -> lis
 
     # remove duplicates
     feature_list = list(set(feature_list))
+    feature_list.sort(key=lambda feature: feature.location.start)  # sort by start location
 
     return feature_list
+
+
+def write_feature_location(location: FeatureLocation) -> FeatureLocation:
+    """Since Biopython uses 0-based, exclusive locations and genbank/gff/fasta formatting uses
+    1-based, inclusive locations, the start position of a biopython feature needs to be updated
+    when writing to output files.
+    ie: Biopython location [0:1566](+) is equivalent to [1:1566](+) in a genbank file.
+
+    DO NOT change this when reading in features, as it will cause confusion when handling features in biopython."""
+    start = location.start + 1
+    end = location.end
+    strand = location.strand
+    return FeatureLocation(start, end, strand)
 
 
 def write_fasta(seqs: list, outfile: str, seq_type='nt', in_type='features') -> None:
@@ -212,7 +227,7 @@ def write_fasta(seqs: list, outfile: str, seq_type='nt', in_type='features') -> 
 
                 output_handle.write(">%s %s %s\n%s\n" % (seq.qualifiers['locus_tag'][0],
                                                          seq.qualifiers['contig_id'],
-                                                         seq.location,
+                                                         write_feature_location(seq.location),
                                                          seq_string))
             elif in_type == 'records':
                 output_handle.write(">%s\n%s\n" % (seq.name, seq.seq))
@@ -290,7 +305,7 @@ def write_gff(args, genome, outfile: str, seq_type):
                         #'seq_id': "gnl|Prokka|%s" % seq.qualifiers['contig_id'],
                         'source': "pseudofinder",
                         'feature_type': "gene", # TODO: change this to 'CDS' or 'pseudogene' if given the go-ahead to do so
-                        'feature_start': str(seq.location.start),
+                        'feature_start': str(seq.location.start + 1),
                         'feature_end': str(seq.location.end),
                         'score': '.',
                         'strand': format_strand(seq.strand),
