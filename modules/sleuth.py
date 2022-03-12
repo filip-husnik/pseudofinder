@@ -8,6 +8,10 @@ import sys
 import statistics
 import time
 from Bio.Blast.Applications import NcbiblastnCommandline, NcbimakeblastdbCommandline
+import textwrap
+import argparse
+from collections import defaultdict
+
 
 
 def startScanPre(seq):
@@ -77,7 +81,6 @@ def alnCheckC(seq1, seq2, slack):
         else:
             countGaps += 1
     return count/slack, countGaps/slack
-
 
 
 def AAI(seq1, seq2):
@@ -193,7 +196,7 @@ def lastItem(ls):
             x = i
     return x
 
-###### ---------------------ATGCGGACGTGATGCTAGCTAGTCGATGACGTCGATCGATGA
+
 def startFinder(seq):
     start = ''
     for i in range(len(seq)):
@@ -557,17 +560,6 @@ def delim(line):
             string = ''
     ls = filter(ls, [""])
     return ls
-
-
-# !/usr/bin/env python3
-from collections import defaultdict
-import re
-import os
-import textwrap
-import argparse
-# import numpy as np
-import sys
-import statistics
 
 
 def firstNonspace(ls):
@@ -1627,8 +1619,7 @@ def main():
 
 
 def full(args, file_dict, log_file_dict=None):
-    print("")
-    print("Sleuth branch:")
+    #print("Sleuth branch:")
     ref_ffn = file_dict['ref_cds_filename']
     target_genome = file_dict['contigs_filename']
     target_genome_blastdb = file_dict['temp_dir'] + "/target_contigs.fasta"
@@ -1642,7 +1633,7 @@ def full(args, file_dict, log_file_dict=None):
     os.system("mkdir -p %s/nuc_aln" % out)
 
     # RUNNING BLAST
-    print("Running BLAST")
+    common.print_with_time("Running BLAST...")
     ffn = open(ref_ffn)
     ffn = fasta2(ffn)
 
@@ -1654,7 +1645,7 @@ def full(args, file_dict, log_file_dict=None):
             count += 1
     if count > 0:
 
-        print("detected \'|\' characters in input fasta file. Creating a new version of the file %s-fixed.fna" % allButTheLast(target_genome, "."))
+        common.print_with_time("detected \'|\' characters in input fasta file. Creating a new version of the file %s-fixed.fna" % allButTheLast(target_genome, "."))
         outFixed = open("%s/%s-fixed.fna" % (out, allButTheLast(target_genome, ".")), "w")
         for i in genome.keys():
             outFixed.write(">" + remove(i, ["|"]) + "\n")
@@ -1674,7 +1665,7 @@ def full(args, file_dict, log_file_dict=None):
         os.system("blastn -query %s -db %s -outfmt 6 -out %s/cds.genome.blast -evalue %s -num_threads %s -perc_identity %s -qcov_hsp_perc %s > /dev/null 2>&1" %
                   (ref_ffn, target_genome_blastdb, out, e, str(threads), str(float(args.perc_id)*100), str(float(args.perc_cov)*100)))
 
-    print("Done with BLAST\n.")
+    common.print_with_time("Done with BLAST.")
     # print("Processing...")
     # time.sleep(4)
     # PARSING THE BLAST OUTPUT AND WRITING SEQUENCE FILES FOR ALIGNMENT
@@ -1861,7 +1852,7 @@ def full(args, file_dict, log_file_dict=None):
             outffn.close()
 
     # RUNNING MUSCLE ON NUCLEOTIDE PAIRS
-    print("starting Muscle")
+    common.print_with_time("Starting Muscle.")
     count = 0
     for file in (os.listdir(out + "/nuc_aln")):
         if lastItem(file.split(".")) == "ffn":
@@ -1876,16 +1867,15 @@ def full(args, file_dict, log_file_dict=None):
             os.system("muscle -in %s/nuc_aln/%s -out %s/nuc_aln/%s.fa > /dev/null 2>&1" % (out, file, out, allButTheLast(file, ".")))
             count += 1
             perc = (count / total) * 100
-            sys.stdout.write("running Muscle: %d%%   \r" % (perc))
+            sys.stdout.write(f"{common.current_time()}\tRunning Muscle: {round(perc)}%\r")
             sys.stdout.flush()
-
+    print("")
     # for i in range(10):
     #     print(".")
     #     time.sleep(i / 25)
-    print("")
-    print("done with Muscle\n.")
+    common.print_with_time("Done with Muscle.")
     time.sleep(1)
-    print("preparing for codeml")
+    common.print_with_time("Preparing for CodeML...")
 
     # PARSING THE ALIGNMENT FILES FOR DEEP ANALYSIS OF PSEUDOGENIZATION
     count = 0
@@ -2214,7 +2204,8 @@ def full(args, file_dict, log_file_dict=None):
                           (alnDir, file.split(".")[0], alnDir, file, alnDir, file.split(".")[0]))
                 count += 1
                 perc = (count / total) * 100
-                sys.stdout.write("running pal2nal: %d%%   \r" % (perc))
+                #sys.stdout.write("running pal2nal: %d%%   \r" % (perc))
+                sys.stdout.write(f"{common.current_time()}\tRunning PAL2NAL: {round(perc)}%\r")
                 sys.stdout.flush()
     print("")
     count = 0
@@ -2228,19 +2219,20 @@ def full(args, file_dict, log_file_dict=None):
             os.system("codeml %s/%s > /dev/null 2>&1" % (alnDir, file))
             count += 1
             perc = (count / total) * 100
-            sys.stdout.write("running codeml: %d%%   \r" % (perc))
+            #sys.stdout.write("running codeml: %d%%   \r" % (perc))
+            sys.stdout.write(f"{common.current_time()}\tRunning CodeML: {round(perc)}%\r")
             sys.stdout.flush()
     print("")
-    print("done with codeml\n.")
+    common.print_with_time("Done with CodeML.")
     time.sleep(2)
     count = 0
     alnDir = "%s/nuc_aln" % out
     for i in os.listdir(alnDir):
         if re.findall(r'mlcTree_', i):
             count += 1
-    print("%s out of %s input reference CDS had detectable homology (below evalue of %s)" %
+    common.print_with_time("%s out of %s input reference CDS had detectable homology (below evalue of %s)" %
           (str(count), str(len(ffn.keys())), str(e)))
-    print("writing output file")
+    common.print_with_time("Writing output file...")
 
     # PARSING CODEML OUTPUT AND COMBINING WITH OTHER RESULTS
     fastaOut = open(out + "/ref_based_cds_predictions.ffn", "w")
@@ -2365,7 +2357,7 @@ def full(args, file_dict, log_file_dict=None):
 
     mainOut.close()
     fastaOut.close()
-    print("done")
+    common.print_with_time("Sleuth finished.")
 
     os.system("rm -f 2NG.t 2NG.dN 2NG.dS rst1 rst 2ML.t 2ML.dN 2ML.dS 4fold.nuc rub")
     os.system("tar -cf %s/nuc_aln.tar %s/nuc_aln" % (out, out))
