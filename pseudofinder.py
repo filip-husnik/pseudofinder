@@ -7,7 +7,7 @@ Tested mostly on .gbk files annotated by Prokka with the --compliant flag.
 Installation requirements: Please see github repo for detailed explanation of requirements.
  """
 __author__ = "Mitch Syberg-Olsen, Arkadiy Garber & Filip Husnik"
-__version__ = "1.00"
+__version__ = "1.10"
 __maintainer__ = "Filip Husnik"
 __email__ = "filip.husnik@gmail.com"
 
