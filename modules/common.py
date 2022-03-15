@@ -507,8 +507,9 @@ def get_args(module='None', **kwargs):
     no_bidirectional_length = {
         'short': '-nbl',
         'long': '--no_bidirectional_length',
-        'help': 'Pseudofinder by default will consider the length_pseudo parameter for assessing both truncated and run-on pseudogenes.'
-                'By adding this flag, length_pseudo will only be used for truncated pseudogenes, and pseudofinder will not check for run-on pseudogenes.',
+        'help': 'Pseudofinder by default will consider the length_pseudo parameter for assessing both truncated and run-on pseudogenes. '
+                'By adding this flag, --length_pseudo will only be used for truncated pseudogenes, '
+                'and pseudofinder will not check for run-on pseudogenes.',
         'required': False,
         'default': False,
         'action': 'store_true'
@@ -516,7 +517,7 @@ def get_args(module='None', **kwargs):
     use_alignment = {
         'short': '-al',
         'long': '--use_alignment',
-        'help': 'Feature currently in development, use at own risk. This flag will make pseudofinder consider '
+        'help': 'This flag will make pseudofinder consider '
                 'alignment quality between query and hits when considering pseudogene flags.',
         'required': False,
         'default': False,
@@ -525,7 +526,7 @@ def get_args(module='None', **kwargs):
     use_deviation = {
         'short': '-dev',
         'long': '--use_deviation',
-        'help': 'Feature currently in development, use at own risk. This flag will make pseudofinder call pseudogenes if '
+        'help': 'This flag replaces --length_pseudo and will instead make pseudofinder call pseudogenes if '
                 'the gene length falls outside of two standard deviations from the mean blast hit length.',
         'required': False,
         'default': False,
