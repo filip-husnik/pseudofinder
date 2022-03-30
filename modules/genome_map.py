@@ -2,10 +2,19 @@
 
 from . import common, annotate
 import re
-from reportlab.lib import colors
-from Bio.Graphics import GenomeDiagram
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, SeqFeature
+
+try:
+    from reportlab.lib import colors
+except ModuleNotFoundError:  # some users are not able to import reportlab for unknown reasons
+    common.print_with_time('Warning: Pseudofinder could not import reportlab. '
+                           'Analysis will run but no chromosome map will be produced.')
+
+try:
+    from Bio.Graphics import GenomeDiagram
+except ImportError:  # Will throw an error if reportlab is not imported first.
+    pass
 
 
 def read_gbk(genome: str) -> SeqIO.SeqRecord:
@@ -55,7 +64,10 @@ def read_gff(gff: str) -> SeqIO.SeqRecord:
 # Loosely based on tutorial at http://biopython.org/DIST/docs/tutorial/Tutorial.html#htoc254
 def make_diagram(genome_record: SeqIO.SeqRecord, pseudo_record: SeqIO.SeqRecord, outfile: str):
     """Plots the genome with pseudogenes on another track"""
-    diagram = GenomeDiagram.Diagram()
+    try:
+        diagram = GenomeDiagram.Diagram()
+    except NameError:  # this error gets thrown if GenomeDiagram has not been imported
+        raise RuntimeError('Reportlab dependency not found. Bio.Graphics not imported.')
 
     original_features = GenomeDiagram.FeatureSet()  # These features will be from the original genbank file
     for feature in genome_record.features:  # genome_record is the record from the original genbank file

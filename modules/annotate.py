@@ -957,7 +957,12 @@ def write_all_outputs(args, genome, file_dict, visualize=False):
         # write_gbk(args, genome, file_dict['gbk_out']) #TODO: understand why this doesn't work as it should. See notes inside function
         # common.write_test_genome_output(file_dict, genome)
         interactive.genome_to_graphs(args=args, file_dict=file_dict, genome=genome)
-        genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+
+        try:
+            genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
+        except RuntimeError:
+            pass
+
         write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
 
 
