@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import Bio.Application
 
 from . import common
 from .data_structures import PseudoType, BlastHit, StatisticsDict
@@ -339,11 +340,14 @@ def run_blast(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
                   'evalue': args.evalue,
                   'outfmt': "6 qseqid sseqid pident slen mismatch gapopen qstart qend sstart send evalue bitscore stitle",
                   'out': out_tsv}
-
-    if search_type == 'blastp':
-        NcbiblastpCommandline(**blast_dict)()
-    if search_type == 'blastx':
-        NcbiblastxCommandline(**blast_dict)()
+    try:
+        if search_type == 'blastp':
+            NcbiblastpCommandline(**blast_dict)()
+        if search_type == 'blastx':
+            NcbiblastxCommandline(**blast_dict)()
+    except Bio.Application.ApplicationError as error:
+        common.print_with_time(f"Error when running BLAST:\n{error}")
+        exit()
 
 
 def manage_diamond_db(args):
