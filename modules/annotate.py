@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import Bio.Application
 
 from . import common
 from .data_structures import PseudoType, BlastHit, StatisticsDict
@@ -10,6 +9,7 @@ import statistics
 from copy import deepcopy
 from pandas.core.common import flatten
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastxCommandline
+import Bio.Application
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 from Bio import SeqIO
