@@ -40,14 +40,13 @@ def reannotate(args, genome, file_dict, visualize=False):
     annotate.find_pseudos_on_genome(args, genome)
     common.print_with_time("Collecting run statistics and writing output files.")
     annotate.analysis_statistics(args, genome)
-    annotate.write_all_outputs(args, genome, file_dict, visualize)
+    annotate.write_all_outputs(args, genome, file_dict, 'visualize' if visualize else 'reannotate')
 
 
 def main():
     command_line_args = common.get_args('reannotate')
     logged_args = common.parse_log_args(command_line_args.logfile)
     args = common.reconcile_args(command_line_args, logged_args)
-
     file_dict = common.file_dict(args)
     log_file_dict = common.file_dict(args, outprefix=args.log_outprefix)
 

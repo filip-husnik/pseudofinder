@@ -75,9 +75,9 @@ def parse_summary_files(args):
                 for line in lines:
                     line = line.replace('\n', '')
                     sep = '\t'
-                    if re.match('Length_pseudo', line):
+                    if re.match('length_pseudo', line):
                         data.append(float(line.split(sep=sep)[1]))
-                    elif re.match('Shared_hits', line):
+                    elif re.match('shared_hits', line):
                         data.append(float(line.split(sep=sep)[1]))
                     elif re.match('Pseudogenes \(total\)', line):
                         data.append(float(line.split(sep=sep)[1]))

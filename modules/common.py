@@ -171,7 +171,7 @@ def verify_args(args, deprecated_args):
         pass
 
 
-def get_args(module='None', **kwargs):
+def get_args(module=None, **kwargs):
     names_only = kwargs.get('names_only', False)
     optional_only = kwargs.get('optional_only', False)
     genome = {
@@ -534,13 +534,6 @@ def get_args(module='None', **kwargs):
         'action': 'store_true'
     }
 
-    if names_only:
-        to_remove = ['module', 'kwargs', 'names_only', 'to_remove']
-        names = list(locals().keys())
-        for i in to_remove:
-            names.remove(i)
-        return names
-
     if module == 'annotate':
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, hitcap,
@@ -585,36 +578,52 @@ def get_args(module='None', **kwargs):
         deprecated_args = []
 
     else:
-        print("Module not found. Please check your get_args() function call.")
-        exit()
+        if not names_only:
+            print("Module not found. Please check your get_args() function call.")
+            exit()
 
-    if optional_only:
-        opt_parser = argparse.ArgumentParser()
-        opt = opt_parser.add_argument_group()
+    if names_only:
+        if module is None:
+            to_remove = ['module', 'kwargs', 'names_only', 'to_remove']
+            args = list(locals().keys())
+            for i in to_remove:
+                args.remove(i)
+        else:
+            if optional_only:
+                all_args = optional_args
+            else:
+                all_args = required_args + optional_args + deprecated_args
+            args = [arg['long'].replace('--', '') for arg in all_args]
+
+    else:
+        if optional_only:
+            opt_parser = argparse.ArgumentParser()
+            opt = opt_parser.add_argument_group()
+            for arg in optional_args:
+                unpack_arg(opt, arg)
+            opt_args = opt_parser.parse_known_args()[0]
+            return opt_args
+
+        parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
+                                         usage=bold(usage_message(module, required_args)))
+        always_required = parser.add_argument_group('Required arguments')
+        optional = parser.add_argument_group('Adjustable parameters')
+        deprecated = parser.add_argument_group('Deprecated parameters')
+
+        for arg in required_args:
+            unpack_arg(always_required, arg)
+
         for arg in optional_args:
-            unpack_arg(opt, arg)
-        opt_args = opt_parser.parse_known_args()[0]
-        return opt_args
+            unpack_arg(optional, arg)
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
-                                     usage=bold(usage_message(module, required_args)))
-    always_required = parser.add_argument_group('Required arguments')
-    optional = parser.add_argument_group('Adjustable parameters')
-    deprecated = parser.add_argument_group('Deprecated parameters')
+        for arg in deprecated_args:
+            unpack_arg(deprecated, arg, deprecated=True)
 
-    for arg in required_args:
-        unpack_arg(always_required, arg)
+        # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
+        # We only care about the known arguments, so we take [0].
+        args = parser.parse_known_args()[0]
+        verify_args(args, deprecated_args)
 
-    for arg in optional_args:
-        unpack_arg(optional, arg)
-
-    for arg in deprecated_args:
-        unpack_arg(deprecated, arg, deprecated=True)
-
-    # parse_known_args will create a tuple of known arguments in the first position and unknown in the second.
-    # We only care about the known arguments, so we take [0].
-    args = parser.parse_known_args()[0]
-    verify_args(args, deprecated_args)
     return args
 
 

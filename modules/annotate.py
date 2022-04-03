@@ -882,15 +882,24 @@ def find_pseudos_on_genome(args, genome):
 
 
 # TODO: when finished making changes to algorithm, update the nomenclature etc.
-def write_summary_file(args, outfile, file_dict) -> None:
+def write_summary_file(args, outfile, file_dict, module='annotate') -> None:
     """Writes a summary file of statistics from the pseudo_finder run."""
 
     printable_args = common.convert_args_to_str(args)
     printable_stats = {k: str(v) for k, v in StatisticsDict.items()}
 
-    optional_args = vars(common.get_args('annotate', optional_only=True))
-    del optional_args['reference']
-    settings_section = "\n".join([f"{k}:\t{str(v)}" for k, v in optional_args.items()])
+    if module == 'annotate':
+        optional_args = vars(common.get_args(module, optional_only=True))
+        del optional_args['reference']
+        settings_section = "\n".join([f"{k}:\t{str(v)}" for k, v in optional_args.items()])
+
+    elif module == 'reannotate' or module == 'visualize':
+        optional_arg_names = common.get_args('reannotate', names_only=True, optional_only=True)
+        optional_args = dict()
+        for k, v in vars(args).items():
+            if k in optional_arg_names:
+                optional_args[k] = v
+        settings_section = "\n".join([f"{k}:\t{str(v)}" for k, v in optional_args.items()])
 
     log = "\n".join([
         f"####### Summary from annotate/reannotate #######",
@@ -951,11 +960,11 @@ def reset_statistics_dict():
             StatisticsDict[key] = 0
 
 
-def write_all_outputs(args, genome, file_dict, visualize=False):
+def write_all_outputs(args, genome, file_dict, module='annotate'):
     """After analysis of pseudogenes is done, writes all necessary files."""
 
-    if visualize:   # Only write the necessary summary file for visualize module to speed up analysis
-        write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
+    if module == 'visualize':   # Only write the necessary summary file for visualize module to speed up analysis
+        write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict, module=module)
 
     else:
         intact = extract_features_from_genome(args, genome, 'CDS')
@@ -975,7 +984,7 @@ def write_all_outputs(args, genome, file_dict, visualize=False):
             file_dict['chromosome_map'] = None
             pass
 
-        write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)
+        write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict,module=module)
 
 
 def analysis_statistics(args, genome):
