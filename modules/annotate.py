@@ -887,6 +887,11 @@ def write_summary_file(args, outfile, file_dict) -> None:
 
     printable_args = common.convert_args_to_str(args)
     printable_stats = {k: str(v) for k, v in StatisticsDict.items()}
+
+    optional_args = vars(common.get_args('annotate', optional_only=True))
+    del optional_args['reference']
+    settings_section = "\n".join([f"{k}:\t{str(v)}" for k, v in optional_args.items()])
+
     log = "\n".join([
         f"####### Summary from annotate/reannotate #######",
         f"Date/time:\t{common.current_time()}\n",
@@ -902,21 +907,12 @@ def write_summary_file(args, outfile, file_dict) -> None:
         f"Intact genes (GFF):\t{file_dict['intact_gff']}",
         f"Intact genes (protein seq):\t{file_dict['intact_faa']}",
         f"Intact genes (nucleotide seq):\t{file_dict['intact_ffn']}",
-        f"Chromosome map:\t{file_dict['chromosome_map']}\n",
+        f"Chromosome map:\t{file_dict['chromosome_map']}",
+        f"Interactive bar plot:\t{file_dict['interactive_bar']}",
+        f"Interactive dN/dS plot:\t{file_dict['interactive_dnds']}\n",
 
         f"#######  Settings  #######",
-        f"Distance:\t{printable_args.distance}",
-        f"hitcap:\t{printable_args.hitcap}",
-        f"Intergenic_length:\t{printable_args.intergenic_length}",
-        f"Intergenic_threshold:\t{printable_args.intergenic_threshold}",
-        f"Length_pseudo:\t{printable_args.length_pseudo}",
-        f"Shared_hits:\t{printable_args.shared_hits}",
-        f"contig_ends:\t{printable_args.contig_ends}",
-        f"no_bidirectional_length:\t{printable_args.no_bidirectional_length}",
-        f"use_alignment:\t{printable_args.use_alignment}",
-        f"max_dnds:\t{printable_args.max_dnds}\n",
-        # "max_ds:\t" + printable_args.max_ds + "\n"
-        # "min_ds:\t" + printable_args.min_ds + "\n\n"
+        settings_section, '',  # empty string to add a newline
 
         f"####### Statistics #######",
         f"#Input:",
@@ -945,60 +941,6 @@ def write_summary_file(args, outfile, file_dict) -> None:
 
     with open(outfile, 'w') as logfile:
         logfile.write(log)
-
-        # logfile.write(
-        #     "####### Summary from annotate/reannotate #######\n\n"
-        #     "Date/time:\t" + common.current_time() + "\n\n"
-        #     "#######    Files   #######\n"
-        #     "Genome:\t" + printable_args.genome + "\n"
-        #     "Database:\t" + printable_args.database + "\n"
-        #     "Reference Genome:\t" + printable_args.reference + "\n"
-        #     "BlastP:\t" + file_dict['blastp_filename'] + "\n"
-        #     "BlastX:\t" + file_dict['blastx_filename'] + "\n"
-        #     "Pseudogenes (GFF):\t" + file_dict['pseudos_gff'] + "\n"
-        #     "Pseudogenes (Fasta):\t" + file_dict['pseudos_fasta'] + "\n"
-        #     "Intact genes (GFF):\t" + file_dict['intact_gff'] + "\n"
-        #     "Intact genes (protein seq):\t" + file_dict['intact_faa'] + "\n"
-        #     "Intact genes (nucleotide seq):\t" + file_dict['intact_ffn'] + "\n"
-        #     "Chromosome map:\t" + file_dict['chromosome_map'] + "\n\n"
-        #
-        #     "#######  Settings  #######\n"
-        #     "Distance:\t" + printable_args.distance + "\n"
-        #     "hitcap:\t" + printable_args.hitcap + "\n"
-        #     "Intergenic_length:\t" + printable_args.intergenic_length + "\n"
-        #     "Intergenic_threshold:\t" + printable_args.intergenic_threshold + "\n"
-        #     "Length_pseudo:\t" + printable_args.length_pseudo + "\n"
-        #     "Shared_hits:\t" + printable_args.shared_hits + "\n"
-        #     "contig_ends:\t" + printable_args.contig_ends + "\n"
-        #     "no_bidirectional_length:\t" + printable_args.no_bidirectional_length + "\n"
-        #     "use_alignment:\t" + printable_args.use_alignment + "\n"
-        #     "max_dnds:\t" + printable_args.max_dnds + "\n"
-        #     # "max_ds:\t" + printable_args.max_ds + "\n"
-        #     # "min_ds:\t" + printable_args.min_ds + "\n\n"
-        #
-        #     "####### Statistics #######\n"
-        #     "#Input:\n"
-        #     "Initial ORFs:\t" + printable_stats['ProteomeOrfs'] + "\n"
-        #     "Initial pseudogenes:\t" + printable_stats['PseudogenesInput'] + "\n"
-        #     "Number of contigs:\t" + printable_stats['NumberOfContigs'] + "\n"
-        #     "#Output:\n"
-        #     "Inital ORFs joined:\t" + printable_stats['FragmentedOrfs'] + "\n"
-        #     "Pseudogenes (total):\t" + printable_stats['PseudogenesTotal'] + "\n"
-        #     "Pseudogenes (too short):\t" + printable_stats['PseudogenesShort'] + "\n"
-        #     "Pseudogenes (fragmented):\t" + printable_stats['PseudogenesFragmented'] + "\n"
-        #     "Pseudogenes (no predicted ORF):\t" + printable_stats['PseudogenesIntergenic'] + "\n"
-        #     "Pseudogenes (high dN/dS):\t" + printable_stats["dnds"] + "\n"
-        #     "Intact genes:\t" + printable_stats['IntactORFs'] + "\n\n"
-        #
-        #     "####### Output Key #######\n"
-        #     "Initial ORFs joined:\t\tThe number of input open reading frames "
-        #     "that have been merged and flagged as a fragmented pseudogene.\n"
-        #     "Pseudogenes (too short):\tORFs smaller than the \"shared_hits\" cutoff.\n"
-        #     "Pseudogenes (fragmented):\tPseudogenes composed of merging 2 or more input ORFs.\n"
-        #     "Pseudogenes (high dN/dS):\tIncipient pseudogenes that look intact, but have an elevated dN/dS value compared to a reference gene.\n"
-        #     "Intact genes:\t\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)] - [Pseudogenes (high dN/dS)]\n"
-        # )
-
 
 
 def reset_statistics_dict():
@@ -1030,6 +972,7 @@ def write_all_outputs(args, genome, file_dict, visualize=False):
         try:
             genome_map.full(genome=args.genome, gff=file_dict['pseudos_gff'], outfile=file_dict['chromosome_map'])
         except RuntimeError:
+            file_dict['chromosome_map'] = None
             pass
 
         write_summary_file(args=args, outfile=file_dict['log'], file_dict=file_dict)

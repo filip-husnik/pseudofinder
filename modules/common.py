@@ -173,6 +173,7 @@ def verify_args(args, deprecated_args):
 
 def get_args(module='None', **kwargs):
     names_only = kwargs.get('names_only', False)
+    optional_only = kwargs.get('optional_only', False)
     genome = {
         'short': '-g',
         'long': '--genome',
@@ -587,6 +588,14 @@ def get_args(module='None', **kwargs):
         print("Module not found. Please check your get_args() function call.")
         exit()
 
+    if optional_only:
+        opt_parser = argparse.ArgumentParser()
+        opt = opt_parser.add_argument_group()
+        for arg in optional_args:
+            unpack_arg(opt, arg)
+        opt_args = opt_parser.parse_known_args()[0]
+        return opt_args
+
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
                                      usage=bold(usage_message(module, required_args)))
     always_required = parser.add_argument_group('Required arguments')
@@ -701,6 +710,10 @@ def file_dict(args, **kwargs):
         'sleuth_report': sleuth_dir + "/sleuth_report.csv",
         'ctl': os.path.dirname(os.path.dirname(__file__)) + "/modules/codeml-2.ctl"
     }
+
+    if not args.reference:
+        file_dict['interactive_dnds'] = None
+
     return file_dict
 
 
