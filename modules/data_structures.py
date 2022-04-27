@@ -80,23 +80,11 @@ class PseudoType:  # Use this class to designate what kind of pseudogene a parti
         sleuth = "Pseudogene enriched with sleuth annotations"
 
     class Sleuth(Enum):  # Pseudogenes derived from the sleuth module
-        # def __init__(self, feature):
-        #     self.feature = feature
-        #     # self.sleuth_data = feature.qualifiers['sleuth'][0]
-
         dnds = "Pseudogene based on elevated dN/dS"
         frameshift = "Pseudogene based on significant frameshift-inducing indel(s)"
         start_codon = "Missing start codon"
         stop_codon = "Missing stop codon"
         internal_stop = "Internal stop codon"
-        #
-        # def reason(self):
-        #     table = {
-        #         'dnds': "Elevated dN/dS: %s." % (round(3.55, 4)),
-        #         'frameshift': "frameshift reason"
-        #     }
-        #
-        #     return
 
     class Blast(Enum):  # Pseudogenes derived from blast results
         truncated = "CDS is too short based on length relative to blast hits"
@@ -108,6 +96,8 @@ class PseudoType:  # Use this class to designate what kind of pseudogene a parti
     class NotPseudo(Enum):  # Category for features that need a pseudotype but are not pseudogenes
         consumed = "Feature has been combined with other features (PseudoType.Blast.fragmented) and should no longer " \
                    "be considered its own pseudogene"
+        intergenic_consumed = "Feature was derived from intergenic space prior to being combined. This should not " \
+                              "count towards StatisticsDict[FragmentedOrfs]"
         intact = "Not a pseudogene"
 
 
@@ -135,6 +125,7 @@ StatisticsDict = {
                     'PseudogenesInput': 0,
                     'PseudogenesTotal': 0,
                     'PseudogenesShort': 0,
+                    'PseudogenesLong': 0,
                     'PseudogenesFragmented': 0,
                     'PseudogenesIntergenic': 0,
                     'OutputFiles': [],

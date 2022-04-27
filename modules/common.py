@@ -627,6 +627,7 @@ def get_args(module=None, **kwargs):
     return args
 
 
+#TODO: improve error handling.
 def parse_log_args(logfile: str):
     """
     Returns a namespace of all args found in a logfile.

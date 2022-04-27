@@ -809,8 +809,38 @@ def manage_parent_fragments(fragments):
     Adds an identifier to parent fragments in the list so that they will not be used again in the analysis.
     """
     for feature in fragments:
-        feature.type = 'consumed'
-        feature.qualifiers['pseudo_type'] = PseudoType.NotPseudo.consumed
+        if feature.type == 'intergenic':
+            intergenic = True
+        elif feature.qualifiers.get('pseudo_type') == PseudoType.NotPseudo.intergenic_consumed:
+            intergenic = True
+        elif feature.qualifiers.get('pseudo_type') == PseudoType.Blast.intergenic:
+            intergenic = True
+        else:
+            intergenic = False
+
+        if intergenic:
+            feature.type = 'intergenic_consumed'
+            feature.qualifiers['pseudo_type'] = PseudoType.NotPseudo.intergenic_consumed
+        else:
+            # print(feature)
+            feature.type = 'consumed'
+            feature.qualifiers['pseudo_type'] = PseudoType.NotPseudo.consumed
+
+
+def is_consumed(feature):
+    """
+    Checks for any sign that a particular feature has been consumed already.
+    """
+    if feature.type == 'consumed':
+        return True
+    elif feature.type == 'intergenic_consumed':
+        return True
+    elif feature.qualifiers.get('pseudotype') is PseudoType.NotPseudo.consumed:
+        return True
+    elif feature.qualifiers.get('pseudotype') is PseudoType.NotPseudo.intergenic_consumed:
+        return True
+    else:
+        return False
 
 
 def find_fragmented_pseudos(args, seqrecord):
@@ -841,7 +871,8 @@ def find_fragmented_pseudos(args, seqrecord):
                 i += 1
                 continue
 
-            features = [feature for feature in features if feature.qualifiers.get('pseudo_type') is not PseudoType.NotPseudo.consumed]
+            #features = [feature for feature in features if feature.qualifiers.get('pseudo_type') is not PseudoType.NotPseudo.consumed]
+            features = [feature for feature in features if not is_consumed(feature)]
             features = sorted(features, key=lambda x: x.location.start)
 
         # final sort when finished
@@ -872,7 +903,8 @@ def find_pseudos_on_genome(args, genome):
         find_individual_pseudos(args, seqrecord)
         find_fragmented_pseudos(args, seqrecord)
 
-        pseudos = [x for x in parse_features_from_record(seqrecord, 'pseudogene') if x.qualifiers.get("pseudo_type") != PseudoType.NotPseudo.consumed]
+        # pseudos = [x for x in parse_features_from_record(seqrecord, 'pseudogene') if x.qualifiers.get("pseudo_type") != PseudoType.NotPseudo.consumed]
+        pseudos = [x for x in parse_features_from_record(seqrecord, 'pseudogene') if not is_consumed(x)]
         num_pseudos = len(pseudos)
 
         common.print_with_time("Number of ORFs on this contig: %s\n"
@@ -932,6 +964,7 @@ def write_summary_file(args, outfile, file_dict, module='annotate') -> None:
         f"Inital ORFs joined:\t{printable_stats['FragmentedOrfs']}",
         f"Pseudogenes (total):\t{printable_stats['PseudogenesTotal']}",
         f"Pseudogenes (too short):\t{printable_stats['PseudogenesShort']}",
+        f"Pseudogenes (too long):\t{printable_stats['PseudogenesLong']}",
         f"Pseudogenes (fragmented):\t{printable_stats['PseudogenesFragmented']}",
         f"Pseudogenes (no predicted ORF):\t{printable_stats['PseudogenesIntergenic']}",
         f"Pseudogenes (high dN/dS):\t{printable_stats['dnds']}",
@@ -940,7 +973,8 @@ def write_summary_file(args, outfile, file_dict, module='annotate') -> None:
         f"####### Output Key #######",
         f"Initial ORFs joined:\tThe number of input open reading frames that have been "
         f"merged and flagged as a fragmented pseudogene.",
-        f"Pseudogenes (too short):\tORFs smaller than the \"shared_hits\" cutoff.",
+        f"Pseudogenes (too short):\tORFs shorter than the \"length_pseudo\" cutoff.",
+        f"Pseudogenes (too long):\tORFs longer than the \"length_pseudo\" cutoff",
         f"Pseudogenes (fragmented):\tPseudogenes composed of merging 2 or more input ORFs.",
         f"Pseudogenes (high dN/dS):\tIncipient pseudogenes that look intact, but have an "
         f"elevated dN/dS value compared to a reference gene.",
@@ -995,9 +1029,18 @@ def analysis_statistics(args, genome):
 
     # pseudos
     pseudos = extract_features_from_genome(args, genome, 'pseudogene')
-    total = len([x for x in pseudos if x.qualifiers.get('pseudo_type') != PseudoType.NotPseudo.consumed])
+
+    # import pprint
+    # pp = pprint.PrettyPrinter(indent=4)
+    # to_print = [(pseudo, pseudo.qualifiers) for pseudo in pseudos]
+    # pp.pprint(to_print)
+    # exit()
+
+    # total = len([x for x in pseudos if x.qualifiers.get('pseudo_type') != PseudoType.NotPseudo.consumed])
+    total = len([x for x in pseudos if not is_consumed(x)])
     total = total + StatisticsDict["dnds"]
     short = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.truncated])
+    long = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.long])
     fragmented = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.fragmented])
     intergenic = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.intergenic])
     fragments = len(extract_features_from_genome(args, genome, 'consumed'))
@@ -1005,6 +1048,7 @@ def analysis_statistics(args, genome):
 
     StatisticsDict['PseudogenesTotal'] = total
     StatisticsDict['PseudogenesShort'] = short
+    StatisticsDict['PseudogenesLong'] = long
     StatisticsDict['PseudogenesFragmented'] = fragmented
     StatisticsDict['PseudogenesIntergenic'] = intergenic
     StatisticsDict['dnds'] = dnds
