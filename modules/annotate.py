@@ -967,19 +967,18 @@ def write_summary_file(args, outfile, file_dict, module='annotate') -> None:
         f"Pseudogenes (too long):\t{printable_stats['PseudogenesLong']}",
         f"Pseudogenes (fragmented):\t{printable_stats['PseudogenesFragmented']}",
         f"Pseudogenes (no predicted ORF):\t{printable_stats['PseudogenesIntergenic']}",
-        f"Pseudogenes (high dN/dS):\t{printable_stats['dnds']}",
+        f"Pseudogenes (high dN/dS):\t{printable_stats['PseudogenesDnds']}",
+        f"Pseudogenes (frameshift):\t{printable_stats['PseudogenesFrameshift']}",
+        f"Pseudogenes (missing start codon):\t{printable_stats['PseudogenesStartCodon']}",
+        f"Pseudogenes (missing stop codon):\t{printable_stats['PseudogenesStopCodon']}",
+        f"Pseudogenes (internal stop codon):\t{printable_stats['PseudogenesInternalStop']}",
+        f"Pseudogenes (multiple issues):\t{printable_stats['PseudogenesMulti']}",
         f"Intact genes:\t{printable_stats['IntactORFs']}\n",
 
         f"####### Output Key #######",
         f"Initial ORFs joined:\tThe number of input open reading frames that have been "
         f"merged and flagged as a fragmented pseudogene.",
-        f"Pseudogenes (too short):\tORFs shorter than the \"length_pseudo\" cutoff.",
-        f"Pseudogenes (too long):\tORFs longer than the \"length_pseudo\" cutoff",
-        f"Pseudogenes (fragmented):\tPseudogenes composed of merging 2 or more input ORFs.",
-        f"Pseudogenes (high dN/dS):\tIncipient pseudogenes that look intact, but have an "
-        f"elevated dN/dS value compared to a reference gene.",
-        f"Intact genes:\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (too short)]"
-        f" - [Pseudogenes (high dN/dS)]"
+        f"Intact genes:\t[Initial ORFs] - [Initial ORFs joined] - [Pseudogenes (all except fragmented / intergenic)]"
     ])
 
     with open(outfile, 'w') as logfile:
@@ -1029,30 +1028,41 @@ def analysis_statistics(args, genome):
 
     # pseudos
     pseudos = extract_features_from_genome(args, genome, 'pseudogene')
-
-    # import pprint
-    # pp = pprint.PrettyPrinter(indent=4)
-    # to_print = [(pseudo, pseudo.qualifiers) for pseudo in pseudos]
-    # pp.pprint(to_print)
-    # exit()
-
-    # total = len([x for x in pseudos if x.qualifiers.get('pseudo_type') != PseudoType.NotPseudo.consumed])
     total = len([x for x in pseudos if not is_consumed(x)])
-    total = total + StatisticsDict["dnds"]
+
+    # multi issue
+    multi_general = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.MultiIssue.general])
+    multi_sleuth = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.MultiIssue.sleuth])
+
+    # blast
     short = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.truncated])
     long = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.long])
     fragmented = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.fragmented])
     intergenic = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Blast.intergenic])
-    fragments = len(extract_features_from_genome(args, genome, 'consumed'))
-    dnds = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Sleuth.dnds])
 
+
+    # sleuth
+    dnds = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Sleuth.dnds])
+    frameshift = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Sleuth.frameshift])
+    start_codon = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Sleuth.start_codon])
+    stop_codon = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Sleuth.stop_codon])
+    internal_stop = len([x for x in pseudos if x.qualifiers.get('pseudo_type') == PseudoType.Sleuth.internal_stop])
+
+    # other
+    fragments = len(extract_features_from_genome(args, genome, 'consumed'))
+
+    StatisticsDict['IntactORFs'] = intact
     StatisticsDict['PseudogenesTotal'] = total
+    StatisticsDict['PseudogenesMulti'] = multi_general + multi_sleuth
     StatisticsDict['PseudogenesShort'] = short
     StatisticsDict['PseudogenesLong'] = long
     StatisticsDict['PseudogenesFragmented'] = fragmented
     StatisticsDict['PseudogenesIntergenic'] = intergenic
-    StatisticsDict['dnds'] = dnds
-    StatisticsDict['IntactORFs'] = intact
+    StatisticsDict['PseudogenesDnds'] = dnds
+    StatisticsDict['PseudogenesFrameshift'] = frameshift
+    StatisticsDict['PseudogenesStartCodon'] = start_codon
+    StatisticsDict['PseudogenesStopCodon'] = stop_codon
+    StatisticsDict['PseudogenesInternalStop'] = internal_stop
     StatisticsDict['FragmentedOrfs'] = fragments
 
 
