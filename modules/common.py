@@ -533,6 +533,18 @@ def get_args(module=None, **kwargs):
         'default': False,
         'action': 'store_true'
     }
+    perc_mut = {
+        'short': '-mut',
+        'long': '--perc_mut',
+        'help': 'Set the percent of genes from the input genome that will receive a random mutation.'
+                'This number does not necessarily represent the percent of pseudogenes that will form.'
+                'Please refer to the mutations_summary.csv file to determine which of the mutated genes'
+                'received mutations that may result in pseudogenization (as defined by the default settings'
+                'in Pseudofinder\'s Annotate module.',
+        'required': False,
+        'default': 10,
+        'action': 'store_true'
+    }
 
     if module == 'annotate':
         required_args = [genome, database, outprefix]
@@ -575,6 +587,11 @@ def get_args(module=None, **kwargs):
     elif module == 'interactive':
         required_args = [annotated_genome]
         optional_args = [outprefix]
+        deprecated_args = []
+
+    elif module == 'breaker':
+        required_args = [contigs, gff]
+        optional_args = [perc_mut, outdir]
         deprecated_args = []
 
     else:
