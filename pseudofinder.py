@@ -15,6 +15,7 @@ try:
     from sys import argv, stderr
     from modules import *
 
+
 except ModuleNotFoundError as err:
     stderr.write(f"Pseudofinder encountered an error: {str(err)}.\n"
                  f"If you are a conda user, please enable the Pseudofinder environment with the following command:\n"
@@ -27,7 +28,7 @@ except ImportError as err:
                  f"Please check that no files are missing from the pseudofinder/modules folder.\n")
     exit()
 
-menu_string = "pseudofinder.py [ annotate | reannotate | visualize | sleuth | test | help | version | citation ]"
+menu_string = "pseudofinder.py [ annotate | reannotate | visualize | sleuth | breaker | test | help | version | citation ]"
 errorMessage = f"Options: {common.bold(menu_string)}\n"
 
 try:
@@ -49,6 +50,9 @@ try:
     elif module == "sleuth":
         sleuth.main()
 
+    elif module == "breaker":
+        breaker.main()
+
     elif module == "test":
         pseudofinder_test.main()
 
@@ -59,7 +63,9 @@ try:
                      "settings.\n"
                      "\tpseudofinder.py sleuth: pairwise comparison against a reference genome."
                      "Pseudogenes inferred from relaxed selection.\n"
-                     "\tpseudofinder.py test: Runs all commands on a test dataset and checks that the outputs "
+                     "\tpseudofinder.py breaker: generates random potentially pseudogene-inducing mutations in a"
+                     "subset of genes, and generates a new set of contigs with the mutated genes\n"
+                     "\tpseudofinder.py test: Runs all commands on a test dataset and checks that the outputs"
                      "are as expected.\n")
 
     elif module == "version":
