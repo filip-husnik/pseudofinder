@@ -613,19 +613,25 @@ def manage_pseudo_type(feature, new_pseudo_call):
     }
     if len(feature.qualifiers['sleuth']) > 0:
         sleuth_data = feature.qualifiers['sleuth'][0]
+
+        try:
+            dnds_reason = f"Elevated dN/dS: {round(sleuth_data.dnds, 4)}."
+            if sleuth_data.dnds > 3:
+                high_dnds_comment = " This exceptionally high dN/dS is likely caused by a poor alignment," \
+                                    " which may be indiciative of a true pseudogene, or a false positive " \
+                                    "BLAST hit."
+                dnds_reason = dnds_reason + high_dnds_comment
+
+        except TypeError:   # happens if sleuth_data.dnds is None
+            dnds_reason = "None"
+
         reason_dict.update({
-            PseudoType.Sleuth.dnds: "Elevated dN/dS: %s." % (round(sleuth_data.dnds, 4)), #TODO: add high dnds reason
+            PseudoType.Sleuth.dnds: dnds_reason,
             PseudoType.Sleuth.frameshift: str(sleuth_data.out_of_frame_inserts + sleuth_data.out_of_frame_dels) + " significant frameshift-inducing indel(s).",
             PseudoType.Sleuth.start_codon: "Missing start codon.",
             PseudoType.Sleuth.stop_codon: "Missing stop codon.",
             PseudoType.Sleuth.internal_stop: "Internal stop codon at " + str(round(sleuth_data.first_stop_codon * 100)) + "% expected length.",
         })
-
-        if sleuth_data.dnds > 3:
-            high_dnds_comment = " (this exceptionally high dN/dS is likely caused by a poor alignment," \
-                                   " which may be indiciative of a true pseudogene, or a false positive " \
-                                   "BLAST hit)."
-            reason_dict[PseudoType.Sleuth.dnds] = reason_dict[PseudoType.Sleuth.dnds][:-1] + high_dnds_comment
 
     if type(feature.qualifiers['pseudo_type']) is PseudoType.Sleuth:
         feature.qualifiers['pseudo_type'] = PseudoType.MultiIssue.sleuth    # Do not overwrite a sleuth call
