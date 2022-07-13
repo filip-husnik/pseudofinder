@@ -35,7 +35,7 @@ class Entry:
             self.ds = self.sleuth_data.ds
             self.dn = self.sleuth_data.dnds * self.ds   # TODO: this info should be available in the datatype.
             self.dnds = self.sleuth_data.dnds
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, TypeError):
             self.ds = None
             self.dn = None
             self.dnds = None
