@@ -108,7 +108,7 @@ def add_qualifiers_to_features(args, seqrecord):
 
             if len(nt_seq) % 3 != 0:    # this code block checks if the nucleotide sequence is not a multiple of 3 and flags as input pseudo
                 feature.type = 'pseudogene'
-                feature.qualifiers['pseudo_type'] = PseudoType.Input.value.indel
+                feature.qualifiers['pseudo_type'] = PseudoType.Input.indel
                 feature.qualifiers['pseudo_reasons'] = ['Nucleotide sequence is not a multiple of 3.']
                 feature.qualifiers['parents'] = [feature.qualifiers['locus_tag'][0]]
 
