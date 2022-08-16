@@ -1619,9 +1619,12 @@ def main():
 
 
 def full(args, file_dict, log_file_dict=None):
-    #print("Sleuth branch:")
+    if log_file_dict is None:
+        target_genome = file_dict['contigs_filename']
+    else:   # This would happen if reannotate is called and we need to find the genome from previously
+        target_genome = log_file_dict['contigs_filename']
+
     ref_ffn = file_dict['ref_cds_filename']
-    target_genome = file_dict['contigs_filename']
     target_genome_blastdb = file_dict['temp_dir'] + "/target_contigs.fasta"
     ctl = file_dict['ctl']
     out = file_dict['sleuthDir']
@@ -2364,13 +2367,17 @@ def full(args, file_dict, log_file_dict=None):
     os.system("gzip %s/nuc_aln.tar" % out)
 
 
-def relate_sleuth_data_to_locus_tags(args, file_dict: dict) -> dict:
+def relate_sleuth_data_to_locus_tags(args, file_dict: dict, log_file_dict=None) -> dict:
     """
     Compares sleuth_data.full_seq to file_dict['cds_filename'] via blast, creating a link between the two data types.
     Returns a dictionary, where the keys are locus tags and the values are annotate.sleuth_data NamedTuples.
     """
+    if log_file_dict is None:
+        cds_annotations = file_dict['cds_filename']
+    else:
+        cds_annotations = log_file_dict['cds_filename']
+
     sleuth_data = sleuth_report_reader(file_dict['sleuth_report'])
-    cds_annotations = file_dict['cds_filename']
     cds_predictions = file_dict['cds_predictions']
     db_name = file_dict['temp_dir'] + '/cds_db'
     blast_out = file_dict['sleuthDir'] + '/sleuth.finder.blast'

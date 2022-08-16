@@ -555,7 +555,7 @@ def get_args(module=None, **kwargs):
 
     elif module == 'reannotate':
         required_args = [genome, logfile, outprefix]
-        optional_args = [length_pseudo, shared_hits, intergenic_threshold, max_dnds, max_ds, min_ds, dnds_out,
+        optional_args = [length_pseudo, shared_hits, intergenic_threshold, reference, max_dnds, max_ds, min_ds, dnds_out,
                          no_bidirectional_length, use_alignment, perc_id, perc_cov, evalue]
         deprecated_args = [distance]
 
