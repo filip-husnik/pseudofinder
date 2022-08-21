@@ -1125,8 +1125,8 @@ def main():
     StatisticsDict['PseudogenesInput'] = len(input_pseudos)
 
     if args.diamond:  # run diamond
-        if not args.skip_makedb:
-            manage_diamond_db(args)
+        # if not args.skip_makedb:
+        #     manage_diamond_db(args)
 
         run_diamond(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
                     out_tsv=file_dict['blastp_filename'])
@@ -1137,8 +1137,8 @@ def main():
                         out_tsv=file_dict['blastx_pseudos_filename'])
 
     else:  # run vanilla blast
-        if not args.skip_makedb:
-            manage_blast_db(args)
+        # if not args.skip_makedb:
+        #     manage_blast_db(args)
         run_blast(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
                   out_tsv=file_dict['blastp_filename'])
         run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],
