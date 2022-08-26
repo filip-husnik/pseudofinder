@@ -206,6 +206,12 @@ def get_args(module=None, **kwargs):
         'help': 'Specify an output prefix.',
         'required': False if module == 'interactive' else True
     }
+    outfolder = {
+        'short': '-of',
+        'long': '--outfolder',
+        'help': 'Specify an output folder.',
+        'required': False
+    }
     threads = {
         'short': '-t',
         'long': '--threads',
@@ -581,7 +587,7 @@ def get_args(module=None, **kwargs):
 
     elif module == 'test':
         required_args = [database]
-        optional_args = [genome, diamond, threads]
+        optional_args = [genome, diamond, threads, outfolder]
         deprecated_args = []
 
     elif module == 'interactive':

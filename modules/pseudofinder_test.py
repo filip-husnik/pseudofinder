@@ -11,6 +11,7 @@ from time import strftime
 
 def manage_folders(path: str):
     """Creates a folder to store test results and returns the name."""
+
     time = strftime("%Y%m%d")
     folder_str = time + "_results_"
     folder_num = 1
@@ -50,7 +51,14 @@ def main():
     path_to_master = dirname(dirname((__file__)))
     path_to_test_data = path_to_master + "/test/"
     path_to_pseudofinder = path_to_master + "/pseudofinder.py"
-    folder_name = manage_folders(path_to_test_data)
+
+    if args.outfolder:
+        if not args.outfolder.endswith("/"):
+            args.outfolder = args.outfolder + "/"
+        folder_name = manage_folders(args.outfolder)
+    else:
+        folder_name = manage_folders(path_to_test_data)
+
     output_prefix = folder_name + "/test"
     reannotate_output_prefix = output_prefix + "_reannotate"
     blastp_file = output_prefix + "_proteome.faa.blastP_output.tsv"
