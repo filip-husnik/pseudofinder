@@ -4,6 +4,7 @@ from . import common
 from .data_structures import PseudoType, BlastHit, StatisticsDict
 import re
 import os
+import sys
 import subprocess
 import shutil
 import statistics
@@ -68,7 +69,7 @@ def translate_cds(args, feature, seqrecord):
     """Translates a cds, with error handling and warnings."""
     if not feature.type == 'CDS':
         common.print_with_time('translate_cds() called on a feature that is not a CDS.')
-        exit()
+        sys.exit(1)
 
     try:  # Checks if the CDS feature contains a translation
         feature.qualifiers['translation'][0]
@@ -85,7 +86,7 @@ def translate_cds(args, feature, seqrecord):
             common.print_with_time("WARNING: Exception encountered when translating %s. Pseudofinder cannot analyze invalid CDS features.\n"
                                    "Error: %s\n"
                                    "Please fix input file. Pseudofinder will exit now." % (feature.qualifiers['locus_tag'][0], e))
-            exit()
+            sys.exit(1)
 
 
 def add_qualifiers_to_features(args, seqrecord):
@@ -225,7 +226,7 @@ def write_fasta(seqs: list, outfile: str, seq_type='nt', in_type='features') -> 
                     seq_string = seq.qualifiers['translation'][0]
                 else:
                     print("Invalid seq_type. Please check your write_fasta() function call.")
-                    exit()
+                    sys.exit(1)
 
                 output_handle.write(">%s %s %s\n%s\n" % (seq.qualifiers['locus_tag'][0],
                                                          seq.qualifiers['contig_id'],
@@ -329,7 +330,7 @@ def write_gbk(args, genome, outfile):
 
 
 def run_blast(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
-    """"Run BLASTP or BLASTX with fasta file against DB of your choice."""
+    """Run BLASTP or BLASTX with fasta file against DB of your choice."""
 
     common.print_with_time("%s executed with %s threads on %s." % (search_type, args.threads, in_fasta))
 
@@ -348,25 +349,30 @@ def run_blast(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
             NcbiblastxCommandline(**blast_dict)()
     except Bio.Application.ApplicationError as error:
         common.print_with_time(f"Error when running BLAST:\n{error}")
-        exit()
+        sys.exit(1)
 
 
 def manage_diamond_db(args):
-    # try:
-    #     open(args.database + ".dmnd")
-    #     print("Found DMND database! " + args.database + ".dmnd")
-    # except FileNotFoundError:
-    os.system('diamond makedb --in %s --db %s.dmnd > /dev/null 2>&1' % (args.database, args.database))
+    dmnd_check = os.path.exists(args.database + ".dmnd") or os.path.exists(args.database)
+    if dmnd_check:
+        pass
+    else:
+        common.print_with_time(f"DIAMOND database index not found for {args.database}")
+        common.print_with_time(f"Please run 'diamond makedb'")
+        sys.exit(1)
 
 
 def manage_blast_db(args):
-    # try:
-    #     open(args.database + ".psq")
-    #     open(args.database + ".phr")
-    #     open(args.database + ".pin")
-    #     print("Found BLAST database! " + args.database)
-    # except FileNotFoundError:
-    os.system('makeblastdb -dbtype prot -in %s -out %s > /dev/null 2>&1' % (args.database, args.database))
+    psq_check = os.path.exists(args.database + ".psq")
+    phr_check = os.path.exists(args.database + ".phr")
+    pin_check = os.path.exists(args.database + ".pin")
+
+    if all([psq_check, phr_check, pin_check]):
+        pass
+    else:
+        common.print_with_time(f"BLAST database indexes not found for {args.database}")
+        common.print_with_time(f"Please run 'makeblastdb -dbtype prot -in {args.database} -out {args.database}")
+        sys.exit(1)
 
 
 def run_diamond(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
@@ -383,11 +389,11 @@ def run_diamond(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
         except subprocess.CalledProcessError as error:
             error_message = error.stderr.decode('UTF-8')
             common.print_with_time(f"Error when running DIAMOND:\n{error_message}")
-            exit()
+            sys.exit(1)
 
     else:
         print("function run_diamond() can only accept \'blastp\' or \'blastx\' as search_type. Please use one of these options.")
-        exit()
+        sys.exit(1)
 
 
 def convert_tsv_to_blasthits(blast_tsv, blast_type):
@@ -462,7 +468,7 @@ def add_blasthits_to_genome(args, genome, blast_file, blast_type):
             common.print_with_time("Potential duplicate locus tags detected in genome, unable to process. "
                                    "Offending tag: %s "
                                    "Exiting now." % hit.query)
-            exit()
+            sys.exit(1)
 
 
 def add_sleuth_data_to_genome(args, genome, sleuth_data):
@@ -1125,8 +1131,8 @@ def main():
     StatisticsDict['PseudogenesInput'] = len(input_pseudos)
 
     if args.diamond:  # run diamond
-        # if not args.skip_makedb:
-        #     manage_diamond_db(args)
+        if not args.skip_checkdb:
+            manage_diamond_db(args)
 
         run_diamond(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
                     out_tsv=file_dict['blastp_filename'])
@@ -1137,8 +1143,8 @@ def main():
                         out_tsv=file_dict['blastx_pseudos_filename'])
 
     else:  # run vanilla blast
-        # if not args.skip_makedb:
-        #     manage_blast_db(args)
+        if not args.skip_checkdb:
+            manage_blast_db(args)
         run_blast(args=args, search_type='blastp', in_fasta=file_dict['proteome_filename'],
                   out_tsv=file_dict['blastp_filename'])
         run_blast(args=args, search_type='blastx', in_fasta=file_dict['intergenic_filename'],

@@ -40,6 +40,7 @@ def test_command(command_name: str, full_command: str):
         subprocess.run(full_command, shell=True, check=True)
     except subprocess.CalledProcessError:
         print_with_time('Command failure: ' + command_name)
+        exit()
 
 
 def main():

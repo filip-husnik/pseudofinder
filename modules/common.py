@@ -496,9 +496,9 @@ def get_args(module=None, **kwargs):
         'default': None,
         'type': str
     }
-    skip_makedb = {
+    skip_checkdb = {
         'short': '-skpdb',
-        'long': '--skip_makedb',
+        'long': '--skip_checkdb',
         'help': 'if a dmnd or blast db already exists for the provided database, '
                 'please include this flag to skip this step',
         'required': False,
@@ -549,7 +549,7 @@ def get_args(module=None, **kwargs):
     if module == 'annotate':
         required_args = [genome, database, outprefix]
         optional_args = [threads, intergenic_length, length_pseudo, shared_hits, evalue, hitcap,
-                         contig_ends, intergenic_threshold, reference, diamond, skip_makedb,
+                         contig_ends, intergenic_threshold, reference, diamond, skip_checkdb,
                          no_bidirectional_length, use_alignment, perc_id, perc_cov, max_dnds, use_deviation]
         deprecated_args = [distance]
 
