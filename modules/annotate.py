@@ -358,7 +358,7 @@ def manage_diamond_db(args):
         pass
     else:
         common.print_with_time(f"DIAMOND database index not found for {args.database}")
-        common.print_with_time(f"Please run 'diamond makedb'")
+        common.print_with_time(f"Please run 'diamond makedb --in {args.database} --db {args.database}.dmnd'")
         sys.exit(1)
 
 
