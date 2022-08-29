@@ -353,7 +353,10 @@ def run_blast(args, search_type: str, in_fasta: str, out_tsv: str) -> None:
 
 
 def manage_diamond_db(args):
-    dmnd_check = os.path.exists(args.database + ".dmnd") or os.path.exists(args.database)
+    database = os.path.expanduser(args.database)
+    database = os.path.expandvars(database)
+    dmnd_check = os.path.exists(database + ".dmnd") or os.path.exists(database)
+
     if dmnd_check:
         pass
     else:
@@ -363,9 +366,12 @@ def manage_diamond_db(args):
 
 
 def manage_blast_db(args):
-    psq_check = os.path.exists(args.database + ".psq")
-    phr_check = os.path.exists(args.database + ".phr")
-    pin_check = os.path.exists(args.database + ".pin")
+    database = os.path.expanduser(args.database)
+    database = os.path.expandvars(database)
+
+    psq_check = os.path.exists(database + ".psq")
+    phr_check = os.path.exists(database + ".phr")
+    pin_check = os.path.exists(database + ".pin")
 
     if all([psq_check, phr_check, pin_check]):
         pass
