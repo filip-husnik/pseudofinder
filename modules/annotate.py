@@ -49,7 +49,7 @@ def add_intergenic_to_seqrecord(args, seqrecord):
             gene_list.append((start_position, end_position))
 
     if args.contig_ends is True:    # Forces the program to consider space between the start and the first gene and same for the end of the contig
-        gene_list.insert(index=0, object=(0,0))
+        gene_list.insert(0, (0, 0))  # (index=0, object=(0,0))
         contig_end = len(seqrecord.seq)
         gene_list.append((contig_end, contig_end))
 
