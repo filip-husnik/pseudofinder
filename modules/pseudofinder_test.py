@@ -2,6 +2,7 @@
 
 from .common import get_args, bold, print_with_time
 import os
+import sys
 from os.path import dirname
 import re
 import subprocess
@@ -48,6 +49,7 @@ def main():
     # Inputs for all the test commands
     args = get_args('test')
 
+    python = sys.executable
     path_to_master = dirname(dirname((__file__)))
     path_to_test_data = path_to_master + "/test/"
     path_to_pseudofinder = path_to_master + "/pseudofinder.py"
@@ -82,12 +84,14 @@ def main():
 
     # A dictionary to store the names and shell commands for each section of pseudofinder
     command_dict = OrderedDict()
-    command_dict['Annotate'] = "python3 %s annotate -g %s -db %s -op %s -t %s%s" % (
-        path_to_pseudofinder, args.genome, args.database, output_prefix, args.threads, diamond_param)
-    command_dict['Reannotate'] = "python3 %s reannotate -g %s -log %s -op %s" % (
-        path_to_pseudofinder, args.genome, log_file, reannotate_output_prefix)
-    command_dict['Visualize'] = "python3 %s visualize -g %s -op %s -p %s -x %s -log %s" % (
-        path_to_pseudofinder, args.genome, output_prefix, blastp_file, blastx_file, log_file)
+    command_dict['Annotate'] = f"{python} {path_to_pseudofinder} annotate -g {args.genome} -db {args.database} " \
+                               f"-op {output_prefix} -t {args.threads} {diamond_param}"
+
+    command_dict['Reannotate'] = f"{python} {path_to_pseudofinder} reannotate -g {args.genome} -log {log_file} " \
+                                 f"-op {reannotate_output_prefix}"
+
+    command_dict['Visualize'] = f"{python} {path_to_pseudofinder} visualize -g {args.genome} -op {output_prefix} " \
+                                f"-p {blastp_file} -x {blastx_file} -log {log_file}"
 
     for command in command_dict:
         test_command(command_name=command, full_command=command_dict[command])
