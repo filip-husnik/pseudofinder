@@ -11,7 +11,7 @@ printf "\n    ${GREEN}Setting up conda environment...${NC}\n\n"
 chmod +x $PATH_TO_PSEUDOFINDER/pseudofinder.py
 
 ## creating environment and installing dependencies
-conda env create --file $PATH_TO_PSEUDOFINDER/modules/environment.yml
+conda env create --name pseudofinder --file $PATH_TO_PSEUDOFINDER/modules/environment.yml
 
 ## activating environment
 source activate pseudofinder
