@@ -72,8 +72,8 @@ try:
         print(f"Pseudofinder version {__version__}")
 
     elif module == "citation":
-        print(f"Syberg-Olsen MJ*, Graber AI*, Keeling PJ, McCutcheon JP, Husnik F. Pseudofinder: detection of "
-              f"pseudogenes in prokaryotic genomes, bioRxiv 2021, doi: https://doi.org/10.1101/2021.10.07.463580. "
+        print(f"Syberg-Olsen, M. J., Garber, A. I., Keeling, P. J., McCutcheon, J. P., & Husnik, F. (2022). "
+              f"Pseudofinder: detection of pseudogenes in prokaryotic genomes. Molecular Biology and Evolution. https://doi.org/10.1093/molbev/msac153 "
               f"GitHub repository: https://github.com/filip-husnik/pseudofinder/.")
 
     # calling directly is only for dev purposes. For users, it is always called within annotate module.
