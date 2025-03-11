@@ -369,11 +369,14 @@ def manage_blast_db(args):
     database = os.path.expanduser(args.database)
     database = os.path.expandvars(database)
 
+    #---- monolithic indexes
     psq_check = os.path.exists(database + ".psq")
     phr_check = os.path.exists(database + ".phr")
     pin_check = os.path.exists(database + ".pin")
+    #---- multipart indexes
+    pal_check = os.path.exists(database + ".pal")
 
-    if all([psq_check, phr_check, pin_check]):
+    if all([psq_check, phr_check, pin_check]) or pal_check:
         pass
     else:
         common.print_with_time(f"BLAST database indexes not found for {args.database}")
